@@ -69,7 +69,7 @@ export async function createPool(_prev: CreatePoolState, formData: FormData): Pr
   const timezone = text(formData, "timezone");
   const placeLabel = text(formData, "place_label");
   if (lat === null || lon === null || !timezone || !placeLabel) {
-    return fail("Search for your town and pick it from the list, so Tuffo knows which weather to use.");
+    return fail("Search for your ZIP code or town and pick it from the list, so Tuffo knows which weather to use.");
   }
 
   let cell;

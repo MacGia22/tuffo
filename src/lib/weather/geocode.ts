@@ -1,9 +1,12 @@
 import "server-only";
 
+import { labelFor, parseQuery, rankResults, type GeoResult } from "./place-query";
+
 /**
- * Town lookup through Open-Meteo's geocoding API (free for non-commercial use;
- * the commercial plan covers it once Tuffo charges). Called from the server so the
- * user's IP is never sent to a third party.
+ * Town or postal-code lookup through Open-Meteo's geocoding API (free for
+ * non-commercial use; the commercial plan covers it once Tuffo charges). Called from
+ * the server so the user's IP is never sent to a third party, and nothing typed here
+ * is stored: only the chosen place's 0.05° cell, town name and timezone are kept.
  */
 
 export interface Place {
@@ -14,24 +17,9 @@ export interface Place {
   country: string;
 }
 
-interface OpenMeteoResult {
-  name: string;
-  latitude: number;
-  longitude: number;
-  timezone: string;
-  country_code?: string;
-  country?: string;
-  admin1?: string;
-  admin2?: string;
-  feature_code?: string;
-}
-
 const ENDPOINT = "https://geocoding-api.open-meteo.com/v1/search";
 
-export async function searchPlaces(query: string, count = 6): Promise<Place[]> {
-  const name = query.trim();
-  if (name.length < 2 || name.length > 80) return [];
-
+async function lookup(name: string, count: number): Promise<GeoResult[]> {
   const url = new URL(ENDPOINT);
   url.searchParams.set("name", name);
   url.searchParams.set("count", String(count));
@@ -44,17 +32,23 @@ export async function searchPlaces(query: string, count = 6): Promise<Place[]> {
     next: { revalidate: 86400 },
   });
   if (!response.ok) throw new Error(`geocoding failed: ${response.status}`);
+  const data = (await response.json()) as { results?: GeoResult[] };
+  return data.results ?? [];
+}
 
-  const data = (await response.json()) as { results?: OpenMeteoResult[] };
-  return (data.results ?? [])
-    .filter((r) => Number.isFinite(r.latitude) && Number.isFinite(r.longitude) && r.timezone)
-    .map((r) => ({
-      label: [r.name, r.admin1, r.country_code === "US" ? "US" : r.country]
-        .filter((part, index, all) => part && all.indexOf(part) === index)
-        .join(", "),
-      lat: r.latitude,
-      lon: r.longitude,
-      timezone: r.timezone,
-      country: r.country_code ?? "",
-    }));
+export async function searchPlaces(query: string, limit = 6): Promise<Place[]> {
+  const parsed = parseQuery(query);
+  const names = parsed.names.filter((n) => n.length >= 2 && n.length <= 80);
+  if (names.length === 0) return [];
+
+  const batches = await Promise.all(names.map((n) => lookup(n, parsed.postal ? 5 : 10).catch(() => [] as GeoResult[])));
+  const ranked = rankResults(batches.flat(), parsed.qualifier);
+
+  return ranked.slice(0, limit).map((r) => ({
+    label: labelFor(r),
+    lat: r.latitude,
+    lon: r.longitude,
+    timezone: r.timezone,
+    country: r.country_code ?? "",
+  }));
 }

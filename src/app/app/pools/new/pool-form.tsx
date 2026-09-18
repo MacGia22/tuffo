@@ -31,7 +31,10 @@ export function PoolForm({ defaultUnits }: { defaultUnits: Units }) {
     if (q.length < 2) return;
     startSearch(async () => {
       const result = await findPlaces(q);
-      setSearchError(result.error ?? (result.places.length === 0 ? "No town found with that name." : undefined));
+      setSearchError(
+        result.error ??
+          (result.places.length === 0 ? "Nothing found. Try the ZIP code, or the town and state." : undefined),
+      );
       setPlaces(result.places);
     });
   }
@@ -115,11 +118,12 @@ export function PoolForm({ defaultUnits }: { defaultUnits: Units }) {
       <fieldset className="flex flex-col gap-3 rounded-2xl border border-border p-4">
         <legend className="px-1 text-sm font-semibold">Location for weather</legend>
         <p className="text-xs text-muted">
-          Type your town. Tuffo keeps only a 5 km weather cell and the town name, never an address.
+          Type a ZIP or postal code, or a town (&ldquo;St. Petersburg, FL&rdquo;). Tuffo keeps only a 5 km weather
+          cell and the town name; no address is asked for or stored, and nothing finer would be used anyway.
         </p>
         <div className="flex gap-2">
           <input
-            aria-label="Town"
+            aria-label="Town or ZIP code"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
@@ -128,7 +132,7 @@ export function PoolForm({ defaultUnits }: { defaultUnits: Units }) {
                 search();
               }
             }}
-            placeholder="St. Petersburg, Florida"
+            placeholder="33710 or St. Petersburg, FL"
             className={input}
           />
           <button
