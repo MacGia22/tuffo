@@ -35,6 +35,8 @@ export const publicEnv = {
 export const serverEnv = {
   supabaseSecretKey: () => first("SUPABASE_SECRET_KEY", "SUPABASE_SERVICE_ROLE_KEY"),
   waitlistWebhookUrl: () => first("WAITLIST_WEBHOOK_URL"),
+  /** Shared secret the Vercel cron sends as a bearer token to /api/jobs/*. */
+  cronSecret: () => first("CRON_SECRET"),
 };
 
 export function requirePublicSupabase(): { url: string; key: string } {

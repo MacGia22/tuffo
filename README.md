@@ -63,6 +63,15 @@ Copy `.env.example` to `.env.local`. Nothing is required for the landing page.
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase publishable key (`sb_publishable_…` or the legacy anon key); safe in the browser |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase secret key (`sb_secret_…` or the legacy service_role key); server only, used by scheduled jobs |
 | `WAITLIST_WEBHOOK_URL` | Endpoint that receives waitlist sign-ups as JSON; until set, the form reports the list as not open |
+| `CRON_SECRET` | Bearer token the Vercel cron sends to `/api/jobs/*`; the jobs refuse every call until it is set |
+
+## Scheduled jobs
+
+`vercel.json` runs `/api/jobs/weather` once a day (the Hobby plan allows daily crons).
+The job takes every active weather cell, asks Open-Meteo for the last two days and the
+next eight in one request per 40 cells, and upserts `weather_daily` (actuals) and
+`weather_forecast`. Trigger it by hand with
+`curl -H "Authorization: Bearer $CRON_SECRET" https://tuffo.app/api/jobs/weather`.
 
 ## Brand
 

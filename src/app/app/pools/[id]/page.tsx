@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdvicePanel } from "@/components/advice-panel";
+import { BetweenTests } from "@/components/between-tests";
 import { adviseFor } from "@/lib/advice";
+import { localDateRange, summarizeBetween, type WeatherDay } from "@/lib/weather/summary";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatDateTime, formatTemperature, formatVolume, type Units } from "@/lib/format";
 
@@ -13,6 +15,7 @@ interface Pool {
   sanitizer: "chlorine" | "swg";
   surface: "plaster" | "vinyl" | "fiberglass";
   covered: boolean;
+  cell_id: string | null;
   place_label: string | null;
   timezone: string | null;
 }
@@ -54,7 +57,7 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
   const [{ data: pool }, { data: readings }, { data: profile }] = await Promise.all([
     supabase
       .from("pools")
-      .select("id, name, volume_l, sanitizer, surface, covered, place_label, timezone")
+      .select("id, name, volume_l, sanitizer, surface, covered, cell_id, place_label, timezone")
       .eq("id", id)
       .maybeSingle<Pool>(),
     supabase
@@ -70,6 +73,26 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
   const units = profile?.units ?? "us";
   const tz = pool.timezone ?? undefined;
   const latest = readings?.[0];
+  const previous = readings?.[1];
+
+  let between = null;
+  if (latest && previous) {
+    let weather: WeatherDay[] = [];
+    if (pool.cell_id) {
+      const range = localDateRange(previous.taken_at, latest.taken_at, pool.timezone ?? "UTC");
+      const { data } = await supabase
+        .from("weather_daily")
+        .select("date, tmax_c, tmin_c, uv_index_max, sunshine_s, precipitation_mm")
+        .eq("cell_id", pool.cell_id)
+        .gte("date", range.from)
+        .lte("date", range.to)
+        .order("date")
+        .returns<WeatherDay[]>();
+      weather = data ?? [];
+    }
+    between = summarizeBetween(previous, latest, weather);
+  }
+
   const advice = latest
     ? adviseFor(
         { volumeL: pool.volume_l, sanitizer: pool.sanitizer, surface: pool.surface },
@@ -161,6 +184,8 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
       )}
 
       {advice && advice.items.length > 0 ? <AdvicePanel advice={advice} units={units} /> : null}
+
+      {between ? <BetweenTests summary={between} units={units} /> : null}
 
       {readings && readings.length > 0 ? (
         <section aria-labelledby="history" className="flex flex-col gap-3">
