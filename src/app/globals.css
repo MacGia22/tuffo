@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+/* Tuffo brand tokens. Light and dark grounds; lagoon is the primary. */
+:root {
+  --background: #f6fafc;
+  --foreground: #0b2e4f;
+  --muted: #3b5468;
+  --surface: #ffffff;
+  --border: #d5e3ec;
+  --lagoon: #0e7c9e;
+  --lagoon-deep: #0b5f7a;
+  --navy: #0b2e4f;
+  --ice: #8fd3f4;
+  --sun: #f5b301;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-lagoon: var(--lagoon);
+  --color-lagoon-deep: var(--lagoon-deep);
+  --color-navy: var(--navy);
+  --color-ice: var(--ice);
+  --color-sun: var(--sun);
+  --font-sans: var(--font-manrope);
+  --font-display: var(--font-sora);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0b1620;
+    --foreground: #f6fafc;
+    --muted: #b7c7d6;
+    --surface: #11212e;
+    --border: #22384a;
+    --lagoon: #159ec7;
+    --lagoon-deep: #0e7c9e;
+  }
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-manrope), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-sora), system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}

@@ -1,1 +1,50 @@
-# tuffo
+# Tuffo
+
+Pool chemistry that knows your weather. Log a water test, see what the sun, heat and
+rain did between readings, and get a seven-day dosing plan for your own pool.
+
+This repository is private and proprietary. See `LICENSE`.
+
+## Stack
+
+- Next.js (App Router, TypeScript) on Vercel
+- Tailwind CSS 4
+- Supabase (Postgres, auth, scheduled jobs) — added in phase 1
+- Vitest for the chemistry engine
+
+## Layout
+
+```
+src/app            routes, metadata files (manifest, icons, robots, sitemap)
+src/components     UI components (brand mark and lockup, waitlist form)
+src/engine         chemistry engine: pure functions, unit tests alongside
+src/engine/server  the only import path application code may use for the engine
+```
+
+The engine never ships to the browser: `src/engine/server.ts` imports `server-only`,
+so importing it from a client component fails the build.
+
+## Develop
+
+```
+npm install
+npm run dev        # http://localhost:3000
+npm run check      # lint, typecheck, tests
+npm run build
+```
+
+## Environment
+
+Copy `.env.example` to `.env.local`. Nothing is required for the landing page.
+
+| Variable | Purpose |
+| --- | --- |
+| `NEXT_PUBLIC_SITE_URL` | Canonical URL used in metadata, robots and sitemap (defaults to https://tuffo.app) |
+| `WAITLIST_WEBHOOK_URL` | Endpoint that receives waitlist sign-ups as JSON; until set, the form reports the list as not open |
+
+## Brand
+
+Colours: lagoon `#0E7C9E`, navy `#0B2E4F`, ice `#8FD3F4`, sun `#F5B301`. Type: Sora for
+the wordmark and headings, Manrope for the interface. The mark is drawn in
+`src/components/brand/logo.tsx`; icons, the PWA manifest icons and the social image are
+rendered from it at build time, so there are no binary image assets in the repo.
