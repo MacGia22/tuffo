@@ -10,12 +10,26 @@ import { publicEnv, serverEnv } from "@/lib/env";
 type UrlShape =
   | "missing"
   | "supabase-co"
-  | "supabase-co-without-scheme"
-  | "custom-domain"
+  | "supabase-co-with-path"
+  | "supabase-host-without-scheme"
+  | "host-without-scheme"
+  | "project-ref-only"
+  | "looks-like-a-jwt-key"
+  | "postgres-connection-string"
   | "dashboard-url"
-  | "not-https"
+  | "http-not-https"
+  | "unexpected-scheme"
   | "contains-whitespace"
-  | "contains-equals";
+  | "contains-equals"
+  | "other";
+
+interface UrlReport {
+  shape: UrlShape;
+  /** Character count and scheme are safe to show and narrow down what was pasted. */
+  length?: number;
+  scheme?: string | null;
+  endsWithSupabaseHost?: boolean;
+}
 
 type KeyShape =
   | "missing"
@@ -27,15 +41,32 @@ type KeyShape =
   | "unknown";
 
 /** Shape of the variable as set, before normalisation. */
-function describeUrl(url: string | undefined): UrlShape {
-  if (!url) return "missing";
-  if (/\s/.test(url)) return "contains-whitespace";
-  if (url.includes("=")) return "contains-equals";
-  if (/^[a-z]{20}\.supabase\.(co|in)\/?$/.test(url)) return "supabase-co-without-scheme";
-  if (!url.startsWith("https://")) return "not-https";
-  if (url.includes("supabase.com/dashboard")) return "dashboard-url";
-  if (/^https:\/\/[a-z]{20}\.supabase\.(co|in)\/?$/.test(url)) return "supabase-co";
-  return "custom-domain";
+function describeUrl(raw: string | undefined): UrlReport {
+  if (!raw) return { shape: "missing" };
+  const scheme = raw.match(/^([a-z][a-z0-9+.-]*):\/\//i)?.[1]?.toLowerCase() ?? null;
+  const host = /^(https?:\/\/)?[a-z]{20}\.supabase\.(co|in)(\/|$)/;
+
+  let shape: UrlShape;
+  if (/\s/.test(raw)) shape = "contains-whitespace";
+  else if (raw.includes("=")) shape = "contains-equals";
+  else if (raw.startsWith("eyJ")) shape = "looks-like-a-jwt-key";
+  else if (/^[a-z]{20}$/.test(raw)) shape = "project-ref-only";
+  else if (scheme === "postgres" || scheme === "postgresql") shape = "postgres-connection-string";
+  else if (raw.includes("supabase.com/dashboard")) shape = "dashboard-url";
+  else if (scheme === "http") shape = "http-not-https";
+  else if (scheme && scheme !== "https") shape = "unexpected-scheme";
+  else if (!scheme && host.test(raw)) shape = "supabase-host-without-scheme";
+  else if (!scheme) shape = "host-without-scheme";
+  else if (/^https:\/\/[a-z]{20}\.supabase\.(co|in)\/?$/.test(raw)) shape = "supabase-co";
+  else if (host.test(raw)) shape = "supabase-co-with-path";
+  else shape = "other";
+
+  return {
+    shape,
+    length: raw.length,
+    scheme,
+    endsWithSupabaseHost: /\.supabase\.(co|in)\/?$/.test(raw),
+  };
 }
 
 function legacyRole(jwt: string): KeyShape {
@@ -59,7 +90,11 @@ function describeKey(key: string | undefined): KeyShape {
   return "unknown";
 }
 
-/** HTTP status of a GET with the given key, or the error name when the call fails. */
+/**
+ * HTTP status of a GET with the given key, or "<ErrorName>:<code>" when the call
+ * fails. Only the error name and the cause's code are reported: messages can
+ * contain the host name.
+ */
 async function probe(url: string, apikey: string): Promise<number | string> {
   try {
     const response = await fetch(url, {
@@ -69,7 +104,10 @@ async function probe(url: string, apikey: string): Promise<number | string> {
     });
     return response.status;
   } catch (error) {
-    return error instanceof Error ? error.name : "error";
+    if (!(error instanceof Error)) return "error";
+    const cause = error.cause as { code?: unknown } | undefined;
+    const code = typeof cause?.code === "string" ? cause.code : null;
+    return code ? `${error.name}:${code}` : error.name;
   }
 }
 
