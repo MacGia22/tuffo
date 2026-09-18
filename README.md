@@ -43,6 +43,19 @@ Authentication → Users → Invite); on opens the beta to anyone. Supabase also
 site URL and redirect URLs (Authentication → URL Configuration): the production domain
 plus `https://*-mac-pool.vercel.app/**` for previews.
 
+Email templates (Authentication → Email Templates, both "Magic Link" and "Confirm sign
+up") use the token-hash form so a link opened in a different browser than the one that
+requested it (a phone's mail app, say) still signs the person in:
+
+```html
+<h2>Sign in to Tuffo</h2>
+<p><a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email">Open Tuffo</a></p>
+<p>The link works once and expires in an hour. If you didn't ask for it, ignore this email.</p>
+```
+
+Supabase's built-in mailer only delivers to members of the Supabase organisation and
+is rate-limited; custom SMTP (Resend) is needed before inviting beta users.
+
 ## Develop
 
 ```
