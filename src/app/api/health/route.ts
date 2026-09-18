@@ -125,14 +125,14 @@ async function probe(url: string, apikey: string): Promise<number | string> {
 
 const TABLES = ["profiles", "weather_cells", "weather_daily", "weather_forecast", "pools", "readings", "doses", "events", "pool_models"];
 
-/** Which tables exist, checked with the secret key (a head request, no rows). */
+/** Which tables exist, checked with the secret key (a GET for zero rows, so errors carry a body). */
 async function schemaPresent(): Promise<{ tables: Record<string, boolean>; error: string | null } | null> {
   try {
     const admin = createSupabaseAdminClient();
     let firstError: string | null = null;
     const checks = await Promise.all(
       TABLES.map(async (table) => {
-        const { error } = await admin.from(table).select("*", { head: true, count: "exact" }).limit(0);
+        const { error } = await admin.from(table).select("*").limit(0);
         if (error && !firstError) firstError = `${error.code ?? ""} ${error.message}`.trim().slice(0, 120);
         return [table, !error] as const;
       }),
