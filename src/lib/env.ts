@@ -15,9 +15,14 @@ function first(...names: string[]): string | undefined {
   return undefined;
 }
 
+/** Drops trailing slashes so paths can be appended without producing "//". */
+function asBaseUrl(value: string | undefined): string | undefined {
+  return value?.replace(/\/+$/, "");
+}
+
 export const publicEnv = {
-  siteUrl: () => first("NEXT_PUBLIC_SITE_URL") ?? "https://tuffo.app",
-  supabaseUrl: () => first("NEXT_PUBLIC_SUPABASE_URL"),
+  siteUrl: () => asBaseUrl(first("NEXT_PUBLIC_SITE_URL")) ?? "https://tuffo.app",
+  supabaseUrl: () => asBaseUrl(first("NEXT_PUBLIC_SUPABASE_URL")),
   supabasePublishableKey: () =>
     first("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY"),
 };
