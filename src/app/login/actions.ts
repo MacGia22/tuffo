@@ -75,7 +75,7 @@ export interface CodeState {
 }
 
 /**
- * Second way in: the 6-digit code from the same email, typed into the page. Needs no
+ * Second way in: the numeric code from the same email, typed into the page. Needs no
  * link and no shared browser, so it works from any mail app on any device.
  */
 export async function verifyCode(_prev: CodeState, formData: FormData): Promise<CodeState> {
@@ -86,7 +86,9 @@ export async function verifyCode(_prev: CodeState, formData: FormData): Promise<
   const next = safeNextPath(String(formData.get("next") ?? ""));
 
   if (!EMAIL.test(email)) return { status: "error", message: "Start again with your email address." };
-  if (token.length < 6) return { status: "error", message: "Enter the 6-digit code from the email." };
+  if (token.length < 6 || token.length > 10) {
+    return { status: "error", message: "Enter the whole code from the email (6 to 10 digits)." };
+  }
 
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.verifyOtp({ email, token, type: "email" });

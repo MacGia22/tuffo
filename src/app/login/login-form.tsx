@@ -18,7 +18,7 @@ function CodeForm({ email, next }: { email: string; next: string }) {
       <input type="hidden" name="email" value={email} />
       <input type="hidden" name="next" value={next} />
       <label htmlFor="code" className="text-sm font-semibold">
-        Or type the 6-digit code from the email
+        Or type the code from the email
       </label>
       <div className="flex gap-2">
         <input
@@ -27,10 +27,10 @@ function CodeForm({ email, next }: { email: string; next: string }) {
           inputMode="numeric"
           autoComplete="one-time-code"
           pattern="[0-9 ]*"
-          maxLength={7}
-          placeholder="123456"
+          maxLength={12}
+          placeholder="12345678"
           disabled={pending}
-          className={`${input} w-40 tracking-[0.3em]`}
+          className={`${input} w-48 tracking-[0.25em]`}
         />
         <button type="submit" disabled={pending} className={button}>
           {pending ? "Checking…" : "Sign in"}

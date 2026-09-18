@@ -48,7 +48,7 @@ rate-limited and does not allow template edits; custom SMTP (Resend, sender
 `hello@tuffo.app`, host `smtp.resend.com`, port 465, user `resend`, password = API key)
 is set under Authentication → Emails → SMTP. With it in place, the "Magic Link" and
 "Confirm sign up" templates carry both a token-hash link (works from any browser, not
-only the one that requested it) and a 6-digit code the sign-in page accepts:
+only the one that requested it) and a numeric code the sign-in page accepts:
 
 ```html
 <h2>Sign in to Tuffo</h2>
