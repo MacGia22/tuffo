@@ -1,3 +1,4 @@
+import Anthropic from "@anthropic-ai/sdk";
 import { getCurrentUser } from "@/lib/auth/user";
 import { serverEnv } from "@/lib/env";
 import { extractReading, SCAN_MEDIA_TYPES, type ScanMediaType } from "@/lib/scan/extract";
@@ -38,11 +39,28 @@ export async function POST(request: Request) {
     const result = await extractReading({ bytes: Buffer.from(await file.arrayBuffer()), mediaType });
     return Response.json({ ok: true, ...result, usage: undefined });
   } catch (error) {
+    if (error instanceof Anthropic.APIError) {
+      // Key, billing, model or rate-limit problems are ours, not the photo's; log them for the runtime logs.
+      console.error(`[scan] api error ${error.status ?? "?"}: ${error.message.slice(0, 200)}`);
+      const ours = error.status === 401 || error.status === 402 || error.status === 403 || error.status === 404;
+      return Response.json(
+        {
+          ok: false,
+          error: ours
+            ? "Photo scanning is misconfigured on our side. Type the numbers for now; we are on it."
+            : "The scanner is busy. Try again in a minute or type the numbers.",
+        },
+        { status: 502 },
+      );
+    }
     const message = error instanceof Error ? error.message : "failed";
-    const status = message === "scan-not-configured" ? 503 : 502;
+    if (message === "scan-not-configured") {
+      return Response.json({ ok: false, error: "Photo scanning is not switched on yet." }, { status: 503 });
+    }
+    console.error(`[scan] failed: ${message.slice(0, 200)}`);
     return Response.json(
-      { ok: false, error: status === 503 ? "Photo scanning is not switched on yet." : "Could not read that photo. Try a sharper, straight-on shot." },
-      { status },
+      { ok: false, error: "Could not read that photo. Try a sharper, straight-on shot." },
+      { status: 502 },
     );
   }
 }
