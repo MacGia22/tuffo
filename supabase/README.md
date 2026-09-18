@@ -14,7 +14,7 @@ a file twice. Applied so far is recorded in this list; keep it current:
 | File | Applied |
 | --- | --- |
 | 20260918000001_init.sql | 2026-09-18 |
-| 20260918000002_grants.sql | pending |
+| 20260918000002_grants.sql | 2026-09-18 |
 
 With the Supabase CLI (`npx supabase link --project-ref <ref>` once, then
 `npx supabase db push`) the same files are applied automatically.

@@ -57,6 +57,15 @@ only the one that requested it) and a numeric code the sign-in page accepts:
 <p>Both work once and expire in an hour. If you didn't ask for this, ignore the email.</p>
 ```
 
+## Domains
+
+`tuffo.app` is the one address; `www.tuffo.app`, `gettuffo.com` and `www.gettuffo.com`
+redirect to it (308) from Vercel's domain settings, and `tuffo.vercel.app` stays as a
+spare. Supabase's Site URL and the `NEXT_PUBLIC_SITE_URL` default both point at it.
+
+Note for pushes: Vercel skips a commit that changes no files, so an empty commit does
+not trigger a deployment; redeploy from the dashboard or push a real change.
+
 ## Develop
 
 ```
