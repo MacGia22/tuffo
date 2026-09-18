@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { serverEnv } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Units } from "@/lib/format";
 import { ReadingForm } from "./reading-form";
@@ -40,7 +41,12 @@ export default async function NewReadingPage({ params }: PageProps<"/app/pools/[
         <h1 className="text-3xl font-semibold">Log a test</h1>
         <p className="text-muted">Fill in what you measured; leave the rest blank.</p>
       </div>
-      <ReadingForm poolId={pool.id} units={profile?.units ?? "us"} swg={pool.sanitizer === "swg"} />
+      <ReadingForm
+        poolId={pool.id}
+        units={profile?.units ?? "us"}
+        swg={pool.sanitizer === "swg"}
+        scanEnabled={Boolean(serverEnv.anthropicApiKey())}
+      />
     </>
   );
 }

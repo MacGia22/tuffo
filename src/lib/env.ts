@@ -37,6 +37,9 @@ export const serverEnv = {
   waitlistWebhookUrl: () => first("WAITLIST_WEBHOOK_URL"),
   /** Shared secret the Vercel cron sends as a bearer token to /api/jobs/*. */
   cronSecret: () => first("CRON_SECRET"),
+  /** Enables photo scanning of test results (Anthropic API). */
+  anthropicApiKey: () => first("ANTHROPIC_API_KEY"),
+  scanModel: () => first("SCAN_MODEL"),
 };
 
 export function requirePublicSupabase(): { url: string; key: string } {

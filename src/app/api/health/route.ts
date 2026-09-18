@@ -179,6 +179,7 @@ export async function GET() {
       schema,
     },
     cron: Boolean(serverEnv.cronSecret()),
+    scan: Boolean(serverEnv.anthropicApiKey()),
     waitlist: Boolean(serverEnv.waitlistWebhookUrl()),
   });
 }

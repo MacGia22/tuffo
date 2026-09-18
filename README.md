@@ -64,6 +64,16 @@ Copy `.env.example` to `.env.local`. Nothing is required for the landing page.
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase secret key (`sb_secret_…` or the legacy service_role key); server only, used by scheduled jobs |
 | `WAITLIST_WEBHOOK_URL` | Endpoint that receives waitlist sign-ups as JSON; until set, the form reports the list as not open |
 | `CRON_SECRET` | Bearer token the Vercel cron sends to `/api/jobs/*`; the jobs refuse every call until it is set |
+| `ANTHROPIC_API_KEY` | Enables photo scanning of test results (`/api/scan`); unset hides the scan button |
+| `SCAN_MODEL` | Optional model id for scans; defaults to `claude-sonnet-4-6` |
+
+## Photo scanning
+
+On the test form, "Scan a printout" sends a photo (downscaled in the browser to about
+1,800 px) to `POST /api/scan`, which asks a vision model for the numbers through a
+structured tool call and returns them for review; the person checks each value and
+saves. The photo is held in memory for that one request and never stored. Store
+printouts read well; test strips are estimated and flagged as low confidence.
 
 ## Scheduled jobs
 
