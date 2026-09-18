@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { publicEnv } from "@/lib/env";
 import { safeNextPath } from "@/lib/auth/redirects";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -66,4 +67,37 @@ export async function sendMagicLink(_prev: SignInState, formData: FormData): Pro
   }
 
   return { status: "sent", email };
+}
+
+export interface CodeState {
+  status: "idle" | "error";
+  message?: string;
+}
+
+/**
+ * Second way in: the 6-digit code from the same email, typed into the page. Needs no
+ * link and no shared browser, so it works from any mail app on any device.
+ */
+export async function verifyCode(_prev: CodeState, formData: FormData): Promise<CodeState> {
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
+  const token = String(formData.get("code") ?? "").replace(/\D/g, "");
+  const next = safeNextPath(String(formData.get("next") ?? ""));
+
+  if (!EMAIL.test(email)) return { status: "error", message: "Start again with your email address." };
+  if (token.length < 6) return { status: "error", message: "Enter the 6-digit code from the email." };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
+  if (error) {
+    return {
+      status: "error",
+      message: /expired/i.test(error.message)
+        ? "That code has expired. Request a new one."
+        : "That code did not match. Check the digits and try again.",
+    };
+  }
+
+  redirect(next);
 }

@@ -43,18 +43,19 @@ Authentication → Users → Invite); on opens the beta to anyone. Supabase also
 site URL and redirect URLs (Authentication → URL Configuration): the production domain
 plus `https://*-mac-pool.vercel.app/**` for previews.
 
-Email templates (Authentication → Email Templates, both "Magic Link" and "Confirm sign
-up") use the token-hash form so a link opened in a different browser than the one that
-requested it (a phone's mail app, say) still signs the person in:
+Supabase's built-in mailer only delivers to members of the Supabase organisation, is
+rate-limited and does not allow template edits; custom SMTP (Resend, sender
+`hello@tuffo.app`, host `smtp.resend.com`, port 465, user `resend`, password = API key)
+is set under Authentication → Emails → SMTP. With it in place, the "Magic Link" and
+"Confirm sign up" templates carry both a token-hash link (works from any browser, not
+only the one that requested it) and a 6-digit code the sign-in page accepts:
 
 ```html
 <h2>Sign in to Tuffo</h2>
-<p><a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email">Open Tuffo</a></p>
-<p>The link works once and expires in an hour. If you didn't ask for it, ignore this email.</p>
+<p>Your code: <strong style="font-size:24px;letter-spacing:4px">{{ .Token }}</strong></p>
+<p>Or tap <a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email">Open Tuffo</a> on this device.</p>
+<p>Both work once and expire in an hour. If you didn't ask for this, ignore the email.</p>
 ```
-
-Supabase's built-in mailer only delivers to members of the Supabase organisation and
-is rate-limited; custom SMTP (Resend) is needed before inviting beta users.
 
 ## Develop
 
