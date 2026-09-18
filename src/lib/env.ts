@@ -15,9 +15,14 @@ function first(...names: string[]): string | undefined {
   return undefined;
 }
 
-/** Drops trailing slashes so paths can be appended without producing "//". */
-function asBaseUrl(value: string | undefined): string | undefined {
-  return value?.replace(/\/+$/, "");
+/**
+ * Accepts a bare host ("abc.supabase.co") as well as a full URL, and drops trailing
+ * slashes so paths can be appended without producing "//".
+ */
+export function asBaseUrl(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(value) ? value : `https://${value}`;
+  return withScheme.replace(/\/+$/, "");
 }
 
 export const publicEnv = {

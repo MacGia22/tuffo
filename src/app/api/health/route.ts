@@ -10,6 +10,7 @@ import { publicEnv, serverEnv } from "@/lib/env";
 type UrlShape =
   | "missing"
   | "supabase-co"
+  | "supabase-co-without-scheme"
   | "custom-domain"
   | "dashboard-url"
   | "not-https"
@@ -25,13 +26,15 @@ type KeyShape =
   | "legacy-jwt"
   | "unknown";
 
+/** Shape of the variable as set, before normalisation. */
 function describeUrl(url: string | undefined): UrlShape {
   if (!url) return "missing";
   if (/\s/.test(url)) return "contains-whitespace";
   if (url.includes("=")) return "contains-equals";
+  if (/^[a-z]{20}\.supabase\.(co|in)\/?$/.test(url)) return "supabase-co-without-scheme";
   if (!url.startsWith("https://")) return "not-https";
   if (url.includes("supabase.com/dashboard")) return "dashboard-url";
-  if (/^https:\/\/[a-z]{20}\.supabase\.(co|in)$/.test(url)) return "supabase-co";
+  if (/^https:\/\/[a-z]{20}\.supabase\.(co|in)\/?$/.test(url)) return "supabase-co";
   return "custom-domain";
 }
 
@@ -96,7 +99,7 @@ export async function GET() {
       secretKey: Boolean(secretKey),
       reachable,
       shapes: {
-        url: describeUrl(url),
+        url: describeUrl(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || undefined),
         publishableKey: describeKey(publishableKey),
         secretKey: describeKey(secretKey),
       },
