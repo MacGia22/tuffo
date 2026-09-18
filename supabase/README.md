@@ -13,13 +13,16 @@ a file twice. Applied so far is recorded in this list; keep it current:
 
 | File | Applied |
 | --- | --- |
-| 20260918000001_init.sql | pending |
-| 20260918000002_tighten_grants.sql | pending |
+| 20260918000001_init.sql | 2026-09-18 |
+| 20260918000002_grants.sql | pending |
 
 With the Supabase CLI (`npx supabase link --project-ref <ref>` once, then
 `npx supabase db push`) the same files are applied automatically.
 
 ## Conventions
+
+- Every migration that creates a table grants `service_role` on it explicitly and
+  leaves `anon` with nothing; Supabase's default privileges are not relied on.
 
 - Units in the database are SI: liters, grams, millilitres, degrees Celsius, ppm.
 - A pool's location is a weather cell (0.05°, about 5 km), never an address.
