@@ -102,7 +102,8 @@ function describeKey(key: string | undefined): KeyShape {
 async function probe(url: string, apikey: string): Promise<number | string> {
   try {
     const response = await fetch(url, {
-      headers: { apikey },
+      // Both headers, as supabase-js sends them: the gateway reads apikey, PostgREST the bearer.
+      headers: { apikey, Authorization: `Bearer ${apikey}` },
       signal: AbortSignal.timeout(4000),
       cache: "no-store",
     });
