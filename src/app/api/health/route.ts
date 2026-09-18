@@ -1,4 +1,5 @@
 import { publicEnv, serverEnv } from "@/lib/env";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
  * Liveness plus configuration check. Reports whether the Supabase variables are
@@ -116,6 +117,24 @@ async function probe(url: string, apikey: string): Promise<number | string> {
   }
 }
 
+const TABLES = ["profiles", "weather_cells", "weather_daily", "weather_forecast", "pools", "readings", "doses", "events", "pool_models"];
+
+/** Which tables exist, checked with the secret key (a head request, no rows). */
+async function schemaPresent(): Promise<Record<string, boolean> | null> {
+  try {
+    const admin = createSupabaseAdminClient();
+    const checks = await Promise.all(
+      TABLES.map(async (table) => {
+        const { error } = await admin.from(table).select("*", { head: true, count: "exact" }).limit(0);
+        return [table, !error] as const;
+      }),
+    );
+    return Object.fromEntries(checks);
+  } catch {
+    return null;
+  }
+}
+
 export async function GET() {
   const url = publicEnv.supabaseUrl();
   const publishableKey = publicEnv.supabasePublishableKey();
@@ -130,6 +149,7 @@ export async function GET() {
     ]);
   }
   const reachable = auth === null ? null : auth === 200;
+  const schema = reachable && secretKey ? await schemaPresent() : null;
 
   return Response.json({
     ok: true,
@@ -147,7 +167,9 @@ export async function GET() {
         secretKey: describeKey(secretKey),
       },
       probes: { auth, rest },
+      schema,
     },
+    cron: Boolean(serverEnv.cronSecret()),
     waitlist: Boolean(serverEnv.waitlistWebhookUrl()),
   });
 }

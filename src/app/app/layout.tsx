@@ -22,9 +22,9 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
             <TuffoLockup size={32} />
           </Link>
           <div className="flex items-center gap-4 text-sm">
-            <span className="hidden text-muted sm:inline" title={user.email ?? ""}>
-              {user.email}
-            </span>
+            <Link href="/app/account" className="text-muted hover:text-foreground" title={user.email ?? ""}>
+              Account
+            </Link>
             <form action="/auth/signout" method="post">
               <button
                 type="submit"
