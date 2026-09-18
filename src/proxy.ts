@@ -8,8 +8,17 @@ import { safeNextPath } from "@/lib/auth/redirects";
  * page. Pages still verify the user themselves before touching data.
  */
 export async function proxy(request: NextRequest) {
+  const { pathname, search, searchParams } = request.nextUrl;
+
+  // A magic link that fell back to the site root (Supabase's Site URL) still carries
+  // its code: hand it to the callback instead of showing the landing page.
+  if (pathname === "/" && (searchParams.has("code") || searchParams.has("token_hash"))) {
+    const callback = new URL("/auth/callback", request.url);
+    callback.search = search;
+    return NextResponse.redirect(callback);
+  }
+
   const { response, user } = await updateSession(request);
-  const { pathname, search } = request.nextUrl;
 
   if (pathname.startsWith("/app") && !user) {
     const login = new URL("/login", request.url);
