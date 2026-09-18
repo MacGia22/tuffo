@@ -64,7 +64,9 @@ redirect to it (308) from Vercel's domain settings, and `tuffo.vercel.app` stays
 spare. Supabase's Site URL and the `NEXT_PUBLIC_SITE_URL` default both point at it.
 
 Note for pushes: Vercel skips a commit that changes no files, so an empty commit does
-not trigger a deployment; redeploy from the dashboard or push a real change.
+not trigger a deployment; redeploy from the dashboard or push a real change. If pushes
+stop producing deployments at all, disconnecting and reconnecting the repository under
+Settings → Git re-registers the link (nothing else is lost).
 
 ## Develop
 
