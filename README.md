@@ -9,7 +9,7 @@ This repository is private and proprietary. See `LICENSE`.
 
 - Next.js (App Router, TypeScript) on Vercel
 - Tailwind CSS 4
-- Supabase (Postgres, auth, scheduled jobs) — added in phase 1
+- Supabase (Postgres, auth, scheduled jobs); schema in `supabase/migrations`
 - Vitest for the chemistry engine
 
 ## Layout
@@ -19,6 +19,8 @@ src/app            routes, metadata files (manifest, icons, robots, sitemap)
 src/components     UI components (brand mark and lockup, waitlist form)
 src/engine         chemistry engine: pure functions, unit tests alongside
 src/engine/server  the only import path application code may use for the engine
+src/lib/supabase   server, browser and admin clients; session refresh used by src/proxy.ts
+supabase           database migrations and notes
 ```
 
 The engine never ships to the browser: `src/engine/server.ts` imports `server-only`,
@@ -40,6 +42,9 @@ Copy `.env.example` to `.env.local`. Nothing is required for the landing page.
 | Variable | Purpose |
 | --- | --- |
 | `NEXT_PUBLIC_SITE_URL` | Canonical URL used in metadata, robots and sitemap (defaults to https://tuffo.app) |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase publishable key (`sb_publishable_…` or the legacy anon key); safe in the browser |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase secret key (`sb_secret_…` or the legacy service_role key); server only, used by scheduled jobs |
 | `WAITLIST_WEBHOOK_URL` | Endpoint that receives waitlist sign-ups as JSON; until set, the form reports the list as not open |
 
 ## Brand
