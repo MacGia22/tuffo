@@ -108,7 +108,10 @@ async function probe(url: string, apikey: string): Promise<number | string> {
       signal: AbortSignal.timeout(4000),
       cache: "no-store",
     });
-    return response.status;
+    if (response.ok) return response.status;
+    // The gateway's own error messages ("Invalid API key") are short and carry no secrets.
+    const text = (await response.text()).replace(/\s+/g, " ").slice(0, 80);
+    return `${response.status} ${text}`;
   } catch (error) {
     if (!(error instanceof Error)) return "error";
     const cause = error.cause as { code?: unknown } | undefined;
@@ -120,18 +123,20 @@ async function probe(url: string, apikey: string): Promise<number | string> {
 const TABLES = ["profiles", "weather_cells", "weather_daily", "weather_forecast", "pools", "readings", "doses", "events", "pool_models"];
 
 /** Which tables exist, checked with the secret key (a head request, no rows). */
-async function schemaPresent(): Promise<Record<string, boolean> | null> {
+async function schemaPresent(): Promise<{ tables: Record<string, boolean>; error: string | null } | null> {
   try {
     const admin = createSupabaseAdminClient();
+    let firstError: string | null = null;
     const checks = await Promise.all(
       TABLES.map(async (table) => {
         const { error } = await admin.from(table).select("*", { head: true, count: "exact" }).limit(0);
+        if (error && !firstError) firstError = `${error.code ?? ""} ${error.message}`.trim().slice(0, 120);
         return [table, !error] as const;
       }),
     );
-    return Object.fromEntries(checks);
-  } catch {
-    return null;
+    return { tables: Object.fromEntries(checks), error: firstError };
+  } catch (error) {
+    return { tables: {}, error: error instanceof Error ? error.name : "error" };
   }
 }
 
