@@ -1,17 +1,20 @@
 import { createServerClient } from "@supabase/ssr";
+import type { User } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import { publicEnv } from "@/lib/env";
 
 /**
  * Refreshes the Supabase session cookie on each app request so server code always
- * sees a valid user. Called from src/proxy.ts. A no-op when Supabase is not
- * configured or the visitor has no session.
+ * sees a valid user, and reports who that user is. Called from src/proxy.ts.
+ * `user` is null when Supabase is not configured or the visitor has no session.
  */
-export async function updateSession(request: NextRequest) {
+export async function updateSession(
+  request: NextRequest,
+): Promise<{ response: NextResponse; user: User | null }> {
   const url = publicEnv.supabaseUrl();
   const key = publicEnv.supabasePublishableKey();
   if (!url || !key) {
-    return NextResponse.next({ request });
+    return { response: NextResponse.next({ request }), user: null };
   }
 
   let response = NextResponse.next({ request });
@@ -34,7 +37,9 @@ export async function updateSession(request: NextRequest) {
   });
 
   // Touching the user is what triggers a refresh when the access token has expired.
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  return response;
+  return { response, user };
 }

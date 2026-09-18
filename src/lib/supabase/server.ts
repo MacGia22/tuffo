@@ -9,8 +9,9 @@ import { requirePublicSupabase } from "@/lib/env";
  * Runs as the signed-in user (row-level security applies). Create one per request.
  */
 export async function createSupabaseServerClient() {
-  const { url, key } = requirePublicSupabase();
+  // cookies() first: it marks the route dynamic before any configuration check runs.
   const cookieStore = await cookies();
+  const { url, key } = requirePublicSupabase();
 
   return createServerClient(url, key, {
     cookies: {

@@ -16,15 +16,32 @@ This repository is private and proprietary. See `LICENSE`.
 
 ```
 src/app            routes, metadata files (manifest, icons, robots, sitemap)
+src/app/login      magic-link sign-in; src/app/auth/* completes and ends sessions
+src/app/app        the signed-in app: pools, readings, plans
 src/components     UI components (brand mark and lockup, waitlist form)
 src/engine         chemistry engine: pure functions, unit tests alongside
 src/engine/server  the only import path application code may use for the engine
+src/lib/auth       current user helpers and redirect hygiene
 src/lib/supabase   server, browser and admin clients; session refresh used by src/proxy.ts
+src/lib/weather    weather cells (0.05° grid) and town lookup
 supabase           database migrations and notes
 ```
 
 The engine never ships to the browser: `src/engine/server.ts` imports `server-only`,
 so importing it from a client component fails the build.
+
+## Sign-in and the beta gate
+
+Sign-in is a Supabase magic link: `/login` sends it, `/auth/callback` turns it into a
+session cookie, `POST /auth/signout` ends it. `src/proxy.ts` refreshes the session on
+every request and bounces signed-out visitors away from `/app`; pages verify the user
+again before reading data.
+
+Who may sign in is a Supabase setting, not code: Authentication → Sign In / Providers →
+Email → "Allow new users to sign up". Off means invite-only (add people under
+Authentication → Users → Invite); on opens the beta to anyone. Supabase also needs the
+site URL and redirect URLs (Authentication → URL Configuration): the production domain
+plus `https://*-mac-pool.vercel.app/**` for previews.
 
 ## Develop
 
