@@ -35,5 +35,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(login);
   }
 
+  // The database can see a brand-new token as "issued in the future" for about a second.
+  await new Promise((resolve) => setTimeout(resolve, 1200));
   return NextResponse.redirect(new URL(next, origin));
 }

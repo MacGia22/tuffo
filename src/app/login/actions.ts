@@ -69,6 +69,9 @@ export async function sendMagicLink(_prev: SignInState, formData: FormData): Pro
   return { status: "sent", email };
 }
 
+/** The database can see a brand-new token as "issued in the future" for about a second. */
+const settleClock = () => new Promise((resolve) => setTimeout(resolve, 1200));
+
 export interface CodeState {
   status: "idle" | "error";
   message?: string;
@@ -101,5 +104,6 @@ export async function verifyCode(_prev: CodeState, formData: FormData): Promise<
     };
   }
 
+  await settleClock();
   redirect(next);
 }

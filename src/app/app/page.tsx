@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { retryAllOnClockSkew } from "@/lib/supabase/retry";
 import { formatVolume } from "@/lib/format";
 
 interface PoolRow {
@@ -13,14 +14,16 @@ interface PoolRow {
 
 export default async function PoolsPage() {
   const supabase = await createSupabaseServerClient();
-  const [{ data: pools, error }, { data: profile }] = await Promise.all([
-    supabase
-      .from("pools")
-      .select("id, name, volume_l, sanitizer, place_label, created_at")
-      .order("created_at", { ascending: true })
-      .returns<PoolRow[]>(),
-    supabase.from("profiles").select("units").maybeSingle<{ units: "us" | "metric" }>(),
-  ]);
+  const [{ data: pools, error }, { data: profile }] = await retryAllOnClockSkew(() =>
+    Promise.all([
+      supabase
+        .from("pools")
+        .select("id, name, volume_l, sanitizer, place_label, created_at")
+        .order("created_at", { ascending: true })
+        .returns<PoolRow[]>(),
+      supabase.from("profiles").select("units").maybeSingle<{ units: "us" | "metric" }>(),
+    ]),
+  );
   const units = profile?.units ?? "us";
 
   return (

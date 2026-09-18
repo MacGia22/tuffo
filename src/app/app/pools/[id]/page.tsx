@@ -6,6 +6,7 @@ import { BetweenTests } from "@/components/between-tests";
 import { adviseFor } from "@/lib/advice";
 import { localDateRange, summarizeBetween, type WeatherDay } from "@/lib/weather/summary";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { retryAllOnClockSkew } from "@/lib/supabase/retry";
 import { formatDateTime, formatTemperature, formatVolume, type Units } from "@/lib/format";
 
 interface Pool {
@@ -54,21 +55,23 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
   if (!UUID.test(id)) notFound();
 
   const supabase = await createSupabaseServerClient();
-  const [{ data: pool }, { data: readings }, { data: profile }] = await Promise.all([
-    supabase
-      .from("pools")
-      .select("id, name, volume_l, sanitizer, surface, covered, cell_id, place_label, timezone")
-      .eq("id", id)
-      .maybeSingle<Pool>(),
-    supabase
-      .from("readings")
-      .select("id, taken_at, fc, cc, ph, ta, ch, cya, salt, water_temp_c, borate, method")
-      .eq("pool_id", id)
-      .order("taken_at", { ascending: false })
-      .limit(30)
-      .returns<Reading[]>(),
-    supabase.from("profiles").select("units").maybeSingle<{ units: Units }>(),
-  ]);
+  const [{ data: pool }, { data: readings }, { data: profile }] = await retryAllOnClockSkew(() =>
+    Promise.all([
+      supabase
+        .from("pools")
+        .select("id, name, volume_l, sanitizer, surface, covered, cell_id, place_label, timezone")
+        .eq("id", id)
+        .maybeSingle<Pool>(),
+      supabase
+        .from("readings")
+        .select("id, taken_at, fc, cc, ph, ta, ch, cya, salt, water_temp_c, borate, method")
+        .eq("pool_id", id)
+        .order("taken_at", { ascending: false })
+        .limit(30)
+        .returns<Reading[]>(),
+      supabase.from("profiles").select("units").maybeSingle<{ units: Units }>(),
+    ]),
+  );
   if (!pool) notFound();
   const units = profile?.units ?? "us";
   const tz = pool.timezone ?? undefined;
