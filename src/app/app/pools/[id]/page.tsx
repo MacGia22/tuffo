@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AdvicePanel } from "@/components/advice-panel";
+import { adviseFor } from "@/lib/advice";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatDateTime, formatTemperature, formatVolume, type Units } from "@/lib/format";
 
@@ -9,7 +11,7 @@ interface Pool {
   name: string;
   volume_l: number;
   sanitizer: "chlorine" | "swg";
-  surface: string;
+  surface: "plaster" | "vinyl" | "fiberglass";
   covered: boolean;
   place_label: string | null;
   timezone: string | null;
@@ -26,6 +28,7 @@ interface Reading {
   cya: number | null;
   salt: number | null;
   water_temp_c: number | null;
+  borate: number | null;
   method: string;
 }
 
@@ -56,7 +59,7 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
       .maybeSingle<Pool>(),
     supabase
       .from("readings")
-      .select("id, taken_at, fc, cc, ph, ta, ch, cya, salt, water_temp_c, method")
+      .select("id, taken_at, fc, cc, ph, ta, ch, cya, salt, water_temp_c, borate, method")
       .eq("pool_id", id)
       .order("taken_at", { ascending: false })
       .limit(30)
@@ -67,6 +70,22 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
   const units = profile?.units ?? "us";
   const tz = pool.timezone ?? undefined;
   const latest = readings?.[0];
+  const advice = latest
+    ? adviseFor(
+        { volumeL: pool.volume_l, sanitizer: pool.sanitizer, surface: pool.surface },
+        {
+          fc: latest.fc,
+          cc: latest.cc,
+          ph: latest.ph,
+          ta: latest.ta,
+          ch: latest.ch,
+          cya: latest.cya,
+          salt: latest.salt,
+          waterTempC: latest.water_temp_c,
+          borate: latest.borate,
+        },
+      )
+    : null;
 
   return (
     <>
@@ -140,6 +159,8 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
           </Link>
         </section>
       )}
+
+      {advice && advice.items.length > 0 ? <AdvicePanel advice={advice} units={units} /> : null}
 
       {readings && readings.length > 0 ? (
         <section aria-labelledby="history" className="flex flex-col gap-3">
