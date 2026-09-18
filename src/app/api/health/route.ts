@@ -15,6 +15,8 @@ type UrlShape =
   | "host-without-scheme"
   | "project-ref-only"
   | "looks-like-a-jwt-key"
+  | "looks-like-a-publishable-key"
+  | "looks-like-a-secret-key"
   | "postgres-connection-string"
   | "dashboard-url"
   | "http-not-https"
@@ -50,6 +52,8 @@ function describeUrl(raw: string | undefined): UrlReport {
   if (/\s/.test(raw)) shape = "contains-whitespace";
   else if (raw.includes("=")) shape = "contains-equals";
   else if (raw.startsWith("eyJ")) shape = "looks-like-a-jwt-key";
+  else if (raw.startsWith("sb_publishable_")) shape = "looks-like-a-publishable-key";
+  else if (raw.startsWith("sb_secret_")) shape = "looks-like-a-secret-key";
   else if (/^[a-z]{20}$/.test(raw)) shape = "project-ref-only";
   else if (scheme === "postgres" || scheme === "postgresql") shape = "postgres-connection-string";
   else if (raw.includes("supabase.com/dashboard")) shape = "dashboard-url";
