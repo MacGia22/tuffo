@@ -24,9 +24,17 @@ export default function Home() {
         <Link href="/" aria-label="Tuffo home">
           <TuffoLockup size={36} />
         </Link>
-        <span className="rounded-full border border-border px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted">
-          Private beta
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="hidden rounded-full border border-border px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted sm:inline">
+            Private beta
+          </span>
+          <Link
+            href="/login"
+            className="rounded-xl bg-lagoon px-4 py-2 text-sm font-semibold text-white transition hover:bg-lagoon-deep"
+          >
+            Sign in
+          </Link>
+        </div>
       </header>
 
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-20 px-5 pb-24 pt-10">
@@ -83,6 +91,9 @@ export default function Home() {
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 px-5 py-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} Tuffo. Made in St. Petersburg, Florida.</p>
           <nav className="flex gap-5">
+            <Link href="/login" className="hover:text-foreground">
+              Sign in
+            </Link>
             <Link href="/privacy" className="hover:text-foreground">
               Privacy
             </Link>
