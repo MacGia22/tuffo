@@ -102,9 +102,12 @@ function describeKey(key: string | undefined): KeyShape {
  */
 async function probe(url: string, apikey: string): Promise<number | string> {
   try {
+    // As supabase-js does: the gateway reads apikey; a legacy JWT key is also the bearer,
+    // a new-style publishable key never is.
+    const headers: Record<string, string> = { apikey };
+    if (apikey.startsWith("eyJ")) headers.Authorization = `Bearer ${apikey}`;
     const response = await fetch(url, {
-      // Both headers, as supabase-js sends them: the gateway reads apikey, PostgREST the bearer.
-      headers: { apikey, Authorization: `Bearer ${apikey}` },
+      headers,
       signal: AbortSignal.timeout(4000),
       cache: "no-store",
     });
@@ -150,7 +153,8 @@ export async function GET() {
   if (url && publishableKey) {
     [auth, rest] = await Promise.all([
       probe(`${url}/auth/v1/health`, publishableKey),
-      probe(`${url}/rest/v1/`, publishableKey),
+      // A real table, so the answer distinguishes a bad key (401) from a missing schema (404).
+      probe(`${url}/rest/v1/pools?select=id&limit=1`, publishableKey),
     ]);
   }
   const reachable = auth === null ? null : auth === 200;
