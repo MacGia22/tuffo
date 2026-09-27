@@ -37,6 +37,28 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
         </div>
       </header>
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-5 py-8">{children}</main>
+      <footer className="border-t border-border">
+        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-x-5 gap-y-2 px-5 py-5 text-xs text-muted">
+          <p>
+            Weather data by{" "}
+            <a href="https://open-meteo.com/" className="underline underline-offset-2 hover:text-foreground">
+              Open-Meteo.com
+            </a>{" "}
+            (CC BY 4.0)
+          </p>
+          <nav className="flex gap-4">
+            <Link href="/privacy" className="hover:text-foreground">
+              Privacy
+            </Link>
+            <Link href="/terms" className="hover:text-foreground">
+              Terms
+            </Link>
+            <a href="mailto:hello@tuffo.app" className="hover:text-foreground">
+              hello@tuffo.app
+            </a>
+          </nav>
+        </div>
+      </footer>
     </>
   );
 }

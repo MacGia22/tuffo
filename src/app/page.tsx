@@ -100,6 +100,9 @@ export default function Home() {
             <Link href="/terms" className="hover:text-foreground">
               Terms
             </Link>
+            <a href="mailto:hello@tuffo.app" className="hover:text-foreground">
+              Contact
+            </a>
           </nav>
         </div>
       </footer>

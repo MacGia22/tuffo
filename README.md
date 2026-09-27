@@ -17,13 +17,15 @@ This repository is private and proprietary. See `LICENSE`.
 ```
 src/app            routes, metadata files (manifest, icons, robots, sitemap)
 src/app/login      magic-link sign-in; src/app/auth/* completes and ends sessions
-src/app/app        the signed-in app: pools, readings, plans
-src/components     UI components (brand mark and lockup, waitlist form)
+src/app/app        the signed-in app: pools, tests, doses and events, account
+src/app/privacy    privacy notice; src/app/terms the terms of use
+src/components     UI components (brand, trend charts, forms, lists)
 src/engine         chemistry engine: pure functions, unit tests alongside
 src/engine/server  the only import path application code may use for the engine
 src/lib/auth       current user helpers and redirect hygiene
 src/lib/supabase   server, browser and admin clients; session refresh used by src/proxy.ts
-src/lib/weather    weather cells (0.05° grid) and town lookup
+src/lib/weather    weather cells (0.05° grid), town lookup, refresh job, between-test summary
+src/lib/scan       photo reading (vision model) and the monthly scan allowance
 supabase           database migrations and notes
 ```
 
@@ -91,6 +93,11 @@ Copy `.env.example` to `.env.local`. Nothing is required for the landing page.
 | `CRON_SECRET` | Bearer token the Vercel cron sends to `/api/jobs/*`; the jobs refuse every call until it is set |
 | `ANTHROPIC_API_KEY` | Enables photo scanning of test results (`/api/scan`); unset hides the scan button |
 | `SCAN_MODEL` | Optional model id for scans; defaults to `claude-sonnet-4-6` |
+| `SCAN_MONTHLY_LIMIT` | Optional successful scans per user per calendar month (UTC); default 30 |
+| `SCAN_DAILY_GLOBAL_LIMIT` | Optional successful scans across all users per UTC day; default 300 |
+
+GitHub Actions needs one repository secret, `SUPABASE_DB_URL`, to apply migrations
+(see `supabase/README.md`).
 
 ## Photo scanning
 
@@ -100,13 +107,35 @@ structured tool call and returns them for review; the person checks each value a
 saves. The photo is held in memory for that one request and never stored. Store
 printouts read well; test strips are estimated and flagged as low confidence.
 
+Every scan attempt is logged in `scans` (time, success, test type, confidence, model,
+tokens; never the photo or the numbers). The log drives three limits in
+`src/lib/scan/quota.ts`: a monthly allowance per user (shown under the scan button), at
+most 6 attempts per user in 10 minutes, and a daily total across everyone as a spending
+backstop. If the table is missing or a count fails, scanning stays open. The hard cap
+is the monthly spend limit set in the Anthropic console.
+
 ## Scheduled jobs
 
-`vercel.json` runs `/api/jobs/weather` once a day (the Hobby plan allows daily crons).
-The job takes every active weather cell, asks Open-Meteo for the last two days and the
-next eight in one request per 40 cells, and upserts `weather_daily` (actuals) and
-`weather_forecast`. Trigger it by hand with
+`vercel.json` runs `/api/jobs/weather` once a day at 06:00 UTC (the Hobby plan allows
+daily crons). The job takes every active weather cell, asks Open-Meteo for the days
+since that cell's last fetch (a month for a new cell, at most 92) and the next week, in
+one request per 40 cells, and upserts `weather_daily` (actuals) and `weather_forecast`.
+It then deletes photo-scan log rows older than a year. Trigger it by hand with
 `curl -H "Authorization: Bearer $CRON_SECRET" https://tuffo.app/api/jobs/weather`.
+
+Weather does not wait for the cron: creating a pool fetches its cell in the background
+(`after()`), and opening a pool whose cell is more than 20 hours old refreshes that cell
+after the page is sent. `/api/health` reports the newest and oldest fetch times and a
+`late` flag (a cell never fetched, or older than 30 hours).
+
+## Email
+
+Sign-in emails go out through Resend (custom SMTP in Supabase) from hello@tuffo.app;
+Resend's records live on `send.tuffo.app` and `resend._domainkey`. Incoming mail to
+hello@ and privacy@ is forwarded to the developer's inbox by ImprovMX (free plan): MX
+`mx1.improvmx.com` (10) and `mx2.improvmx.com` (20) plus SPF
+`v=spf1 include:spf.improvmx.com ~all` on the root domain, added in Vercel DNS with the
+ImprovMX preset.
 
 ## Brand
 
