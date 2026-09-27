@@ -12,6 +12,12 @@
   --navy: #0b2e4f;
   --ice: #8fd3f4;
   --sun: #f5b301;
+  /* Chart marks, validated with the dataviz six checks on the card surface (#ffffff). */
+  --chart-chem: #0e7c9e;
+  --chart-uv: #c98500;
+  --chart-rain: #4a3aa7;
+  --chart-grid: #e3ebf0;
+  --chart-axis: #c5d3dd;
 }
 
 @theme inline {
@@ -25,6 +31,11 @@
   --color-navy: var(--navy);
   --color-ice: var(--ice);
   --color-sun: var(--sun);
+  --color-chart-chem: var(--chart-chem);
+  --color-chart-uv: var(--chart-uv);
+  --color-chart-rain: var(--chart-rain);
+  --color-chart-grid: var(--chart-grid);
+  --color-chart-axis: var(--chart-axis);
   --font-sans: var(--font-manrope);
   --font-display: var(--font-sora);
 }
@@ -38,6 +49,12 @@
     --border: #22384a;
     --lagoon: #159ec7;
     --lagoon-deep: #0e7c9e;
+    /* Dark steps, validated against the dark card surface (#11212e). */
+    --chart-chem: #159ec7;
+    --chart-uv: #c98500;
+    --chart-rain: #8a6cf0;
+    --chart-grid: #1f3344;
+    --chart-axis: #2b4356;
   }
 }
 

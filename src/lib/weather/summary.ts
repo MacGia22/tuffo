@@ -15,8 +15,15 @@ export interface WeatherDay {
 export interface BetweenSummary {
   /** Whole days between the two tests, at least 1. */
   days: number;
-  /** Free chlorine lost per day, ppm; null when either test lacks FC. Doses are not yet subtracted. */
+  /**
+   * Free chlorine used per day, ppm: (before + added by logged doses − after) / days.
+   * Null when either test lacks FC.
+   */
   fcLossPerDay: number | null;
+  /** Free chlorine added by logged doses between the two tests, ppm. */
+  fcAddedPpm: number;
+  /** Plain-language notes about logged events between the tests. */
+  notes: string[];
   /** Averages over the days with data; null when no weather rows exist. */
   avgUvMax: number | null;
   avgTmaxC: number | null;
@@ -33,11 +40,16 @@ export function summarizeBetween(
   previous: { taken_at: string; fc: number | null },
   latest: { taken_at: string; fc: number | null },
   weather: WeatherDay[],
+  options: { fcAddedPpm?: number; notes?: string[] } = {},
 ): BetweenSummary {
   const ms = new Date(latest.taken_at).getTime() - new Date(previous.taken_at).getTime();
   const days = Math.max(1, Math.round(ms / 86_400_000));
+  const fcAddedPpm = Math.max(0, options.fcAddedPpm ?? 0);
+  const exactDays = Math.max(ms / 86_400_000, 1 / 24);
   const fcLossPerDay =
-    previous.fc !== null && latest.fc !== null ? Math.max(0, (previous.fc - latest.fc) / (ms / 86_400_000)) : null;
+    previous.fc !== null && latest.fc !== null
+      ? Math.max(0, (previous.fc + fcAddedPpm - latest.fc) / exactDays)
+      : null;
 
   const uv = weather.map((d) => d.uv_index_max).filter((v): v is number => v !== null);
   const tmax = weather.map((d) => d.tmax_c).filter((v): v is number => v !== null);
@@ -52,6 +64,8 @@ export function summarizeBetween(
     sunshineHours: sun.length ? Math.round((sun.reduce((a, b) => a + b, 0) / 3600) * 10) / 10 : null,
     rainMm: rain.length ? Math.round(rain.reduce((a, b) => a + b, 0) * 10) / 10 : null,
     daysWithWeather: weather.length,
+    fcAddedPpm: Math.round(fcAddedPpm * 10) / 10,
+    notes: options.notes ?? [],
   };
 }
 

@@ -1,11 +1,13 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { requireUser } from "@/lib/auth/user";
 import { displayVolumeToLiters, type Units } from "@/lib/format";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { cellFor } from "@/lib/weather/cells";
+import { refreshCellIfStale } from "@/lib/weather/job";
 import { searchPlaces, type Place } from "@/lib/weather/geocode";
 
 export interface PlaceSearchResult {
@@ -106,6 +108,10 @@ export async function createPool(_prev: CreatePoolState, formData: FormData): Pr
 
   // First pool: remember the unit system the user typed in.
   await supabase.from("profiles").update({ units }).eq("id", user.id);
+
+  // Fetch this cell's weather (with a month of history) once the response is out,
+  // so the pool page has it without waiting for the nightly job.
+  after(() => refreshCellIfStale(admin, cell.id));
 
   redirect(`/app/pools/${pool.id}`);
 }

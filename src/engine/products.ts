@@ -53,7 +53,7 @@ export const products: Record<string, Product> = {
     strength: 12.5 * 10,
     sideEffects: {},
     density: 1.2,
-    note: "Trade percent labelling; 10% household bleach has strength 100.",
+    note: "Amount is for 12.5% chlorine; if your jug says 10%, pick that product instead.",
   },
   "liquid-chlorine-10": {
     id: "liquid-chlorine-10",
@@ -114,7 +114,7 @@ export const products: Record<string, Product> = {
     strength: -(0.3145 * 1.16) / 36.461 * CACO3_MG_PER_EQ,
     sideEffects: {},
     density: 1.16,
-    note: "Lowers pH; also lowers TA by the same CaCO3-equivalent amount.",
+    note: "Also lowers total alkalinity a little.",
   },
   "dry-acid-93": {
     id: "dry-acid-93",
@@ -132,7 +132,7 @@ export const products: Record<string, Product> = {
     // 2 equivalents per mole of Na2CO3
     strength: (2 / 105.99) * CACO3_MG_PER_EQ,
     sideEffects: {},
-    note: "Raises pH and TA together.",
+    note: "Raises total alkalinity too.",
   },
   "baking-soda": {
     id: "baking-soda",
@@ -141,7 +141,7 @@ export const products: Record<string, Product> = {
     raises: "ta",
     strength: (1 / 84.007) * CACO3_MG_PER_EQ,
     sideEffects: {},
-    note: "Raises TA with only a small pH effect.",
+    note: "Raises total alkalinity with only a small effect on pH.",
   },
   "calcium-chloride-97": {
     id: "calcium-chloride-97",

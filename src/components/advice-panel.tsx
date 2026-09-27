@@ -1,16 +1,8 @@
+import Link from "next/link";
 import type { Advice, Recommendation, Severity } from "@/lib/advice";
-import { formatDoseAmount } from "@/lib/dose-format";
+import { catalogProduct } from "@/lib/catalog";
+import { baseToShelf, formatShelf } from "@/lib/dose-format";
 import type { Units } from "@/lib/format";
-
-const PRODUCT_NAMES: Record<string, string> = {
-  "liquid-chlorine-12.5": "liquid chlorine 12.5%",
-  "muriatic-acid-31.45": "muriatic acid 31.45%",
-  "soda-ash": "soda ash",
-  "baking-soda": "baking soda",
-  "calcium-chloride-77": "calcium chloride (77%)",
-  "cyanuric-acid": "stabilizer (cyanuric acid)",
-  salt: "pool salt",
-};
 
 const TONE: Record<Severity, string> = {
   act: "border-sun/70 bg-sun/10",
@@ -26,17 +18,32 @@ const BADGE: Record<Severity, string> = {
 
 const BADGE_TEXT: Record<Severity, string> = { act: "Add", watch: "Watch", ok: "Fine" };
 
-function DoseLine({ item, units }: { item: Recommendation; units: Units }) {
+function DoseLine({ item, units, poolId }: { item: Recommendation; units: Units; poolId: string }) {
   if (!item.dose || item.dose.amount <= 0) return null;
-  const name = PRODUCT_NAMES[item.dose.productId] ?? item.dose.productId;
+  const name = catalogProduct(item.dose.productId)?.short ?? item.dose.productId;
+  const shelf = baseToShelf(item.dose.amount, item.dose.unit, units);
+  if (shelf.value <= 0) return null;
+  const logHref = `/app/pools/${poolId}/doses/new?${new URLSearchParams({
+    product: item.dose.productId,
+    amount: String(shelf.value),
+    unit: shelf.unit,
+  })}`;
   return (
-    <p className="mt-2 font-display text-lg font-semibold">
-      Add {formatDoseAmount(item.dose.amount, item.dose.unit, units)} of {name}
-    </p>
+    <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+      <p className="font-display text-lg font-semibold">
+        Add {formatShelf(shelf.value, shelf.unit)} of {name}
+      </p>
+      <Link
+        href={logHref}
+        className="rounded-lg border border-lagoon px-3 py-1.5 text-sm font-semibold text-lagoon hover:bg-lagoon/10"
+      >
+        I added it
+      </Link>
+    </div>
   );
 }
 
-export function AdvicePanel({ advice, units }: { advice: Advice; units: Units }) {
+export function AdvicePanel({ advice, units, poolId }: { advice: Advice; units: Units; poolId: string }) {
   return (
     <section aria-labelledby="advice" className="flex flex-col gap-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -55,7 +62,7 @@ export function AdvicePanel({ advice, units }: { advice: Advice; units: Units })
               </span>
             </div>
             <p className="mt-1 text-sm text-muted">{item.detail}</p>
-            <DoseLine item={item} units={units} />
+            <DoseLine item={item} units={units} poolId={poolId} />
             {item.dose?.notes.length ? (
               <ul className="mt-2 list-disc pl-5 text-xs text-muted">
                 {item.dose.notes.map((note) => (

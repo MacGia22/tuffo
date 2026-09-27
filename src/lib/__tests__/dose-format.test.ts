@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDoseAmount } from "../dose-format";
+import { baseToShelf, formatDoseAmount, isShelfUnit, shelfToBase, shelfUnits } from "../dose-format";
 
 describe("formatDoseAmount", () => {
   it("uses shelf units in the US", () => {
@@ -19,5 +19,24 @@ describe("formatDoseAmount", () => {
 
   it("says nothing for zero", () => {
     expect(formatDoseAmount(0, "g", "us")).toBe("nothing");
+  });
+});
+
+describe("shelf conversions", () => {
+  it("offers the units on the shelf", () => {
+    expect(shelfUnits("liquid", "us")).toEqual(["fl oz", "qt", "gal"]);
+    expect(shelfUnits("solid", "metric")).toEqual(["g", "kg"]);
+  });
+
+  it("converts shelf amounts to base units and back", () => {
+    expect(shelfToBase(2.5, "qt")).toEqual({ amount: 2.5 * 946.352946, unit: "mL" });
+    expect(shelfToBase(1, "lb").unit).toBe("g");
+    expect(baseToShelf(shelfToBase(2.5, "qt").amount, "mL", "us")).toEqual({ value: 2.5, unit: "qt" });
+    expect(baseToShelf(2270, "mL", "metric")).toEqual({ value: 2.3, unit: "L" });
+  });
+
+  it("knows its units", () => {
+    expect(isShelfUnit("fl oz")).toBe(true);
+    expect(isShelfUnit("cup")).toBe(false);
   });
 });

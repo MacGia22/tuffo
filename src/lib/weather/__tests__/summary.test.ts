@@ -23,6 +23,19 @@ describe("summarizeBetween", () => {
     expect(s.daysWithWeather).toBe(3);
   });
 
+  it("counts chlorine added between the tests", () => {
+    const s = summarizeBetween(
+      { taken_at: "2026-09-15T12:00:00Z", fc: 7 },
+      { taken_at: "2026-09-17T12:00:00Z", fc: 6 },
+      [],
+      { fcAddedPpm: 5, notes: ["Topped up 1 in of fresh water"] },
+    );
+    // (7 + 5 − 6) / 2 days
+    expect(s.fcLossPerDay).toBe(3);
+    expect(s.fcAddedPpm).toBe(5);
+    expect(s.notes).toEqual(["Topped up 1 in of fresh water"]);
+  });
+
   it("never reports a negative loss and handles missing FC", () => {
     expect(
       summarizeBetween({ taken_at: "2026-09-15T12:00:00Z", fc: 3 }, { taken_at: "2026-09-16T12:00:00Z", fc: 5 }, [])
