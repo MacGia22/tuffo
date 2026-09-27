@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useRef, useState } from "react";
-import { ScanButton, type ScanResponse } from "@/components/scan-button";
+import { ScanButton, type ScanAllowance, type ScanResponse } from "@/components/scan-button";
 import type { Units } from "@/lib/format";
 import { createReading, type ReadingState } from "./actions";
 
@@ -41,11 +41,13 @@ export function ReadingForm({
   units,
   swg,
   scanEnabled,
+  scanAllowance,
 }: {
   poolId: string;
   units: Units;
   swg: boolean;
   scanEnabled: boolean;
+  scanAllowance: ScanAllowance | null;
 }) {
   const [state, action, pending] = useActionState(createReading, initial);
   const f = state.fields ?? {};
@@ -105,7 +107,7 @@ export function ReadingForm({
 
       {scanEnabled ? (
         <div className="flex flex-col gap-3 rounded-2xl border border-dashed border-border p-4">
-          <ScanButton onResult={applyScan} disabled={pending} />
+          <ScanButton onResult={applyScan} disabled={pending} allowance={scanAllowance} />
           <p className="text-xs text-muted">
             Photograph the pool store&apos;s printout, a test strip beside its chart, or a tester screen. The numbers
             land in the form for you to check; the photo is read once and not kept.

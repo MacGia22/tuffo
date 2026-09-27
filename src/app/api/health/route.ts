@@ -4,8 +4,8 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 /**
  * Liveness plus configuration check. Reports whether the Supabase variables are
  * present, what shape they have and whether the project answers with the publishable
- * key. Never returns a value, only yes/no and coarse shapes, so it is safe to leave
- * public.
+ * key. Never returns a value, only yes/no, coarse shapes and job timestamps, so it is
+ * safe to leave public.
  */
 
 type UrlShape =
@@ -123,7 +123,63 @@ async function probe(url: string, apikey: string): Promise<number | string> {
   }
 }
 
-const TABLES = ["profiles", "weather_cells", "weather_daily", "weather_forecast", "pools", "readings", "doses", "events", "pool_models"];
+const TABLES = [
+  "profiles",
+  "weather_cells",
+  "weather_daily",
+  "weather_forecast",
+  "pools",
+  "readings",
+  "doses",
+  "events",
+  "pool_models",
+  "scans",
+];
+
+/** A cell whose actuals are older than this is late: the nightly job runs every 24 hours. */
+const WEATHER_LATE_HOURS = 30;
+
+/**
+ * When the weather was last fetched, for the freshest and the most out-of-date active
+ * cell. Timestamps only: no counts, no locations.
+ */
+async function weatherFreshness(): Promise<{
+  newest: string | null;
+  oldest: string | null;
+  neverFetched: boolean;
+  late: boolean;
+} | null> {
+  try {
+    const admin = createSupabaseAdminClient();
+    const [newest, oldest, never] = await Promise.all([
+      admin
+        .from("weather_cells")
+        .select("last_actuals_at")
+        .eq("active", true)
+        .not("last_actuals_at", "is", null)
+        .order("last_actuals_at", { ascending: false })
+        .limit(1)
+        .maybeSingle<{ last_actuals_at: string }>(),
+      admin
+        .from("weather_cells")
+        .select("last_actuals_at")
+        .eq("active", true)
+        .not("last_actuals_at", "is", null)
+        .order("last_actuals_at", { ascending: true })
+        .limit(1)
+        .maybeSingle<{ last_actuals_at: string }>(),
+      admin.from("weather_cells").select("id").eq("active", true).is("last_actuals_at", null).limit(1),
+    ]);
+    if (newest.error || oldest.error || never.error) return null;
+    const oldestAt = oldest.data?.last_actuals_at ?? null;
+    const neverFetched = (never.data?.length ?? 0) > 0;
+    const late =
+      neverFetched || (oldestAt !== null && Date.now() - Date.parse(oldestAt) > WEATHER_LATE_HOURS * 3_600_000);
+    return { newest: newest.data?.last_actuals_at ?? null, oldest: oldestAt, neverFetched, late };
+  } catch {
+    return null;
+  }
+}
 
 /** Which tables exist, checked with the secret key (a GET for zero rows, so errors carry a body). */
 async function schemaPresent(): Promise<{ tables: Record<string, boolean>; error: string | null } | null> {
@@ -158,7 +214,8 @@ export async function GET() {
     ]);
   }
   const reachable = auth === null ? null : auth === 200;
-  const schema = reachable && secretKey ? await schemaPresent() : null;
+  const [schema, weather] =
+    reachable && secretKey ? await Promise.all([schemaPresent(), weatherFreshness()]) : [null, null];
 
   return Response.json({
     ok: true,
@@ -178,6 +235,7 @@ export async function GET() {
       probes: { auth, rest },
       schema,
     },
+    weather,
     cron: Boolean(serverEnv.cronSecret()),
     scan: Boolean(serverEnv.anthropicApiKey()),
     waitlist: Boolean(serverEnv.waitlistWebhookUrl()),

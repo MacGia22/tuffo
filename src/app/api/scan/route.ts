@@ -1,7 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getCurrentUser } from "@/lib/auth/user";
 import { serverEnv } from "@/lib/env";
 import { extractReading, SCAN_MEDIA_TYPES, type ScanMediaType } from "@/lib/scan/extract";
+import { decide, finishScan, scanCounts, scanLimits, startScan } from "@/lib/scan/quota";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -9,8 +12,9 @@ export const maxDuration = 60;
 const MAX_BYTES = 6 * 1024 * 1024;
 
 /**
- * POST multipart/form-data with an `image` part. Signed-in users only. Returns the
- * numbers read from the photo for review; the photo itself is not kept.
+ * POST multipart/form-data with an `image` part. Signed-in users only, within the
+ * scan allowance (see lib/scan/quota). Returns the numbers read from the photo for
+ * review and the scans left this month; the photo itself is not kept.
  */
 export async function POST(request: Request) {
   const user = await getCurrentUser();
@@ -35,9 +39,39 @@ export async function POST(request: Request) {
     return Response.json({ ok: false, error: "Use a JPEG, PNG or WebP photo." }, { status: 415 });
   }
 
+  // Allowance: checked and recorded with the service client. When the counts are
+  // unavailable the scan goes ahead; the quota must never break the feature.
+  const now = new Date();
+  const limits = scanLimits();
+  let admin: SupabaseClient | null = null;
+  try {
+    admin = createSupabaseAdminClient();
+  } catch {
+    console.error("[scan-quota] no service client; scanning without the allowance check");
+  }
+  const counts = admin ? await scanCounts(admin, user.id, now, limits) : null;
+  const decision = counts ? decide(counts, limits, now) : null;
+  if (decision && !decision.allowed) {
+    return Response.json(
+      { ok: false, error: decision.message, remaining: decision.remaining, limit: limits.monthly },
+      { status: 429 },
+    );
+  }
+  const scanId = admin ? await startScan(admin, user.id) : null;
+
   try {
     const result = await extractReading({ bytes: Buffer.from(await file.arrayBuffer()), mediaType });
-    return Response.json({ ok: true, ...result, usage: undefined });
+    if (admin && scanId) {
+      await finishScan(admin, scanId, {
+        source: result.method,
+        confidence: result.confidence,
+        model: result.usage.model,
+        inputTokens: result.usage.inputTokens,
+        outputTokens: result.usage.outputTokens,
+      });
+    }
+    const remaining = decision ? Math.max(0, decision.remaining - 1) : null;
+    return Response.json({ ok: true, ...result, usage: undefined, remaining, limit: limits.monthly });
   } catch (error) {
     if (error instanceof Anthropic.APIError) {
       // Key, billing, model or rate-limit problems are ours, not the photo's; log them for the runtime logs.

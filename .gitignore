@@ -43,3 +43,6 @@ next-env.d.ts
 # fonts are fetched by scripts/fetch-fonts.mjs
 /src/fonts/*.ttf
 !.env.example
+
+# Supabase CLI scratch
+supabase/.temp/

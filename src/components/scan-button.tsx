@@ -12,6 +12,16 @@ export interface ScanResponse {
   confidence?: "high" | "medium" | "low";
   uncertain?: string[];
   notes?: string | null;
+  /** Scans left this month after this one; null when not counted. */
+  remaining?: number | null;
+  limit?: number;
+}
+
+export interface ScanAllowance {
+  remaining: number;
+  limit: number;
+  /** "October 1" */
+  resetsOn: string;
 }
 
 const MAX_EDGE = 1800;
@@ -36,10 +46,20 @@ async function downscale(file: File): Promise<Blob> {
   }
 }
 
-export function ScanButton({ onResult, disabled }: { onResult: (result: ScanResponse) => void; disabled?: boolean }) {
+export function ScanButton({
+  onResult,
+  disabled,
+  allowance,
+}: {
+  onResult: (result: ScanResponse) => void;
+  disabled?: boolean;
+  allowance?: ScanAllowance | null;
+}) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const [remaining, setRemaining] = useState<number | null>(allowance?.remaining ?? null);
+  const usedUp = remaining === 0;
 
   async function handle(file: File) {
     setBusy(true);
@@ -50,6 +70,7 @@ export function ScanButton({ onResult, disabled }: { onResult: (result: ScanResp
       body.append("image", blob, "test.jpg");
       const response = await fetch("/api/scan", { method: "POST", body });
       const data = (await response.json()) as ScanResponse;
+      if (typeof data.remaining === "number") setRemaining(data.remaining);
       if (!response.ok || !data.ok) {
         setError(data.error ?? "Could not read that photo.");
         return;
@@ -79,7 +100,7 @@ export function ScanButton({ onResult, disabled }: { onResult: (result: ScanResp
       <button
         type="button"
         onClick={() => input.current?.click()}
-        disabled={busy || disabled}
+        disabled={busy || disabled || usedUp}
         className="inline-flex h-11 items-center gap-2 self-start rounded-xl border border-lagoon px-4 text-sm font-semibold text-lagoon hover:bg-lagoon/10 disabled:opacity-60"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -89,6 +110,13 @@ export function ScanButton({ onResult, disabled }: { onResult: (result: ScanResp
         {busy ? "Reading the photo…" : "Scan a printout or strip"}
       </button>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {allowance && remaining !== null && !(usedUp && error) ? (
+        <p className="text-xs text-muted">
+          {usedUp
+            ? `You have used this month's ${allowance.limit} scans; they start again on ${allowance.resetsOn}. Type the numbers below.`
+            : `${remaining} of ${allowance.limit} scans left this month.`}
+        </p>
+      ) : null}
     </div>
   );
 }

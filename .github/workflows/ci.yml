@@ -24,3 +24,34 @@ jobs:
       - run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: "1"
+
+  # Applies new files in supabase/migrations to the production database once the
+  # checks pass on main. Needs the SUPABASE_DB_URL secret (Supabase session pooler
+  # URI, port 5432); without it the job only leaves a notice. Vercel deploys in
+  # parallel, so every migration must work with the code that is already live.
+  migrate:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: migrate-production
+      cancel-in-progress: false
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: No database secret
+        if: env.SUPABASE_DB_URL == ''
+        run: echo "::notice::SUPABASE_DB_URL is not set, so migrations were not applied."
+      - uses: supabase/setup-cli@v3
+        if: env.SUPABASE_DB_URL != ''
+        with:
+          version: 2.118.0
+      # These two were run by hand in the SQL editor before this job existed; marking
+      # them applied is harmless to repeat and keeps db push from running them again.
+      - name: Record the hand-applied migrations
+        if: env.SUPABASE_DB_URL != ''
+        run: supabase migration repair --status applied 20260918000001 20260918000002 --db-url "$SUPABASE_DB_URL"
+      - name: Apply new migrations
+        if: env.SUPABASE_DB_URL != ''
+        run: supabase db push --db-url "$SUPABASE_DB_URL" --yes
