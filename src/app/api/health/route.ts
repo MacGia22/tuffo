@@ -238,6 +238,7 @@ export async function GET() {
     weather,
     cron: Boolean(serverEnv.cronSecret()),
     scan: Boolean(serverEnv.anthropicApiKey()),
+    sentry: Boolean(serverEnv.sentryDsn()),
     waitlist: Boolean(serverEnv.waitlistWebhookUrl()),
   });
 }
