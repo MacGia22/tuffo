@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { TuffoLockup } from "@/components/brand/logo";
+import { InstallBanner } from "@/components/install-banner";
 import { isAdmin } from "@/lib/auth/admin";
 import { requireUser } from "@/lib/auth/user";
 import { feedbackMailto } from "@/lib/beta";
@@ -44,7 +45,10 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
           </div>
         </div>
       </header>
-      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-5 py-8">{children}</main>
+      <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-5 py-8">
+        <InstallBanner />
+        {children}
+      </main>
       <footer className="border-t border-border">
         <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-x-5 gap-y-2 px-5 py-5 text-xs text-muted">
           <p>

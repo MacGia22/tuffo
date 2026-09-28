@@ -28,6 +28,8 @@ export const metadata: Metadata = {
   description:
     "Log your pool water tests, see what the sun, heat and rain did between them, and get a 7-day dosing plan for your pool.",
   applicationName: "Tuffo",
+  // Opened from an iPhone's home screen: full screen, named Tuffo.
+  appleWebApp: { capable: true, title: "Tuffo", statusBarStyle: "default" },
   openGraph: {
     type: "website",
     siteName: "Tuffo",
