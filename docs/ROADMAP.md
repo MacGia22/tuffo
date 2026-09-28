@@ -45,14 +45,14 @@ The public launch (end of milestone 3) happens when all of these hold:
 
 ## Milestone 2: private beta (target 2026-10-23)
 
-### 2.1 Observability
+### 2.1 Observability — done 2026-09-28 (#3)
 - Add Sentry for server and browser (`@sentry/nextjs`), release = commit SHA, no emails
   or request bodies in events (scrub PII), sample rate low. Env: `SENTRY_DSN`,
   `SENTRY_AUTH_TOKEN` for source maps (upload them, but do not serve them publicly).
 - Add Sentry to `/api/health` as a yes/no flag and to the weekly check.
 - Done when a thrown test error shows up in Sentry without personal data.
 
-### 2.2 Row-level-security tests in CI
+### 2.2 Row-level-security tests in CI — done 2026-09-28 (#4)
 - New CI job with a `postgres:16` service: create the stand-in auth schema and roles
   (see `supabase/README.md`), apply every migration, run SQL tests.
 - Tests prove: user A cannot select, insert, update or delete user B's pools, readings,
@@ -60,7 +60,7 @@ The public launch (end of milestone 3) happens when all of these hold:
   `pool_models`; running each migration twice is harmless.
 - Done when the job fails on a deliberately broken policy and passes on `main`.
 
-### 2.3 Chlorine-consumption model v1 (the core IP)
+### 2.3 Chlorine-consumption model v1 (the core IP) — done 2026-09-28 (#5); backtest waits for beta data
 - Pure math in `src/engine/model.ts`, orchestration in `src/lib/model/`, results in
   `pool_models` (server-only).
 - Observations: for each pair of consecutive tests with FC,
@@ -79,7 +79,7 @@ The public launch (end of milestone 3) happens when all of these hold:
 - Done when engine tests cover the fit on synthetic data with known coefficients, and a
   backtest script prints next-test error on real beta data.
 
-### 2.4 Beta invitations and feedback
+### 2.4 Beta invitations and feedback — done 2026-09-28 (#6)
 - Waitlist into a `waitlist` table (RLS, server-only insert, rate-limited) instead of the
   webhook; admin export via SQL.
 - Invite flow: keep sign-ups closed; invite by email with Supabase's admin API from a

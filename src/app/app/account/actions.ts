@@ -23,7 +23,8 @@ export async function updateUnits(_prev: AccountState, formData: FormData): Prom
 
 /**
  * Deletes the account and everything under it. Pools, readings, doses and events
- * cascade from auth.users; the profile row too. The confirmation word is checked
+ * cascade from auth.users; the profile row too, and any waitlist entry for the same
+ * address is removed. The confirmation word is checked
  * server-side so a stray click cannot do it.
  */
 export async function deleteAccount(_prev: AccountState, formData: FormData): Promise<AccountState> {
@@ -34,6 +35,10 @@ export async function deleteAccount(_prev: AccountState, formData: FormData): Pr
   const admin = createSupabaseAdminClient();
   const { error } = await admin.auth.admin.deleteUser(user.id);
   if (error) return { error: `Could not delete the account (${error.message}). Write to privacy@tuffo.app.` };
+  if (user.email) {
+    const { error: waitlistError } = await admin.from("waitlist").delete().eq("email", user.email.toLowerCase());
+    if (waitlistError) console.error(`[account] waitlist cleanup: ${waitlistError.message}`);
+  }
 
   const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();

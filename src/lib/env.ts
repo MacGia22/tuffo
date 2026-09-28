@@ -34,7 +34,10 @@ export const publicEnv = {
 
 export const serverEnv = {
   supabaseSecretKey: () => first("SUPABASE_SECRET_KEY", "SUPABASE_SERVICE_ROLE_KEY"),
-  waitlistWebhookUrl: () => first("WAITLIST_WEBHOOK_URL"),
+  /** Optional cap on waitlist sign-ups per hour across everyone (default 100). */
+  waitlistHourlyLimit: () => first("WAITLIST_HOURLY_LIMIT"),
+  /** Comma-separated emails that may use /app/admin (invites). Unset = nobody. */
+  adminEmails: () => first("ADMIN_EMAILS"),
   /** Shared secret the Vercel cron sends as a bearer token to /api/jobs/*. */
   cronSecret: () => first("CRON_SECRET"),
   /** Enables photo scanning of test results (Anthropic API). */

@@ -134,6 +134,7 @@ const TABLES = [
   "events",
   "pool_models",
   "scans",
+  "waitlist",
 ];
 
 /** A cell whose actuals are older than this is late: the nightly job runs every 24 hours. */
@@ -239,6 +240,7 @@ export async function GET() {
     cron: Boolean(serverEnv.cronSecret()),
     scan: Boolean(serverEnv.anthropicApiKey()),
     sentry: Boolean(serverEnv.sentryDsn()),
-    waitlist: Boolean(serverEnv.waitlistWebhookUrl()),
+    waitlist: schema?.tables.waitlist === true,
+    admins: Boolean(serverEnv.adminEmails()),
   });
 }
