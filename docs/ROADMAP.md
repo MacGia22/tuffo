@@ -79,7 +79,7 @@ The public launch (end of milestone 3) happens when all of these hold:
 - Done when engine tests cover the fit on synthetic data with known coefficients, and a
   backtest script prints next-test error on real beta data.
 
-### 2.4 Beta invitations and feedback
+### 2.4 Beta invitations and feedback — done 2026-09-28 (#6)
 - Waitlist into a `waitlist` table (RLS, server-only insert, rate-limited) instead of the
   webhook; admin export via SQL.
 - Invite flow: keep sign-ups closed; invite by email with Supabase's admin API from a
