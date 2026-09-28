@@ -1,10 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { safeNextPath } from "@/lib/auth/redirects";
+import { settleAfterSignIn } from "@/lib/supabase/settle";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 // Always rendered per request: depends on the session cookie.
 export const dynamic = "force-dynamic";
+// Room for the wait after sign-in (see settleAfterSignIn).
+export const maxDuration = 30;
 
 /**
  * Where magic links land. Exchanges the one-time code (PKCE) or token hash for a
@@ -20,12 +23,15 @@ export async function GET(request: NextRequest) {
   const supabase = await createSupabaseServerClient();
 
   let failed = true;
+  let accessToken: string | undefined;
   if (code) {
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     failed = Boolean(error);
+    accessToken = data.session?.access_token;
   } else if (tokenHash && type) {
-    const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
+    const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
     failed = Boolean(error);
+    accessToken = data.session?.access_token;
   }
 
   if (failed) {
@@ -35,7 +41,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(login);
   }
 
-  // The database can see a brand-new token as "issued in the future" for about a second.
-  await new Promise((resolve) => setTimeout(resolve, 1200));
+  // The database can see a brand-new token as "issued in the future"; wait until it is not.
+  await settleAfterSignIn("callback", accessToken);
   return NextResponse.redirect(new URL(next, origin));
 }
