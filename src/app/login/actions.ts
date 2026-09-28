@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { publicEnv } from "@/lib/env";
 import { safeNextPath } from "@/lib/auth/redirects";
 import { signupSource } from "@/lib/beta";
+import { settleAfterSignIn } from "@/lib/supabase/settle";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export interface SignInState {
@@ -75,9 +76,6 @@ export async function sendMagicLink(_prev: SignInState, formData: FormData): Pro
   return { status: "sent", email };
 }
 
-/** The database can see a brand-new token as "issued in the future" for about a second. */
-const settleClock = () => new Promise((resolve) => setTimeout(resolve, 1200));
-
 export interface CodeState {
   status: "idle" | "error";
   message?: string;
@@ -100,7 +98,7 @@ export async function verifyCode(_prev: CodeState, formData: FormData): Promise<
   }
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
+  const { data, error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
   if (error) {
     return {
       status: "error",
@@ -110,6 +108,7 @@ export async function verifyCode(_prev: CodeState, formData: FormData): Promise<
     };
   }
 
-  await settleClock();
+  // The database can see a brand-new token as "issued in the future"; wait until it is not.
+  await settleAfterSignIn("code", data.session?.access_token);
   redirect(next);
 }

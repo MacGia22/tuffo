@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { retryAllOnClockSkew } from "@/lib/supabase/retry";
+import { isClockSkewError, retryAllOnClockSkew } from "@/lib/supabase/retry";
+import { reportClockSkew } from "@/lib/supabase/settle";
 import { formatVolume } from "@/lib/format";
 
 interface PoolRow {
@@ -25,6 +26,11 @@ export default async function PoolsPage() {
     ]),
   );
   const units = profile?.units ?? "us";
+  if (isClockSkewError(error)) {
+    // Still refused after the retries: record how far ahead the token is, to fix it for good.
+    const { data } = await supabase.auth.getSession();
+    reportClockSkew("pools-list", data.session?.access_token);
+  }
 
   return (
     <>

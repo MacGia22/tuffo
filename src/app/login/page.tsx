@@ -8,6 +8,8 @@ import { LoginForm } from "./login-form";
 
 // Always rendered per request: depends on the session cookie.
 export const dynamic = "force-dynamic";
+// Room for the wait after a code sign-in (see settleAfterSignIn).
+export const maxDuration = 30;
 
 export const metadata: Metadata = {
   title: "Sign in",
