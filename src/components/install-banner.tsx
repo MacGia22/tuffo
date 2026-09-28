@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { installPlatform, type InstallPlatform } from "@/lib/install";
+import { InstallSteps } from "./install-steps";
 
 const DISMISSED_KEY = "tuffo.install-banner.dismissed";
 
@@ -69,44 +70,25 @@ export function InstallBanner() {
     if (outcome === "accepted") setPlatform(null);
   }
 
-  let steps: React.ReactNode;
-  if (platform === "ios") {
-    steps = (
-      <>
-        In Safari, tap <strong>Share</strong> <span aria-hidden="true">(the square with an arrow)</span>, then{" "}
-        <strong>Add to Home Screen</strong>. In Chrome, tap <strong>Share</strong> in the address bar, then{" "}
-        <strong>Add to Home Screen</strong>.
-      </>
-    );
-  } else if (platform === "android") {
-    steps = prompt ? (
-      <>Install it for one-tap access, full screen, like any other app.</>
-    ) : (
-      <>
-        Tap the <strong>⋮</strong> menu, then <strong>Add to Home screen</strong> or <strong>Install app</strong>.
-      </>
-    );
-  } else {
-    steps = prompt ? (
-      <>Install it to open Tuffo in its own window.</>
-    ) : (
-      <>
-        Click the install icon at the right end of the address bar, or the <strong>⋮</strong> /{" "}
-        <strong>…</strong> menu, then <strong>Install Tuffo</strong>.
-      </>
-    );
-  }
+  // With a one-tap install from the browser, a sentence is enough; otherwise, the steps.
+  const oneTap = prompt !== null && platform !== "ios";
 
   return (
     <section
       aria-labelledby="install-title"
       className="flex flex-col gap-3 rounded-2xl border border-lagoon/30 bg-lagoon/5 p-4 sm:flex-row sm:items-center sm:justify-between"
     >
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-2">
         <h2 id="install-title" className="text-base font-semibold">
           {platform === "desktop" ? "Install Tuffo on this computer" : "Add Tuffo to your home screen"}
         </h2>
-        <p className="text-sm text-muted">{steps}</p>
+        {oneTap ? (
+          <p className="text-sm text-muted">
+            {platform === "desktop" ? "Install it to open Tuffo in its own window." : "Install it for one-tap access, full screen, like any other app."}
+          </p>
+        ) : (
+          <InstallSteps platform={platform} />
+        )}
       </div>
       <div className="flex shrink-0 gap-2">
         {prompt ? (

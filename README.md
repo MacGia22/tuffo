@@ -228,8 +228,9 @@ ImprovMX preset.
 
 The app is a web app with a manifest (`src/app/manifest.ts`, opens at `/app`). Inside the
 app, `src/components/install-banner.tsx` shows how to add it to the home screen for the
-device in use (iPhone/iPad: Share, then Add to Home Screen; Android and desktop Chrome or
-Edge: an Install button when the browser offers one, otherwise the menu steps). It is
+device in use, as numbered steps with small icons (`install-steps.tsx`). iPhone/iPad:
+menu button by the address, Share, View More, Add to Home Screen. Android and desktop
+Chrome or Edge: an Install button when the browser offers one, otherwise the menu steps. It is
 hidden once installed, where installing is not possible, and after it is closed (a flag
 in the browser's local storage on that device).
 
