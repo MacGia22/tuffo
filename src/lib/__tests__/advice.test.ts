@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adviseFor, type AdviceReading } from "../advice";
+import { adviseFor, type AdviceReading, type LoggedDose } from "../advice";
 
 const pool = { volumeL: 56781, sanitizer: "chlorine" as const, surface: "plaster" as const }; // 15,000 gal
 
@@ -71,5 +71,38 @@ describe("adviseFor", () => {
     // 800 ppm in 56,781 L ≈ 45 kg
     expect(salt?.dose?.amount).toBeGreaterThan(44_000);
     expect(salt?.dose?.amount).toBeLessThan(46_000);
+  });
+
+  it("counts stabilizer logged after the test instead of asking for more", () => {
+    const pound: LoggedDose = { productId: "cyanuric-acid", amount: 453.6, amountText: "1 lb", dateText: "Sep 27" };
+    const swgPool = { ...pool, volumeL: 18927, sanitizer: "swg" as const }; // 5,000 gal: 1 lb ≈ +12 ppm
+    const before = adviseFor(swgPool, { ...balanced, cya: 52 });
+    expect(before.items.find((i) => i.measure === "cya")?.dose).toBeDefined();
+    const after = adviseFor(swgPool, { ...balanced, cya: 52 }, [pound]);
+    const cya = after.items.find((i) => i.measure === "cya");
+    expect(cya?.severity).toBe("ok");
+    expect(cya?.title).toMatch(/^Stabilizer about \d+ ppm is in range$/);
+    expect(cya?.detail).toContain("Counts your 1 lb from Sep 27");
+    expect(cya?.detail).toContain("about a week");
+    expect(cya?.dose).toBeUndefined();
+  });
+
+  it("asks for a retest, not a dose, after chlorine or acid is logged", () => {
+    const advice = adviseFor(pool, { ...balanced, fc: 1, ph: 8.0 }, [
+      { productId: "liquid-chlorine-12.5", amount: 1900, amountText: "2 qt", dateText: "Sep 27" },
+      { productId: "muriatic-acid-31.45", amount: 400, amountText: "13.5 fl oz", dateText: "Sep 27" },
+    ]);
+    const fc = advice.items.find((i) => i.measure === "fc");
+    const ph = advice.items.find((i) => i.measure === "ph");
+    expect(fc?.title).toBe("Retest free chlorine before adding more");
+    expect(fc?.detail).toContain("2 qt of liquid chlorine 12.5% from Sep 27");
+    expect(fc?.dose).toBeUndefined();
+    expect(ph?.title).toBe("Retest pH before adding more");
+    expect(ph?.dose).toBeUndefined();
+  });
+
+  it("tells a salt pool with high chlorine to turn the cell down", () => {
+    const advice = adviseFor({ ...pool, sanitizer: "swg" }, { ...balanced, fc: 8 });
+    expect(advice.items.find((i) => i.measure === "fc")?.detail).toContain("chlorinator output down");
   });
 });

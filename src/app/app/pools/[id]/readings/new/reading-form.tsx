@@ -2,7 +2,7 @@
 
 import { useActionState, useRef, useState } from "react";
 import { ScanButton, type ScanAllowance, type ScanResponse } from "@/components/scan-button";
-import type { Units } from "@/lib/format";
+import { READING_METHODS, type Units } from "@/lib/format";
 import { createReading, type ReadingState } from "./actions";
 
 const initial: ReadingState = {};
@@ -167,13 +167,11 @@ export function ReadingForm({
             onChange={(e) => set("method", e.target.value)}
             className={input}
           >
-            <option value="drop_kit">Drop test kit</option>
-            <option value="strips">Test strips</option>
-            <option value="digital">Digital tester</option>
-            <option value="store_leslies">Leslie&apos;s store test</option>
-            <option value="store_pinch">Pinch A Penny store test</option>
-            <option value="monitor">Smart monitor</option>
-            <option value="other">Other</option>
+            {READING_METHODS.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
           </select>
         </div>
         <div className="flex flex-col gap-1.5">
