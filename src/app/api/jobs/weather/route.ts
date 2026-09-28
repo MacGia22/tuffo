@@ -1,5 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
-import { serverEnv } from "@/lib/env";
+import { cronAuthorised } from "@/lib/auth/cron";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { recomputeAllModels } from "@/lib/model/recompute";
 import { pruneScanLog } from "@/lib/scan/quota";
@@ -14,17 +13,8 @@ export const maxDuration = 60;
  * weather for every active cell, refits every pool's chlorine model on it, then trims
  * the photo-scan log to a year.
  */
-function authorised(request: Request): boolean {
-  const secret = serverEnv.cronSecret();
-  if (!secret) return false;
-  const header = request.headers.get("authorization") ?? "";
-  const expected = `Bearer ${secret}`;
-  if (header.length !== expected.length) return false;
-  return timingSafeEqual(Buffer.from(header), Buffer.from(expected));
-}
-
 export async function GET(request: Request) {
-  if (!authorised(request)) {
+  if (!cronAuthorised(request)) {
     return Response.json({ ok: false, error: "unauthorised" }, { status: 401 });
   }
   const started = Date.now();

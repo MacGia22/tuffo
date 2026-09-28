@@ -28,6 +28,7 @@ src/lib/supabase   server, browser and admin clients; session refresh used by sr
 src/lib/weather    weather cells (0.05° grid), town lookup, refresh job, between-test summary
 src/lib/scan       photo reading (vision model) and the monthly scan allowance
 supabase           database migrations and notes
+docs/ROADMAP.md    what to build next and the final target (rules for agents: CLAUDE.md)
 ```
 
 The engine never ships to the browser: `src/engine/server.ts` imports `server-only`,
@@ -96,6 +97,9 @@ Copy `.env.example` to `.env.local`. Nothing is required for the landing page.
 | `SCAN_MODEL` | Optional model id for scans; defaults to `claude-sonnet-4-6` |
 | `SCAN_MONTHLY_LIMIT` | Optional successful scans per user per calendar month (UTC); default 30 |
 | `SCAN_DAILY_GLOBAL_LIMIT` | Optional successful scans across all users per UTC day; default 300 |
+| `SENTRY_DSN` | Turns on error reporting (server and browser); unset sends nothing. Read at build time for the browser, so redeploy after changing it |
+| `SENTRY_AUTH_TOKEN` | Optional: uploads source maps to Sentry during the build (with `SENTRY_ORG` and `SENTRY_PROJECT`); they are deleted from the build afterwards |
+| `SENTRY_ORG`, `SENTRY_PROJECT` | Sentry organization and project slugs, for the source-map upload |
 
 GitHub Actions needs one repository secret, `SUPABASE_DB_URL`, to apply migrations
 (see `supabase/README.md`).
@@ -141,6 +145,21 @@ Backtest: `CRON_SECRET=… node scripts/backtest.mjs` asks `/api/jobs/backtest` 
 each pool on its past pairs only, predict FC at each next test and print the median
 error for predictions with 4+ pairs of history, next to the error of the average pool.
 The public-launch gate is 1.0 ppm or less. Only error statistics come back.
+
+## Error reporting
+
+With `SENTRY_DSN` set, server errors (`src/instrumentation.ts`, including `onRequestError`)
+and browser errors (`src/instrumentation-client.ts`, plus `src/app/global-error.tsx`) go
+to Sentry, tagged with the commit SHA as the release. Browser reports travel through
+`/api/monitoring` on the app itself. Before anything is sent, `src/lib/sentry/scrub.ts`
+removes the user, cookies, headers (except content type and browser), request bodies,
+query strings and any email address in messages or breadcrumbs. Session replay is not
+used; 5% of requests send a performance trace.
+
+To check it end to end, send one deliberate error and look for its event id in Sentry:
+`curl -H "Authorization: Bearer $CRON_SECRET" https://tuffo.app/api/jobs/sentry-test`.
+Its message contains an example address, which should arrive as `[email]`.
+`/api/health` reports `sentry: true` once the DSN is set.
 
 ## Scheduled jobs
 
