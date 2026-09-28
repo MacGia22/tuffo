@@ -6,6 +6,7 @@ import {
   normalizeEmail,
   normalizeSource,
   parseAdminEmails,
+  signupSource,
 } from "../beta";
 
 describe("normalizeEmail", () => {
@@ -76,5 +77,14 @@ describe("normalizeSource", () => {
     expect(normalizeSource("a b")).toBe("landing");
     expect(normalizeSource("<script>")).toBe("landing");
     expect(normalizeSource("x".repeat(31))).toBe("landing");
+  });
+});
+
+describe("signupSource", () => {
+  it("keeps a real link label and drops the default", () => {
+    expect(signupSource("Pools")).toBe("pools");
+    expect(signupSource(null)).toBeNull();
+    expect(signupSource("landing")).toBeNull();
+    expect(signupSource("not valid!")).toBeNull();
   });
 });

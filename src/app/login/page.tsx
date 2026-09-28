@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { TuffoLockup } from "@/components/brand/logo";
 import { safeNextPath } from "@/lib/auth/redirects";
+import { signupSource } from "@/lib/beta";
+import { serverEnv } from "@/lib/env";
 import { LoginForm } from "./login-form";
 
 // Always rendered per request: depends on the session cookie.
@@ -16,6 +18,8 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const params = await searchParams;
   const next = safeNextPath(typeof params.next === "string" ? params.next : null);
   const failed = params.error === "link";
+  const ref = signupSource(params.ref) ?? "";
+  const open = serverEnv.signupsOpen();
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-8 px-5 py-16">
@@ -24,14 +28,18 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       </Link>
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-semibold">Sign in</h1>
-        <p className="text-muted">Private beta. Use the address you were invited with.</p>
+        <p className="text-muted">
+          {open
+            ? "New or returning, enter your email: we send a code and a link, no password. Free during the beta."
+            : "Private beta. Use the address you were invited with."}
+        </p>
       </div>
       {failed ? (
         <p role="alert" className="rounded-xl border border-sun/60 bg-sun/10 px-4 py-3 text-sm">
           That link has expired or was already used. Request a new one below.
         </p>
       ) : null}
-      <LoginForm next={next} />
+      <LoginForm next={next} source={ref} />
       <p className="text-xs text-muted">
         By signing in you agree to the <Link href="/terms" className="underline">terms</Link> and{" "}
         <Link href="/privacy" className="underline">privacy notice</Link>.
