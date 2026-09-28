@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { createRateLimiter, feedbackMailto, isAdminEmail, normalizeEmail, parseAdminEmails } from "../beta";
+import {
+  createRateLimiter,
+  feedbackMailto,
+  isAdminEmail,
+  normalizeEmail,
+  normalizeSource,
+  parseAdminEmails,
+} from "../beta";
 
 describe("normalizeEmail", () => {
   it("trims and lower-cases a valid address", () => {
@@ -54,5 +61,20 @@ describe("feedbackMailto", () => {
     const link = feedbackMailto("4ce369c");
     expect(link.startsWith("mailto:hello@tuffo.app?subject=Tuffo%20feedback&body=")).toBe(true);
     expect(decodeURIComponent(link.split("body=")[1])).toContain("App version: 4ce369c");
+  });
+});
+
+describe("normalizeSource", () => {
+  it("keeps a short link label, lower-cased", () => {
+    expect(normalizeSource("Pools")).toBe("pools");
+    expect(normalizeSource(" swimming_pools-2 ")).toBe("swimming_pools-2");
+  });
+
+  it("falls back to landing for anything else", () => {
+    expect(normalizeSource(undefined)).toBe("landing");
+    expect(normalizeSource("")).toBe("landing");
+    expect(normalizeSource("a b")).toBe("landing");
+    expect(normalizeSource("<script>")).toBe("landing");
+    expect(normalizeSource("x".repeat(31))).toBe("landing");
   });
 });

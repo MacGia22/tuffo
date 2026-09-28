@@ -65,7 +65,10 @@ only the one that requested it) and a numeric code the sign-in page accepts:
 
 The home page form stores sign-ups in the `waitlist` table (server-only, see
 `supabase/README.md`) through `POST /api/waitlist`. The answer is the same whether or
-not the address was already there. Limits: a hidden field that only bots fill in, 5
+not the address was already there. A `?ref=` on the link (`tuffo.app/?ref=pools`) is
+saved as the entry's source (letters, digits, `-`, `_`, up to 30 characters; otherwise
+"landing"), so you can see which post brought people:
+`select source, count(*) from waitlist group by source;`. Limits: a hidden field that only bots fill in, 5
 sign-ups per network address per 10 minutes (counted in memory, never stored) and
 `WAITLIST_HOURLY_LIMIT` per hour across everyone (default 100).
 
@@ -81,7 +84,7 @@ stay closed. The Supabase "Invite user" template needs a token-hash link like th
 ```
 
 Export the list from the Supabase SQL editor:
-`select email, created_at from waitlist order by created_at;` then Download CSV.
+`select email, source, created_at from waitlist order by created_at;` then Download CSV.
 
 The app footer's **Send feedback** link opens an email to hello@tuffo.app with the app
 version filled in.
