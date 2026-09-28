@@ -224,6 +224,15 @@ hello@ and privacy@ is forwarded to the developer's inbox by ImprovMX (free plan
 `v=spf1 include:spf.improvmx.com ~all` on the root domain, added in Vercel DNS with the
 ImprovMX preset.
 
+## Installing on a phone or computer
+
+The app is a web app with a manifest (`src/app/manifest.ts`, opens at `/app`). Inside the
+app, `src/components/install-banner.tsx` shows how to add it to the home screen for the
+device in use (iPhone/iPad: Share, then Add to Home Screen; Android and desktop Chrome or
+Edge: an Install button when the browser offers one, otherwise the menu steps). It is
+hidden once installed, where installing is not possible, and after it is closed (a flag
+in the browser's local storage on that device).
+
 ## Brand
 
 Colours: lagoon `#0E7C9E`, navy `#0B2E4F`, ice `#8FD3F4`, sun `#F5B301`. Type: Sora for

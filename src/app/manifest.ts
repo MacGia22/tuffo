@@ -6,7 +6,9 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "Tuffo",
     description:
       "Pool chemistry that knows your weather. Log a test, see why chlorine moved, plan the week ahead.",
-    start_url: "/",
+    // Opened from the home screen, go straight to the pools (sign-in first when needed).
+    start_url: "/app",
+    scope: "/",
     display: "standalone",
     background_color: "#f6fafc",
     theme_color: "#0e7c9e",
