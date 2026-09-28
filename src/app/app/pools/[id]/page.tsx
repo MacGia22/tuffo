@@ -6,6 +6,7 @@ import { effectsOf } from "@/engine/server";
 import { ActivityList, type ActivityItem } from "@/components/activity-list";
 import { AdvicePanel } from "@/components/advice-panel";
 import { BetweenTests } from "@/components/between-tests";
+import { ChlorineUse } from "@/components/chlorine-use";
 import { ConfirmButton } from "@/components/confirm-button";
 import { PoolCrumbs } from "@/components/pool-crumbs";
 import { TrendCharts } from "@/components/trend-charts";
@@ -15,6 +16,7 @@ import { baseToShelf, formatShelf, type BaseUnit } from "@/lib/dose-format";
 import { describeEvent } from "@/lib/events";
 import { formatDateTime, formatDay, formatTemperature, formatVolume, methodLabel, type Units } from "@/lib/format";
 import { isUuid } from "@/lib/form-data";
+import { chlorineUse } from "@/lib/model/usage";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { retryAllOnClockSkew } from "@/lib/supabase/retry";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -65,6 +67,25 @@ interface PoolEvent {
   kind: string;
   value: number | null;
   notes: string | null;
+}
+
+/**
+ * The pool's learned chlorine use. pool_models is server-only, so it is read with the
+ * service key, and only after the signed-in user's own query has returned the pool.
+ * Fails open: the page shows without it.
+ */
+async function loadChlorineUse(poolId: string, cya: number | null, covered: boolean) {
+  try {
+    const { data } = await createSupabaseAdminClient()
+      .from("pool_models")
+      .select("coefficients, sample_count")
+      .eq("pool_id", poolId)
+      .maybeSingle<{ coefficients: unknown; sample_count: number }>();
+    return chlorineUse(data ?? null, { cya, covered });
+  } catch (err) {
+    console.error(`[model] read ${poolId}: ${err instanceof Error ? err.message : String(err)}`);
+    return null;
+  }
 }
 
 interface WeatherRow extends WeatherDay {
@@ -157,6 +178,8 @@ async function loadPoolView(id: string) {
   const allEvents = events ?? [];
   const latest = allReadings[0];
   const previous = allReadings[1];
+  const latestCya = allReadings.find((r) => r.cya !== null)?.cya ?? null;
+  const use = await loadChlorineUse(pool.id, latestCya === null ? null : Number(latestCya), pool.covered);
 
   // Weather for the chart window (and the between-tests box), plus today's forecast.
   let weather: WeatherRow[] = [];
@@ -278,13 +301,13 @@ async function loadPoolView(id: string) {
     .sort((a, b) => b.at.localeCompare(a.at))
     .slice(0, 15);
 
-  return { pool, units, tz, liters, allReadings, latest, advice, between, trend, activity };
+  return { pool, units, tz, liters, allReadings, latest, advice, between, use, trend, activity };
 }
 
 export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">) {
   const { id } = await params;
   if (!isUuid(id)) notFound();
-  const { pool, units, tz, liters, allReadings, latest, advice, between, trend, activity } = await loadPoolView(id);
+  const { pool, units, tz, liters, allReadings, latest, advice, between, use, trend, activity } = await loadPoolView(id);
 
   const secondary =
     "rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold hover:border-lagoon";
@@ -364,6 +387,8 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
       {advice && advice.items.length > 0 ? <AdvicePanel advice={advice} units={units} poolId={pool.id} /> : null}
 
       {between ? <BetweenTests summary={between} units={units} swg={pool.sanitizer === "swg"} /> : null}
+
+      {use ? <ChlorineUse use={use} units={units} swg={pool.sanitizer === "swg"} /> : null}
 
       {trend ? (
         <section aria-labelledby="trends" className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4 sm:p-5">

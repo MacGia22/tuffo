@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy notice" updated="September 27, 2026">
+    <LegalPage title="Privacy notice" updated="September 28, 2026">
       <p>
         Tuffo is a pool-care app: you log water tests, it shows what the weather did to your water and suggests what to
         add. This notice lists what Tuffo keeps about you, who else handles it, how long it stays, and how to take it
@@ -39,6 +39,11 @@ export default function PrivacyPage() {
       <p>
         Water tests (the numbers, when and how you tested, and any note), the chemicals you added, and events such as
         topping up, backwashing or covering the pool.
+      </p>
+      <h3>What Tuffo works out</h3>
+      <p>
+        From your tests, what you added and the weather at your pool, Tuffo works out how fast each pool uses chlorine
+        and keeps those figures with the pool. They are deleted with the pool or your account.
       </p>
       <h3>Photo scans</h3>
       <p>

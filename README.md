@@ -22,6 +22,7 @@ src/app/privacy    privacy notice; src/app/terms the terms of use
 src/components     UI components (brand, trend charts, forms, lists)
 src/engine         chemistry engine: pure functions, unit tests alongside
 src/engine/server  the only import path application code may use for the engine
+src/lib/model      chlorine-consumption model: test pairs, fitting, backtest, pool-page summary
 src/lib/auth       current user helpers and redirect hygiene
 src/lib/supabase   server, browser and admin clients; session refresh used by src/proxy.ts
 src/lib/weather    weather cells (0.05° grid), town lookup, refresh job, between-test summary
@@ -114,13 +115,41 @@ most 6 attempts per user in 10 minutes, and a daily total across everyone as a s
 backstop. If the table is missing or a count fails, scanning stays open. The hard cap
 is the monthly spend limit set in the Anthropic console.
 
+## Chlorine-consumption model
+
+Each pool learns how much free chlorine it uses per day. The math is in
+`src/engine/model.ts`; `src/lib/model/` turns a pool's log into observations and stores
+the fit in `pool_models` (server-only: users never read it, the page shows a figure).
+
+- Observations: every pair of consecutive tests with FC, loss per day =
+  (FC before + ppm added by logged doses + salt-cell output − FC after) / days. Pairs
+  under 6 hours or over 10 days apart, pairs ending below 0.5 ppm (chlorine ran out),
+  pairs with a refill in between, salt pools without `swg_cell_lb_per_day` (read as
+  what the cell makes per day at its current setting) and pairs without weather are
+  skipped.
+- Drivers per day: base demand; UV dose (peak UV × sunny share of 12 h) × a stabilizer
+  shield 1 / (1 + CYA / 20) × 0.1 under a cover; °C of daily high above 25; cm of rain;
+  heavy-use events per day. CYA is the latest test (40 ppm assumed until tested).
+- Fit: ridge regression towards a population prior (the default, blended with the fits
+  of pools that have 6+ pairs), weather coefficients kept at zero or above. Stored:
+  coefficients, `sample_count`, `residual` (RMS error, ppm/day).
+- Runs after each new or removed test (`after()`), and for every pool in the nightly
+  job. Failures are logged; the page shows without it.
+- The pool page shows "about X ppm a day on a sunny, 90 °F day" from 4 test pairs on.
+
+Backtest: `CRON_SECRET=… node scripts/backtest.mjs` asks `/api/jobs/backtest` to fit
+each pool on its past pairs only, predict FC at each next test and print the median
+error for predictions with 4+ pairs of history, next to the error of the average pool.
+The public-launch gate is 1.0 ppm or less. Only error statistics come back.
+
 ## Scheduled jobs
 
 `vercel.json` runs `/api/jobs/weather` once a day at 06:00 UTC (the Hobby plan allows
 daily crons). The job takes every active weather cell, asks Open-Meteo for the days
 since that cell's last fetch (a month for a new cell, at most 92) and the next week, in
 one request per 40 cells, and upserts `weather_daily` (actuals) and `weather_forecast`.
-It then deletes photo-scan log rows older than a year. Trigger it by hand with
+It then refits every pool's chlorine model and deletes photo-scan log rows older than a
+year. Trigger it by hand with
 `curl -H "Authorization: Bearer $CRON_SECRET" https://tuffo.app/api/jobs/weather`.
 
 Weather does not wait for the cron: creating a pool fetches its cell in the background

@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { serverEnv } from "@/lib/env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { recomputeAllModels } from "@/lib/model/recompute";
 import { pruneScanLog } from "@/lib/scan/quota";
 import { runWeatherJob } from "@/lib/weather/job";
 
@@ -10,7 +11,8 @@ export const maxDuration = 60;
 /**
  * Nightly job, called by the Vercel cron (see vercel.json) with
  * `Authorization: Bearer <CRON_SECRET>`; refuses everything else. Refreshes the
- * weather for every active cell, then trims the photo-scan log to a year.
+ * weather for every active cell, refits every pool's chlorine model on it, then trims
+ * the photo-scan log to a year.
  */
 function authorised(request: Request): boolean {
   const secret = serverEnv.cronSecret();
@@ -29,8 +31,9 @@ export async function GET(request: Request) {
   try {
     const admin = createSupabaseAdminClient();
     const result = await runWeatherJob(admin);
+    const models = await recomputeAllModels(admin);
     const scanLogPruned = await pruneScanLog(admin, new Date());
-    return Response.json({ ok: result.failed === 0, ms: Date.now() - started, ...result, scanLogPruned });
+    return Response.json({ ok: result.failed === 0, ms: Date.now() - started, ...result, models, scanLogPruned });
   } catch (error) {
     return Response.json(
       { ok: false, ms: Date.now() - started, error: error instanceof Error ? error.message : "failed" },
