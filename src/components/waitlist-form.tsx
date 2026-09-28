@@ -18,7 +18,8 @@ export function WaitlistForm() {
       const response = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, website }),
+        // The ?ref= of the link that brought the visitor (e.g. tuffo.app/?ref=pools); the server checks it.
+        body: JSON.stringify({ email, website, source: new URLSearchParams(window.location.search).get("ref") }),
       });
       const data = (await response.json()) as { ok?: boolean; message?: string };
       if (response.status === 503 || response.status === 429) {

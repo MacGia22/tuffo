@@ -1,4 +1,4 @@
-import { createRateLimiter, normalizeEmail } from "@/lib/beta";
+import { createRateLimiter, normalizeEmail, normalizeSource } from "@/lib/beta";
 import { serverEnv } from "@/lib/env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -24,13 +24,14 @@ function hourlyLimit(): number {
  * Waitlist sign-up, stored in the server-only waitlist table. Answers the same way
  * whether or not the address was already on the list. Limits: a hidden field bots
  * fill in, a per-address burst limit (the IP is held in memory only, never stored),
- * and a cap on sign-ups per hour across everyone. Until the table exists the form
- * says the list is not open yet.
+ * and a cap on sign-ups per hour across everyone. The source is the link's ?ref=
+ * label (see normalizeSource). Until the table exists the form says the list is not
+ * open yet.
  */
 export async function POST(request: Request) {
-  let body: { email?: unknown; website?: unknown };
+  let body: { email?: unknown; website?: unknown; source?: unknown };
   try {
-    body = (await request.json()) as { email?: unknown; website?: unknown };
+    body = (await request.json()) as { email?: unknown; website?: unknown; source?: unknown };
   } catch {
     return Response.json({ ok: false, message: "Send a JSON body with an email." }, { status: 400 });
   }
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
 
   const { error } = await admin
     .from("waitlist")
-    .upsert({ email, source: "landing" }, { onConflict: "email", ignoreDuplicates: true });
+    .upsert({ email, source: normalizeSource(body.source) }, { onConflict: "email", ignoreDuplicates: true });
   if (error) {
     console.error(`[waitlist] insert: ${error.code ?? ""} ${error.message}`);
     return Response.json({ ok: false, message: "Could not save that right now." }, { status: 502 });

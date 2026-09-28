@@ -12,6 +12,17 @@ export function normalizeEmail(value: unknown): string | null {
   return EMAIL.test(email) && email.length <= 254 ? email : null;
 }
 
+/**
+ * Where a waitlist sign-up came from: the `?ref=` of the link (for example "pools" for
+ * tuffo.app/?ref=pools), lower-cased; letters, digits, - and _ only, up to 30
+ * characters. Anything else, or nothing, is "landing".
+ */
+export function normalizeSource(value: unknown): string {
+  if (typeof value !== "string") return "landing";
+  const source = value.trim().toLowerCase();
+  return /^[a-z0-9_-]{1,30}$/.test(source) ? source : "landing";
+}
+
 /** ADMIN_EMAILS: comma- or space-separated addresses. */
 export function parseAdminEmails(value: string | undefined): Set<string> {
   const out = new Set<string>();

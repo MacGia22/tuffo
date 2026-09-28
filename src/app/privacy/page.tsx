@@ -54,8 +54,8 @@ export default function PrivacyPage() {
       </p>
       <h3>The waitlist</h3>
       <p>
-        If you join the waitlist on the home page, Tuffo keeps your email address and when you joined, only to invite
-        you to the beta. It is deleted when you are invited or when you ask. To slow down automated sign-ups, the
+        If you join the waitlist on the home page, Tuffo keeps your email address, when you joined and the label of the
+        link that brought you (for example the name of a forum), only to invite you to the beta. It is deleted when you are invited or when you ask. To slow down automated sign-ups, the
         server briefly counts requests per network address in memory; the address is not stored.
       </p>
       <h3>Technical logs</h3>

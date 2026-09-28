@@ -91,6 +91,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/app/admin"
               <thead className="bg-surface text-left text-xs uppercase tracking-wider text-muted">
                 <tr>
                   <th className="px-4 py-3">Email</th>
+                  <th className="px-3 py-3">From</th>
                   <th className="px-3 py-3">Joined</th>
                   <th className="px-3 py-3">
                     <span className="sr-only">Actions</span>
@@ -101,6 +102,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/app/admin"
                 {entries.map((entry) => (
                   <tr key={entry.email} className="border-t border-border">
                     <td className="px-4 py-2.5">{entry.email}</td>
+                    <td className="px-3 py-2.5 text-muted">{entry.source ?? "landing"}</td>
                     <td className="px-3 py-2.5 whitespace-nowrap text-muted">{formatDateTime(entry.created_at, "UTC")} UTC</td>
                     <td className="px-3 py-1.5">
                       <div className="flex justify-end gap-2">
@@ -126,8 +128,8 @@ export default async function AdminPage({ searchParams }: PageProps<"/app/admin"
           </div>
         )}
         <p className="text-xs text-muted">
-          Export: in the Supabase SQL editor, <code>select email, created_at from waitlist order by created_at;</code>{" "}
-          then Download CSV.
+          Export: in the Supabase SQL editor, <code>select email, source, created_at from waitlist order by created_at;</code>{" "}
+          then Download CSV. Count by link: <code>select source, count(*) from waitlist group by source;</code>
         </p>
       </section>
     </>
