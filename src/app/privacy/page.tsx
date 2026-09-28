@@ -26,7 +26,8 @@ export default function PrivacyPage() {
       <h3>Your account</h3>
       <p>
         Your email address, which is how you sign in: Tuffo emails you a code or a link, and there is no password. Your
-        choice of US or metric units. When the account was created and last signed in to.
+        choice of US or metric units. When the account was created and last signed in to. If you came through a link
+        with a label (for example the name of a forum), that label, to see which places bring people to Tuffo.
       </p>
       <h3>Your pools</h3>
       <p>

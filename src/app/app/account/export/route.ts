@@ -22,7 +22,12 @@ export async function GET() {
   const body = {
     exported_at: new Date().toISOString(),
     format: "tuffo-export/1",
-    account: { id: user.id, email: user.email, created_at: user.created_at },
+    account: {
+      id: user.id,
+      email: user.email,
+      created_at: user.created_at,
+      signup_source: (user.user_metadata?.signup_source as string | undefined) ?? null,
+    },
     profile: profile.data,
     pools: pools.data ?? [],
     readings: readings.data ?? [],

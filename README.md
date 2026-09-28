@@ -43,7 +43,16 @@ again before reading data.
 
 Who may sign in is a Supabase setting, not code: Authentication → Sign In / Providers →
 Email → "Allow new users to sign up". Off means invite-only; on opens the beta to
-anyone. Supabase also needs the
+anyone. Keep `SIGNUPS_OPEN` in Vercel in step with it: unset or anything but `false`
+shows **Start free** on the home page and open wording on `/login`; `false` shows the
+waitlist form and the private-beta wording (redeploy after changing it). With sign-ups
+open, also raise Supabase's email rate limit (Authentication → Rate Limits), which is
+separate from Resend's.
+
+A `?ref=` on a link to the home page (`tuffo.app/?ref=pools`) travels with **Start free**
+to `/login`; when that sign-in creates a new account, Supabase stores the label in the
+user's metadata (`signup_source`). Count new accounts by link in the SQL editor:
+`select raw_user_meta_data->>'signup_source' as source, count(*) from auth.users group by 1;` Supabase also needs the
 site URL and redirect URLs (Authentication → URL Configuration): the production domain
 plus `https://*-mac-pool.vercel.app/**` for previews.
 
@@ -119,6 +128,7 @@ Copy `.env.example` to `.env.local`. Nothing is required for the landing page.
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase publishable key (`sb_publishable_…` or the legacy anon key); safe in the browser |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase secret key (`sb_secret_…` or the legacy service_role key); server only, used by scheduled jobs |
+| `SIGNUPS_OPEN` | `false` switches the home page to the waitlist and `/login` to invite-only wording; unset = open. Must match the Supabase sign-up setting |
 | `ADMIN_EMAILS` | Comma-separated emails that may open `/app/admin` and send beta invitations; unset = nobody |
 | `WAITLIST_HOURLY_LIMIT` | Optional waitlist sign-ups per hour across everyone; default 100 |
 | `CRON_SECRET` | Bearer token the Vercel cron sends to `/api/jobs/*`; the jobs refuse every call until it is set |

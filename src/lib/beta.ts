@@ -23,6 +23,12 @@ export function normalizeSource(value: unknown): string {
   return /^[a-z0-9_-]{1,30}$/.test(source) ? source : "landing";
 }
 
+/** The ?ref= label worth keeping on a new account, or null when there is none. */
+export function signupSource(value: unknown): string | null {
+  const source = normalizeSource(value);
+  return source === "landing" ? null : source;
+}
+
 /** ADMIN_EMAILS: comma- or space-separated addresses. */
 export function parseAdminEmails(value: string | undefined): Set<string> {
   const out = new Set<string>();

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { TuffoLockup, TuffoMark } from "@/components/brand/logo";
+import { StartFreeLink } from "@/components/start-free-link";
 import { WaitlistForm } from "@/components/waitlist-form";
+import { serverEnv } from "@/lib/env";
 
 const steps = [
   {
@@ -18,6 +20,8 @@ const steps = [
 ];
 
 export default function Home() {
+  // Open: "Start free" goes straight to sign-in. Closed (SIGNUPS_OPEN=false): the waitlist.
+  const open = serverEnv.signupsOpen();
   return (
     <>
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-5">
@@ -26,7 +30,7 @@ export default function Home() {
         </Link>
         <div className="flex items-center gap-3">
           <span className="hidden rounded-full border border-border px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted sm:inline">
-            Private beta
+            {open ? "Free beta" : "Private beta"}
           </span>
           <Link
             href="/login"
@@ -48,9 +52,16 @@ export default function Home() {
               sun, heat and rain did between readings, and get a seven-day dosing plan
               for your own pool.
             </p>
-            <WaitlistForm />
+            {open ? (
+              <StartFreeLink className="self-start rounded-xl bg-lagoon px-6 py-3 text-base font-semibold text-white transition hover:bg-lagoon-deep">
+                Start free
+              </StartFreeLink>
+            ) : (
+              <WaitlistForm />
+            )}
             <p className="text-sm text-muted">
               Free during the beta. No ads, no tracking, works with any test kit.
+              {open ? " Sign in with your email: no password." : ""}
             </p>
           </div>
           <div className="flex justify-center md:flex-none">

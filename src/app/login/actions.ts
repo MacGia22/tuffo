@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { publicEnv } from "@/lib/env";
 import { safeNextPath } from "@/lib/auth/redirects";
+import { signupSource } from "@/lib/beta";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export interface SignInState {
@@ -45,12 +46,17 @@ export async function sendMagicLink(_prev: SignInState, formData: FormData): Pro
     return { status: "error", message: "That does not look like an email address.", email };
   }
 
+  // The ?ref= label of the link that brought a new visitor. Supabase stores it on the
+  // account only when this call creates one (user metadata); returning users are unchanged.
+  const source = signupSource(formData.get("ref"));
+
   const supabase = await createSupabaseServerClient();
   const origin = await requestOrigin();
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
       emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
+      ...(source ? { data: { signup_source: source } } : {}),
     },
   });
 

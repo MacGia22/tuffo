@@ -36,6 +36,12 @@ export const serverEnv = {
   supabaseSecretKey: () => first("SUPABASE_SECRET_KEY", "SUPABASE_SERVICE_ROLE_KEY"),
   /** Optional cap on waitlist sign-ups per hour across everyone (default 100). */
   waitlistHourlyLimit: () => first("WAITLIST_HOURLY_LIMIT"),
+  /**
+   * Whether the site invites people to create an account (Supabase's "Allow new users to
+   * sign up" must match). Anything but "false" means open. Read at build time for the
+   * home page, so a change needs a redeploy.
+   */
+  signupsOpen: () => first("SIGNUPS_OPEN")?.toLowerCase() !== "false",
   /** Comma-separated emails that may use /app/admin (invites). Unset = nobody. */
   adminEmails: () => first("ADMIN_EMAILS"),
   /** Shared secret the Vercel cron sends as a bearer token to /api/jobs/*. */

@@ -45,7 +45,7 @@ function CodeForm({ email, next }: { email: string; next: string }) {
   );
 }
 
-export function LoginForm({ next }: { next: string }) {
+export function LoginForm({ next, source }: { next: string; source: string }) {
   const [state, action, pending] = useActionState(sendMagicLink, initial);
 
   if (state.status === "sent" && state.email) {
@@ -66,6 +66,7 @@ export function LoginForm({ next }: { next: string }) {
   return (
     <form action={action} className="flex flex-col gap-3">
       <input type="hidden" name="next" value={next} />
+      <input type="hidden" name="ref" value={source} />
       <label htmlFor="email" className="text-sm font-semibold">
         Email address
       </label>
