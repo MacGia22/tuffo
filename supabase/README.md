@@ -36,8 +36,36 @@ they never run twice. New files are written so a second run is harmless anyway
 (`if not exists`, `drop … if exists`).
 
 To try a migration locally: any Postgres 15+ with a stand-in `auth` schema works
-(`auth.users`, `auth.uid()`, and the roles `anon`, `authenticated`, `service_role`),
-then `npx supabase db push --db-url postgresql://…`.
+(`auth.users`, `auth.uid()`, and the roles `anon`, `authenticated`, `service_role`;
+`supabase/tests/auth-stub.sql` creates them), then
+`npx supabase db push --db-url postgresql://…`.
+
+## Row-level-security tests
+
+`supabase/tests/run.sh` creates a fresh database on a local Postgres 16 server, adds the
+stand-in auth schema, applies every migration, applies each one a second time, and runs
+`supabase/tests/rls.sql`. The `rls` job in CI does the same on a `postgres:16` service,
+then breaks a policy on purpose (`sabotage.sql`) and requires the tests to fail. The
+`migrate` job waits for both.
+
+```
+RLS_DB_URL=postgresql://postgres:postgres@localhost:5432/postgres npm run test:rls
+```
+
+What `rls.sql` proves, with two users A and B who own one pool each:
+
+- every table in `public` has row-level security on, and `anon` holds no privilege on
+  any of them (checked from the catalog, so new tables are covered automatically);
+- a signed-out visitor cannot read any table;
+- A sees only A's own profile, pools, readings, doses, events and scans, and cannot
+  read, update, delete, create or move rows into B's;
+- users cannot write `scans`, read or write `pool_models`, or write weather;
+- B's rows are unchanged afterwards.
+
+A new table needs its own lines in `rls.sql` for the per-user checks. The first
+migration (`…_init.sql`) is the one file not re-run: it was applied by hand, is
+recorded as applied, and uses plain `create trigger` / `create policy`. Every later
+migration must survive a second run.
 
 ## Conventions
 

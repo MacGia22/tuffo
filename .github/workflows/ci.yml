@@ -25,12 +25,38 @@ jobs:
         env:
           NEXT_TELEMETRY_DISABLED: "1"
 
+  # Row-level-security tests: every migration applied (twice) to a throwaway Postgres 16
+  # with a stand-in auth schema, then supabase/tests/rls.sql. The second run breaks a
+  # policy on purpose and must fail, so a test that can no longer fail is caught too.
+  rls:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      RLS_DB_URL: postgresql://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Policies hold
+        run: supabase/tests/run.sh
+      - name: A broken policy is caught
+        run: supabase/tests/run.sh --expect-failure
+
   # Applies new files in supabase/migrations to the production database once the
   # checks pass on main. Needs the SUPABASE_DB_URL secret (Supabase session pooler
   # URI, port 5432); without it the job only leaves a notice. Vercel deploys in
   # parallel, so every migration must work with the code that is already live.
   migrate:
-    needs: check
+    needs: [check, rls]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     concurrency:
