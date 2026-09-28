@@ -3,6 +3,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { requirePublicSupabase } from "@/lib/env";
+import { createSkewRetryFetch } from "./skew-fetch";
 
 /**
  * Supabase client for Server Components, Server Actions and Route Handlers.
@@ -14,6 +15,8 @@ export async function createSupabaseServerClient() {
   const { url, key } = requirePublicSupabase();
 
   return createServerClient(url, key, {
+    // Waits out "JWT issued at future" on every query (see skew-fetch.ts).
+    global: { fetch: createSkewRetryFetch() },
     cookies: {
       getAll() {
         return cookieStore.getAll();
