@@ -60,7 +60,7 @@ export function scrubBreadcrumb<T extends Breadcrumb>(crumb: T): T {
   return next;
 }
 
-/** Returns a copy with personal data removed; used as beforeSend and beforeSendTransaction. */
+/** Returns a copy with personal data removed; used as beforeSend. */
 export function scrubEvent<T extends ScrubbableEvent>(event: T): T {
   const next = { ...event };
   delete next.user;

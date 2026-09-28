@@ -11,11 +11,10 @@ export function sentryOptions(dsn: string | undefined) {
     enabled: Boolean(dsn),
     environment: process.env.NEXT_PUBLIC_VERCEL_ENV ?? process.env.VERCEL_ENV ?? "development",
     sendDefaultPii: false,
-    // Every error, but only a small share of performance traces (free-plan quota).
+    // Errors only. Performance tracing stays off: this SDK streams trace spans without
+    // passing them through beforeSend, so they would skip the scrubber (URLs, query strings).
     sampleRate: 1,
-    tracesSampleRate: 0.05,
     beforeSend: scrubEvent,
-    beforeSendTransaction: scrubEvent,
     beforeBreadcrumb: scrubBreadcrumb,
   };
 }

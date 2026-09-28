@@ -193,7 +193,8 @@ to Sentry, tagged with the commit SHA as the release. Browser reports travel thr
 `/api/monitoring` on the app itself. Before anything is sent, `src/lib/sentry/scrub.ts`
 removes the user, cookies, headers (except content type and browser), request bodies,
 query strings and any email address in messages or breadcrumbs. Session replay is not
-used; 5% of requests send a performance trace.
+used, and neither is performance tracing (this SDK version streams trace spans without
+passing them through the scrubber).
 
 To check it end to end, send one deliberate error and look for its event id in Sentry:
 `curl -H "Authorization: Bearer $CRON_SECRET" https://tuffo.app/api/jobs/sentry-test`.
