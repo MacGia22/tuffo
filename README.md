@@ -27,6 +27,7 @@ src/lib/supabase   server, browser and admin clients; session refresh used by sr
 src/lib/weather    weather cells (0.05° grid), town lookup, refresh job, between-test summary
 src/lib/scan       photo reading (vision model) and the monthly scan allowance
 supabase           database migrations and notes
+docs/ROADMAP.md    what to build next and the final target (rules for agents: CLAUDE.md)
 ```
 
 The engine never ships to the browser: `src/engine/server.ts` imports `server-only`,
