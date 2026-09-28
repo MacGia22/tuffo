@@ -89,6 +89,11 @@ select rls_test.check(
   'authenticated cannot write scans'
 );
 
+select rls_test.check(
+  not has_table_privilege('authenticated', 'public.waitlist', 'select, insert, update, delete, truncate'),
+  'authenticated has no privilege on the waitlist'
+);
+
 -- ---------------------------------------------------------------------------
 -- Two users with one pool each
 -- ---------------------------------------------------------------------------
@@ -119,6 +124,8 @@ insert into public.events (id, pool_id, kind) values
 insert into public.scans (id, user_id, ok) values
   ('00000000-0000-0000-0000-0000000000a5', '00000000-0000-0000-0000-00000000000a', true),
   ('00000000-0000-0000-0000-0000000000b5', '00000000-0000-0000-0000-00000000000b', true);
+
+insert into public.waitlist (email) values ('c@example.com');
 
 insert into public.pool_models (pool_id, sample_count) values
   ('00000000-0000-0000-0000-0000000000a1', 3),
@@ -216,6 +223,8 @@ select rls_test.denied(
   'A cannot write pool_models'
 );
 select rls_test.denied('delete from public.profiles', 'A cannot delete profiles');
+select rls_test.denied('select 1 from public.waitlist', 'A cannot read the waitlist');
+select rls_test.denied('insert into public.waitlist (email) values (''x@example.com'')', 'A cannot write the waitlist');
 select rls_test.denied(
   'insert into public.weather_daily (cell_id, date) values (''27.80,-82.70'', ''2026-09-03'')',
   'A cannot write weather'

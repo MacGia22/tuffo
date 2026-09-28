@@ -42,8 +42,8 @@ every request and bounces signed-out visitors away from `/app`; pages verify the
 again before reading data.
 
 Who may sign in is a Supabase setting, not code: Authentication → Sign In / Providers →
-Email → "Allow new users to sign up". Off means invite-only (add people under
-Authentication → Users → Invite); on opens the beta to anyone. Supabase also needs the
+Email → "Allow new users to sign up". Off means invite-only; on opens the beta to
+anyone. Supabase also needs the
 site URL and redirect URLs (Authentication → URL Configuration): the production domain
 plus `https://*-mac-pool.vercel.app/**` for previews.
 
@@ -60,6 +60,31 @@ only the one that requested it) and a numeric code the sign-in page accepts:
 <p>Or tap <a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=email">Open Tuffo</a> on this device.</p>
 <p>Both work once and expire in an hour. If you didn't ask for this, ignore the email.</p>
 ```
+
+## Waitlist, invitations and feedback
+
+The home page form stores sign-ups in the `waitlist` table (server-only, see
+`supabase/README.md`) through `POST /api/waitlist`. The answer is the same whether or
+not the address was already there. Limits: a hidden field that only bots fill in, 5
+sign-ups per network address per 10 minutes (counted in memory, never stored) and
+`WAITLIST_HOURLY_LIMIT` per hour across everyone (default 100).
+
+Invitations: people whose email is in `ADMIN_EMAILS` see **Invites** in the app header
+(`/app/admin`; everyone else gets a 404). It lists the waitlist and sends an invitation
+to any address with Supabase's admin API; the address then leaves the waitlist. Sign-ups
+stay closed. The Supabase "Invite user" template needs a token-hash link like the others:
+
+```html
+<h2>You're invited to the Tuffo beta</h2>
+<p><a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=invite">Open Tuffo</a> to sign in. The link works once and expires in 24 hours.</p>
+<p>After that, sign in any time at tuffo.app with this email address.</p>
+```
+
+Export the list from the Supabase SQL editor:
+`select email, created_at from waitlist order by created_at;` then Download CSV.
+
+The app footer's **Send feedback** link opens an email to hello@tuffo.app with the app
+version filled in.
 
 ## Domains
 
@@ -91,7 +116,8 @@ Copy `.env.example` to `.env.local`. Nothing is required for the landing page.
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase publishable key (`sb_publishable_…` or the legacy anon key); safe in the browser |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase secret key (`sb_secret_…` or the legacy service_role key); server only, used by scheduled jobs |
-| `WAITLIST_WEBHOOK_URL` | Endpoint that receives waitlist sign-ups as JSON; until set, the form reports the list as not open |
+| `ADMIN_EMAILS` | Comma-separated emails that may open `/app/admin` and send beta invitations; unset = nobody |
+| `WAITLIST_HOURLY_LIMIT` | Optional waitlist sign-ups per hour across everyone; default 100 |
 | `CRON_SECRET` | Bearer token the Vercel cron sends to `/api/jobs/*`; the jobs refuse every call until it is set |
 | `ANTHROPIC_API_KEY` | Enables photo scanning of test results (`/api/scan`); unset hides the scan button |
 | `SCAN_MODEL` | Optional model id for scans; defaults to `claude-sonnet-4-6` |

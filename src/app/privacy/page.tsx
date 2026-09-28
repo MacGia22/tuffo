@@ -53,7 +53,11 @@ export default function PrivacyPage() {
         processing it used. That log is what counts your monthly scans.
       </p>
       <h3>The waitlist</h3>
-      <p>If you join the waitlist on the home page, your email is kept only to tell you when the beta opens.</p>
+      <p>
+        If you join the waitlist on the home page, Tuffo keeps your email address and when you joined, only to invite
+        you to the beta. It is deleted when you are invited or when you ask. To slow down automated sign-ups, the
+        server briefly counts requests per network address in memory; the address is not stored.
+      </p>
       <h3>Technical logs</h3>
       <p>
         The hosting and database providers record IP addresses and browser details in their server and security logs.
@@ -149,7 +153,7 @@ export default function PrivacyPage() {
         </li>
         <li>The photo-scan log: 12 months.</li>
         <li>Error reports: 90 days at most.</li>
-        <li>Waitlist emails: until you have been told the beta is open, or until you ask to be removed.</li>
+        <li>Waitlist emails: until you are invited, or until you ask to be removed.</li>
         <li>The providers&apos; technical logs: their own short periods, usually days to weeks.</li>
       </ul>
       <p>

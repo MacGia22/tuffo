@@ -30,6 +30,7 @@ History:
 | 20260918000001_init.sql | 2026-09-18, by hand in the SQL editor |
 | 20260918000002_grants.sql | 2026-09-18, by hand in the SQL editor |
 | 20260927000001_scans_and_event_kinds.sql | by the `migrate` job |
+| 20260928000001_waitlist.sql | by the `migrate` job |
 
 The first two predate the job; it marks them applied (`supabase migration repair`) so
 they never run twice. New files are written so a second run is harmless anyway
@@ -59,7 +60,8 @@ What `rls.sql` proves, with two users A and B who own one pool each:
 - a signed-out visitor cannot read any table;
 - A sees only A's own profile, pools, readings, doses, events and scans, and cannot
   read, update, delete, create or move rows into B's;
-- users cannot write `scans`, read or write `pool_models`, or write weather;
+- users cannot write `scans`, read or write `pool_models` or the `waitlist`, or write
+  weather;
 - B's rows are unchanged afterwards.
 
 A new table needs its own lines in `rls.sql` for the per-user checks. The first
@@ -79,3 +81,6 @@ migration must survive a second run.
 - `scans` is written only by the server (the photo-scan route); users can read their
   own rows, which is how the app shows the scans left this month. Rows older than a
   year are deleted by the nightly job.
+- `waitlist` has no policies and no user grants: only the server writes it (the
+  waitlist route, the admin invite page). A row is deleted when the person is invited,
+  asks to be removed, or deletes an account with the same address.
