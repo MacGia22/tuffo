@@ -47,3 +47,27 @@ export function formatDateTime(iso: string, timeZone?: string): string {
     timeZone: timeZone ?? undefined,
   });
 }
+
+/** "Sep 27", in the pool's time zone. */
+export function formatDay(iso: string, timeZone?: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: timeZone ?? undefined,
+  });
+}
+
+/** How a reading was taken, as the reading form offers it. */
+export const READING_METHODS = [
+  { value: "drop_kit", label: "Drop test kit" },
+  { value: "strips", label: "Test strips" },
+  { value: "digital", label: "Digital tester" },
+  { value: "store_leslies", label: "Leslie's store test" },
+  { value: "store_pinch", label: "Pinch A Penny store test" },
+  { value: "monitor", label: "Smart monitor" },
+  { value: "other", label: "Other" },
+] as const;
+
+export function methodLabel(method: string): string {
+  return READING_METHODS.find((m) => m.value === method)?.label ?? method.replace(/_/g, " ");
+}

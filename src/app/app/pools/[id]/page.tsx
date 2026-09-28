@@ -13,7 +13,7 @@ import { adviseFor } from "@/lib/advice";
 import { catalogProduct } from "@/lib/catalog";
 import { baseToShelf, formatShelf, type BaseUnit } from "@/lib/dose-format";
 import { describeEvent } from "@/lib/events";
-import { formatDateTime, formatTemperature, formatVolume, type Units } from "@/lib/format";
+import { formatDateTime, formatDay, formatTemperature, formatVolume, methodLabel, type Units } from "@/lib/format";
 import { isUuid } from "@/lib/form-data";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { retryAllOnClockSkew } from "@/lib/supabase/retry";
@@ -208,6 +208,21 @@ async function loadPoolView(id: string) {
     between = summarizeBetween(previous, latest, inRange, { fcAddedPpm, notes });
   }
 
+  const dosesSinceTest = latest
+    ? allDoses
+        .filter((d) => Date.parse(d.added_at) > Date.parse(latest.taken_at))
+        .reverse()
+        .map((d) => {
+          const shelf = baseToShelf(Number(d.amount), d.unit, units);
+          return {
+            productId: d.product_id,
+            amount: Number(d.amount),
+            amountText: shelf.value > 0 ? formatShelf(shelf.value, shelf.unit) : "a little",
+            dateText: formatDay(d.added_at, tz),
+          };
+        })
+    : [];
+
   const advice = latest
     ? adviseFor(
         { volumeL: liters, sanitizer: pool.sanitizer, surface: pool.surface },
@@ -222,6 +237,7 @@ async function loadPoolView(id: string) {
           waterTempC: latest.water_temp_c,
           borate: latest.borate,
         },
+        dosesSinceTest,
       )
     : null;
 
@@ -326,7 +342,7 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
             </div>
           ))}
           <p className="col-span-2 text-sm text-muted sm:col-span-3 lg:col-span-6">
-            Tested {formatDateTime(latest.taken_at, tz)} · {latest.method.replace(/_/g, " ")}
+            Tested {formatDateTime(latest.taken_at, tz)} · {methodLabel(latest.method)}
           </p>
         </section>
       ) : (

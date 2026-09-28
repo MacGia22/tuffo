@@ -3,12 +3,14 @@ import "server-only";
 import {
   doseFor,
   doseForPh,
+  effectsOf,
   saturationIndex,
   saturationVerdict,
   targetsFor,
   type Dose,
   type Targets,
 } from "@/engine/server";
+import { catalogProduct } from "@/lib/catalog";
 
 /**
  * Turns the latest test into plain recommendations. Pure given its inputs; the
@@ -44,6 +46,17 @@ export interface Recommendation {
   dose?: Dose;
 }
 
+/** A product logged after the test the advice is based on. */
+export interface LoggedDose {
+  productId: string;
+  /** In the engine's base unit (g or mL). */
+  amount: number;
+  /** As the person measured it: "1 lb". */
+  amountText: string;
+  /** When, in the pool's time zone: "Sep 27". */
+  dateText: string;
+}
+
 export interface Advice {
   targets: Targets;
   assumptions: string[];
@@ -53,7 +66,29 @@ export interface Advice {
 const DEFAULT_CYA = 30;
 const DEFAULT_TA = 80;
 
-export function adviseFor(pool: AdvicePool, r: AdviceReading): Advice {
+function listDoses(doses: LoggedDose[], withName: boolean): string {
+  const parts = doses.map((d) => {
+    const name = catalogProduct(d.productId)?.short ?? d.productId;
+    return `${d.amountText}${withName ? ` of ${name}` : ""} from ${d.dateText}`;
+  });
+  return parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0];
+}
+
+function retestNote(measure: Recommendation["measure"], what: string, value: string, doses: LoggedDose[]): Recommendation {
+  return {
+    measure,
+    severity: "watch",
+    title: `Retest ${what} before adding more`,
+    detail: `This test read ${value}, before your ${listDoses(doses, true)}. Give it a few hours to mix, then test again.`,
+  };
+}
+
+/**
+ * `since` holds the products logged after this test. Their effect on chlorine and pH
+ * is unknown until the next test, so those cards ask for a retest instead of a dose;
+ * stabilizer adds up predictably and changes slowly, so it is counted.
+ */
+export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[] = []): Advice {
   const assumptions: string[] = [];
   const cya = r.cya ?? DEFAULT_CYA;
   if (r.cya === null) assumptions.push(`No stabilizer (CYA) test yet; targets assume ${DEFAULT_CYA} ppm.`);
@@ -64,9 +99,23 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading): Advice {
   const targets = targetsFor({ swg, surface: pool.surface, cya });
   const items: Recommendation[] = [];
   const L = pool.volumeL;
+  const inGroup = (...groups: string[]) =>
+    since.filter((d) => groups.includes(catalogProduct(d.productId)?.group ?? ""));
+  const chlorineSince = inGroup("Chlorine");
+  const phSince = inGroup("Lower pH", "Raise pH or alkalinity");
+  const cyaOf = (d: LoggedDose) => {
+    try {
+      return effectsOf(d.productId, d.amount, L).cya ?? 0;
+    } catch {
+      return 0;
+    }
+  };
+  const cyaSince = since.filter((d) => cyaOf(d) > 0);
 
   // Free chlorine
-  if (r.fc !== null) {
+  if (r.fc !== null && chlorineSince.length > 0) {
+    items.push(retestNote("fc", "free chlorine", `${r.fc.toFixed(1)} ppm`, chlorineSince));
+  } else if (r.fc !== null) {
     const { min, targetLow, targetHigh, slam } = targets.fc;
     const aim = (targetLow + targetHigh) / 2;
     if (r.fc < min) {
@@ -94,14 +143,18 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading): Advice {
         measure: "fc",
         severity: "watch",
         title: `Free chlorine ${r.fc.toFixed(1)} ppm is at shock level`,
-        detail: "Fine if you are clearing algae; otherwise let it drift down before swimming.",
+        detail: swg
+          ? "Fine if you are clearing algae; otherwise turn the chlorinator output down and let it drift down before swimming."
+          : "Fine if you are clearing algae; otherwise let it drift down before swimming.",
       });
     } else if (r.fc > targetHigh) {
       items.push({
         measure: "fc",
         severity: "ok",
         title: `Free chlorine ${r.fc.toFixed(1)} ppm is above target; nothing to add`,
-        detail: "Sun will bring it down. Skip the next dose and retest.",
+        detail: swg
+          ? "Turn the chlorinator output down a step and retest in a day or two."
+          : "Sun will bring it down. Skip the next dose and retest.",
       });
     } else {
       items.push({
@@ -127,7 +180,9 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading): Advice {
   }
 
   // pH
-  if (r.ph !== null) {
+  if (r.ph !== null && phSince.length > 0) {
+    items.push(retestNote("ph", "pH", r.ph.toFixed(2), phSince));
+  } else if (r.ph !== null) {
     const { low, high, ideal } = targets.ph;
     const waterReading = { pH: r.ph, ta, cya: r.cya ?? undefined, borate: r.borate ?? undefined };
     if (r.ph > high) {
@@ -164,7 +219,9 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading): Advice {
   // Total alkalinity
   if (r.ta !== null) {
     const { low, high } = targets.ta;
-    if (r.ta < low) {
+    if ((r.ta < low || r.ta > high + 30) && phSince.length > 0) {
+      items.push(retestNote("ta", "alkalinity", `${Math.round(r.ta)} ppm`, phSince));
+    } else if (r.ta < low) {
       const dose = doseFor("baking-soda", low + 10 - r.ta, L);
       items.push({
         measure: "ta",
@@ -209,7 +266,33 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading): Advice {
   }
 
   // Stabilizer
-  if (r.cya !== null) {
+  if (r.cya !== null && cyaSince.length > 0) {
+    const { low, high } = targets.cya;
+    const cyaNow = r.cya + cyaSince.reduce((sum, d) => sum + cyaOf(d), 0);
+    const counted = `Counts your ${listDoses(cyaSince, cyaSince.some((d) => d.productId !== "cyanuric-acid"))}.`;
+    items.push(
+      cyaNow < low
+        ? {
+            measure: "cya",
+            severity: "watch",
+            title: `Stabilizer about ${Math.round(cyaNow)} ppm is still low`,
+            detail: `${counted} It takes days to dissolve; retest in about a week before adding more.`,
+          }
+        : cyaNow > high + 20
+          ? {
+              measure: "cya",
+              severity: "watch",
+              title: `Stabilizer about ${Math.round(cyaNow)} ppm is high`,
+              detail: `${counted} Chlorine targets go up with it; retest in about a week.`,
+            }
+          : {
+              measure: "cya",
+              severity: "ok",
+              title: `Stabilizer about ${Math.round(cyaNow)} ppm is in range`,
+              detail: `${counted} Retest in about a week, once it has dissolved.`,
+            },
+    );
+  } else if (r.cya !== null) {
     const { low, high } = targets.cya;
     if (r.cya < low) {
       const dose = doseFor("cyanuric-acid", low + 10 - r.cya, L);
