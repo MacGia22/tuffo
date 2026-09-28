@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/user";
 import type { Units } from "@/lib/format";
 import { formFields, instantFromLocal, isUuid, optionalNumber, text } from "@/lib/form-data";
+import { recomputeAfterResponse } from "@/lib/model/recompute";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export interface ReadingState {
@@ -80,6 +81,7 @@ export async function createReading(_prev: ReadingState, formData: FormData): Pr
   const { error } = await supabase.from("readings").insert(row);
   if (error) return fail(`Could not save the test (${error.message}).`);
 
+  recomputeAfterResponse(poolId);
   revalidatePath(`/app/pools/${poolId}`);
   redirect(`/app/pools/${poolId}`);
 }

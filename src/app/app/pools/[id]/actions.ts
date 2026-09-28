@@ -8,6 +8,7 @@ import { baseUnitFor, isShelfUnit, shelfToBase } from "@/lib/dose-format";
 import { CM_PER_INCH, eventKindInfo } from "@/lib/events";
 import type { Units } from "@/lib/format";
 import { formFields, instantFromLocal, isUuid, optionalNumber, text } from "@/lib/form-data";
+import { recomputeAfterResponse } from "@/lib/model/recompute";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export interface LogState {
@@ -127,6 +128,8 @@ export async function deleteEntry(formData: FormData): Promise<void> {
   await requireUser(`/app/pools/${poolId}`);
 
   const supabase = await createSupabaseServerClient();
-  await supabase.from(TABLES[kind]).delete().eq("id", id).eq("pool_id", poolId);
+  const { data: removed } = await supabase.from(TABLES[kind]).delete().eq("id", id).eq("pool_id", poolId).select("id");
+  // A removed test, dose or event changes what the chlorine model learned from.
+  if (removed && removed.length > 0) recomputeAfterResponse(poolId);
   revalidatePath(`/app/pools/${poolId}`);
 }

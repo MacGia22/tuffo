@@ -40,6 +40,11 @@ export default function PrivacyPage() {
         Water tests (the numbers, when and how you tested, and any note), the chemicals you added, and events such as
         topping up, backwashing or covering the pool.
       </p>
+      <h3>What Tuffo works out</h3>
+      <p>
+        From your tests, what you added and the weather at your pool, Tuffo works out how fast each pool uses chlorine
+        and keeps those figures with the pool. They are deleted with the pool or your account.
+      </p>
       <h3>Photo scans</h3>
       <p>
         When you scan a printout, a test strip or a tester screen, the photo goes to Anthropic&apos;s AI model, which
