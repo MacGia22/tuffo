@@ -1,5 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
-import { serverEnv } from "@/lib/env";
+import { cronAuthorised } from "@/lib/auth/cron";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { pruneScanLog } from "@/lib/scan/quota";
 import { runWeatherJob } from "@/lib/weather/job";
@@ -12,17 +11,8 @@ export const maxDuration = 60;
  * `Authorization: Bearer <CRON_SECRET>`; refuses everything else. Refreshes the
  * weather for every active cell, then trims the photo-scan log to a year.
  */
-function authorised(request: Request): boolean {
-  const secret = serverEnv.cronSecret();
-  if (!secret) return false;
-  const header = request.headers.get("authorization") ?? "";
-  const expected = `Bearer ${secret}`;
-  if (header.length !== expected.length) return false;
-  return timingSafeEqual(Buffer.from(header), Buffer.from(expected));
-}
-
 export async function GET(request: Request) {
-  if (!authorised(request)) {
+  if (!cronAuthorised(request)) {
     return Response.json({ ok: false, error: "unauthorised" }, { status: 401 });
   }
   const started = Date.now();

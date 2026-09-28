@@ -95,6 +95,9 @@ Copy `.env.example` to `.env.local`. Nothing is required for the landing page.
 | `SCAN_MODEL` | Optional model id for scans; defaults to `claude-sonnet-4-6` |
 | `SCAN_MONTHLY_LIMIT` | Optional successful scans per user per calendar month (UTC); default 30 |
 | `SCAN_DAILY_GLOBAL_LIMIT` | Optional successful scans across all users per UTC day; default 300 |
+| `SENTRY_DSN` | Turns on error reporting (server and browser); unset sends nothing. Read at build time for the browser, so redeploy after changing it |
+| `SENTRY_AUTH_TOKEN` | Optional: uploads source maps to Sentry during the build (with `SENTRY_ORG` and `SENTRY_PROJECT`); they are deleted from the build afterwards |
+| `SENTRY_ORG`, `SENTRY_PROJECT` | Sentry organization and project slugs, for the source-map upload |
 
 GitHub Actions needs one repository secret, `SUPABASE_DB_URL`, to apply migrations
 (see `supabase/README.md`).
@@ -113,6 +116,21 @@ tokens; never the photo or the numbers). The log drives three limits in
 most 6 attempts per user in 10 minutes, and a daily total across everyone as a spending
 backstop. If the table is missing or a count fails, scanning stays open. The hard cap
 is the monthly spend limit set in the Anthropic console.
+
+## Error reporting
+
+With `SENTRY_DSN` set, server errors (`src/instrumentation.ts`, including `onRequestError`)
+and browser errors (`src/instrumentation-client.ts`, plus `src/app/global-error.tsx`) go
+to Sentry, tagged with the commit SHA as the release. Browser reports travel through
+`/api/monitoring` on the app itself. Before anything is sent, `src/lib/sentry/scrub.ts`
+removes the user, cookies, headers (except content type and browser), request bodies,
+query strings and any email address in messages or breadcrumbs. Session replay is not
+used; 5% of requests send a performance trace.
+
+To check it end to end, send one deliberate error and look for its event id in Sentry:
+`curl -H "Authorization: Bearer $CRON_SECRET" https://tuffo.app/api/jobs/sentry-test`.
+Its message contains an example address, which should arrive as `[email]`.
+`/api/health` reports `sentry: true` once the DSN is set.
 
 ## Scheduled jobs
 

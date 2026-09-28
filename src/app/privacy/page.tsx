@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy notice" updated="September 27, 2026">
+    <LegalPage title="Privacy notice" updated="September 28, 2026">
       <p>
         Tuffo is a pool-care app: you log water tests, it shows what the weather did to your water and suggests what to
         add. This notice lists what Tuffo keeps about you, who else handles it, how long it stays, and how to take it
@@ -54,6 +54,12 @@ export default function PrivacyPage() {
         The hosting and database providers record IP addresses and browser details in their server and security logs.
         They keep them for a short time, to run the service and to stop abuse. Tuffo does not combine them with
         anything else.
+      </p>
+      <h3>Error reports</h3>
+      <p>
+        When something breaks, Tuffo sends a report to Sentry: the error, the page it happened on, the app version and
+        your browser type. Before a report leaves, Tuffo removes email addresses, cookies, anything you typed into a
+        form and the parts of links that can carry sign-in codes. Reports do not say which account hit the error.
       </p>
 
       <h2>What Tuffo does not collect</h2>
@@ -110,6 +116,9 @@ export default function PrivacyPage() {
           that identifies you.
         </li>
         <li>
+          <strong>Sentry</strong> receives the error reports described above, in the United States.
+        </li>
+        <li>
           <strong>ImprovMX</strong> forwards email sent to tuffo.app addresses to the developer&apos;s inbox.
         </li>
       </ul>
@@ -134,6 +143,7 @@ export default function PrivacyPage() {
           deleted, after an email warning you first.
         </li>
         <li>The photo-scan log: 12 months.</li>
+        <li>Error reports: 90 days at most.</li>
         <li>Waitlist emails: until you have been told the beta is open, or until you ask to be removed.</li>
         <li>The providers&apos; technical logs: their own short periods, usually days to weeks.</li>
       </ul>

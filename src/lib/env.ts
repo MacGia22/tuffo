@@ -40,6 +40,8 @@ export const serverEnv = {
   /** Enables photo scanning of test results (Anthropic API). */
   anthropicApiKey: () => first("ANTHROPIC_API_KEY"),
   scanModel: () => first("SCAN_MODEL"),
+  /** Turns on error reporting to Sentry (server; the browser gets it at build time). */
+  sentryDsn: () => first("SENTRY_DSN", "NEXT_PUBLIC_SENTRY_DSN"),
 };
 
 export function requirePublicSupabase(): { url: string; key: string } {
