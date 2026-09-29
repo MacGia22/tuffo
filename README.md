@@ -81,7 +81,7 @@ saved as the entry's source (letters, digits, `-`, `_`, up to 30 characters; oth
 sign-ups per network address per 10 minutes (counted in memory, never stored) and
 `WAITLIST_HOURLY_LIMIT` per hour across everyone (default 100).
 
-Invitations: people whose email is in `ADMIN_EMAILS` see **Invites** in the app header
+Invitations: people whose email is in `ADMIN_EMAILS` see **Admin** in the app header
 (`/app/admin`; everyone else gets a 404). It lists the waitlist and sends an invitation
 to any address with Supabase's admin API; the address then leaves the waitlist. Sign-ups
 stay closed. The Supabase "Invite user" template needs a token-hash link like the others:
@@ -95,8 +95,15 @@ stay closed. The Supabase "Invite user" template needs a token-hash link like th
 Export the list from the Supabase SQL editor:
 `select email, source, created_at from waitlist order by created_at;` then Download CSV.
 
-The app footer's **Send feedback** link opens an email to hello@tuffo.app with the app
-version filled in.
+Feedback: **Send feedback** in the app footer, on the account page and on each pool page
+opens `/app/feedback`. People pick a kind (idea, problem, question, other), write up to
+2000 characters, optionally tick "OK to email me about this", and see their earlier
+messages with a status. Rows go to the `feedback` table with the page they came from
+(pool ids replaced by `[id]`) and the app version; 10 per person per 24 hours, enforced
+in the server action and by a database trigger. No email is sent. On `/app/admin` the
+Feedback list shows the newest first, filters by kind and status, and sets the status
+(new, planned, done, not planned); the sender's address shows only when they ticked the
+box. The data export includes it and deleting the account deletes it.
 
 ## Domains
 

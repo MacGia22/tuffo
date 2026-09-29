@@ -1,6 +1,6 @@
 /**
  * Small pure helpers for the private beta: who is an admin, what counts as an email
- * address, a per-instance rate limiter for the waitlist, and the feedback link.
+ * address, and a per-instance rate limiter for the waitlist.
  */
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -65,11 +65,4 @@ export function createRateLimiter(options: { limit: number; windowMs: number; ma
     entry.count += 1;
     return entry.count <= options.limit;
   };
-}
-
-/** mailto: link for the app footer, with the app version so a report can be traced. */
-export function feedbackMailto(version: string): string {
-  const subject = "Tuffo feedback";
-  const body = `\n\n---\nApp version: ${version}`;
-  return `mailto:hello@tuffo.app?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }

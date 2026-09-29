@@ -40,7 +40,7 @@ export function DeleteForm() {
   return (
     <form action={action} className="flex flex-col gap-3">
       <label htmlFor="confirm" className="text-sm">
-        Type <span className="font-mono font-semibold">DELETE</span> to remove your account, pools and every test.
+        Type <span className="font-mono font-semibold">DELETE</span> to remove your account, pools, every test and the feedback you sent.
         This cannot be undone.
       </label>
       <div className="flex gap-2">

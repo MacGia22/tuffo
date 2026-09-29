@@ -135,6 +135,7 @@ const TABLES = [
   "pool_models",
   "scans",
   "waitlist",
+  "feedback",
 ];
 
 /** A cell whose actuals are older than this is late: the nightly job runs every 24 hours. */
@@ -241,6 +242,7 @@ export async function GET() {
     scan: Boolean(serverEnv.anthropicApiKey()),
     sentry: Boolean(serverEnv.sentryDsn()),
     waitlist: schema?.tables.waitlist === true,
+    feedback: schema?.tables.feedback === true,
     admins: Boolean(serverEnv.adminEmails()),
   });
 }

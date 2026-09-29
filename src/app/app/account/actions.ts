@@ -22,8 +22,8 @@ export async function updateUnits(_prev: AccountState, formData: FormData): Prom
 }
 
 /**
- * Deletes the account and everything under it. Pools, readings, doses and events
- * cascade from auth.users; the profile row too, and any waitlist entry for the same
+ * Deletes the account and everything under it. Pools, readings, doses, events, scans
+ * and feedback cascade from auth.users; the profile row too, and any waitlist entry for the same
  * address is removed. The confirmation word is checked
  * server-side so a stray click cannot do it.
  */

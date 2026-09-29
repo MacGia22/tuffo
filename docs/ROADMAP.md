@@ -84,7 +84,8 @@ The public launch (end of milestone 3) happens when all of these hold:
   webhook; admin export via SQL.
 - Invite flow: keep sign-ups closed; invite by email with Supabase's admin API from a
   server action behind an `ADMIN_EMAILS` allowlist.
-- "Send feedback" link in the app footer (mailto hello@tuffo.app with the app version).
+- "Send feedback" link in the app footer (mailto hello@tuffo.app with the app version);
+  replaced by in-app feedback (2.7).
 
 ### 2.5 Installable app and offline logging
 - Service worker: offline shell, and a queue (IndexedDB) for tests, doses and events
@@ -99,6 +100,14 @@ The public launch (end of milestone 3) happens when all of these hold:
 - Count calcium chloride and salt logged since the latest test the way stabilizer is
   counted in `adviseFor` (its `since` list, PR #1). Today those cards still offer the
   same dose after it was logged.
+
+### 2.7 In-app feedback — done 2026-09-29
+- `/app/feedback`: kind, message (2000 characters), "OK to email me", and the person's
+  own past feedback with its status; 10 per day. Linked from the footer, the account page
+  and the pool page. No email.
+- `feedback` table (RLS: own insert and read only), admin list with filters and status,
+  in `/api/health`, the data export and account deletion; privacy notice updated.
+- A scheduled Claude routine reads it through a read-only connector to sort suggestions.
 
 ## Milestone 3: forecast and premium = public launch (target 2026-11-13)
 

@@ -9,7 +9,7 @@ export async function GET() {
   if (!user) return new Response("Sign in first.", { status: 401 });
 
   const supabase = await createSupabaseServerClient();
-  const [profile, pools, readings, doses, events, scans] = await Promise.all([
+  const [profile, pools, readings, doses, events, scans, feedback] = await Promise.all([
     supabase.from("profiles").select("display_name, locale, units, consent_marketing_at, created_at").maybeSingle(),
     supabase.from("pools").select("*").order("created_at"),
     supabase.from("readings").select("*").order("taken_at"),
@@ -17,6 +17,10 @@ export async function GET() {
     supabase.from("events").select("*").order("occurred_at"),
     // The photo-scan log: when, whether it worked, tokens used. Photos are never stored.
     supabase.from("scans").select("created_at, ok, source, confidence, model").order("created_at"),
+    supabase
+      .from("feedback")
+      .select("id, created_at, kind, message, page, app_version, contact_ok, status")
+      .order("created_at"),
   ]);
 
   const body = {
@@ -34,6 +38,7 @@ export async function GET() {
     doses: doses.data ?? [],
     events: events.data ?? [],
     photo_scans: scans.data ?? [],
+    feedback: feedback.data ?? [],
     units_note: "Volumes in liters, temperatures in °C, doses in grams or milliliters; locations are 0.05° weather cells.",
   };
 

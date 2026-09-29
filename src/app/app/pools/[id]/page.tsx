@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { feedbackHref } from "@/lib/feedback";
 import { notFound } from "next/navigation";
 import { after } from "next/server";
 import { effectsOf } from "@/engine/server";
@@ -338,6 +339,9 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
           </Link>
           <Link href={`/app/pools/${pool.id}/events/new`} className={secondary}>
             Log an event
+          </Link>
+          <Link href={feedbackHref(`/app/pools/${pool.id}`)} className={`${secondary} sm:ml-auto`}>
+            Send feedback
           </Link>
         </div>
       </div>

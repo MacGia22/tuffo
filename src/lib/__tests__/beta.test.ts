@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   createRateLimiter,
-  feedbackMailto,
   isAdminEmail,
   normalizeEmail,
   normalizeSource,
@@ -54,14 +53,6 @@ describe("createRateLimiter", () => {
   it("stays bounded in memory", () => {
     const allow = createRateLimiter({ limit: 1, windowMs: 1000, maxKeys: 3 });
     for (const key of ["a", "b", "c", "d", "e"]) expect(allow(key, 0)).toBe(true);
-  });
-});
-
-describe("feedbackMailto", () => {
-  it("addresses hello@ with a subject and the app version", () => {
-    const link = feedbackMailto("4ce369c");
-    expect(link.startsWith("mailto:hello@tuffo.app?subject=Tuffo%20feedback&body=")).toBe(true);
-    expect(decodeURIComponent(link.split("body=")[1])).toContain("App version: 4ce369c");
   });
 });
 

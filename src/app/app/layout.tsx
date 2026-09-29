@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { TuffoLockup } from "@/components/brand/logo";
+import { FeedbackLink } from "@/components/feedback-link";
 import { InstallBanner } from "@/components/install-banner";
 import { isAdmin } from "@/lib/auth/admin";
 import { requireUser } from "@/lib/auth/user";
-import { feedbackMailto } from "@/lib/beta";
 
 // Always rendered per request: depends on the session cookie.
 export const dynamic = "force-dynamic";
@@ -16,7 +16,6 @@ export const metadata: Metadata = {
 
 export default async function AppLayout({ children }: LayoutProps<"/app">) {
   const user = await requireUser("/app");
-  const version = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local";
 
   return (
     <>
@@ -28,7 +27,7 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
           <div className="flex items-center gap-4 text-sm">
             {isAdmin(user) ? (
               <Link href="/app/admin" className="text-muted hover:text-foreground">
-                Invites
+                Admin
               </Link>
             ) : null}
             <Link href="/app/account" className="text-muted hover:text-foreground" title={user.email ?? ""}>
@@ -65,9 +64,7 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
             <Link href="/terms" className="hover:text-foreground">
               Terms
             </Link>
-            <a href={feedbackMailto(version)} className="hover:text-foreground">
-              Send feedback
-            </a>
+            <FeedbackLink className="hover:text-foreground" />
           </nav>
         </div>
       </footer>
