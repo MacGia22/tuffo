@@ -94,6 +94,17 @@ select rls_test.check(
   'authenticated has no privilege on the waitlist'
 );
 
+select rls_test.check(
+  not has_table_privilege('authenticated', 'public.feedback', 'update, delete, truncate'),
+  'authenticated cannot change or delete feedback'
+);
+
+select rls_test.check(
+  not has_column_privilege('authenticated', 'public.feedback', 'status', 'insert')
+    and not has_column_privilege('authenticated', 'public.feedback', 'created_at', 'insert'),
+  'authenticated cannot set a feedback status or time'
+);
+
 -- ---------------------------------------------------------------------------
 -- Two users with one pool each
 -- ---------------------------------------------------------------------------
@@ -127,6 +138,10 @@ insert into public.scans (id, user_id, ok) values
 
 insert into public.waitlist (email) values ('c@example.com');
 
+insert into public.feedback (id, user_id, kind, message) values
+  ('00000000-0000-0000-0000-0000000000a6', '00000000-0000-0000-0000-00000000000a', 'idea', 'A idea'),
+  ('00000000-0000-0000-0000-0000000000b6', '00000000-0000-0000-0000-00000000000b', 'problem', 'B problem');
+
 insert into public.pool_models (pool_id, sample_count) values
   ('00000000-0000-0000-0000-0000000000a1', 3),
   ('00000000-0000-0000-0000-0000000000b1', 5);
@@ -143,6 +158,7 @@ select rls_test.check(rls_test.rows('select 1 from public.readings') = 1, 'A see
 select rls_test.check(rls_test.rows('select 1 from public.doses') = 1, 'A sees only A''s doses');
 select rls_test.check(rls_test.rows('select 1 from public.events') = 1, 'A sees only A''s events');
 select rls_test.check(rls_test.rows('select 1 from public.scans') = 1, 'A sees only A''s scans');
+select rls_test.check(rls_test.rows('select 1 from public.feedback') = 1, 'A sees only A''s feedback');
 select rls_test.check(
   rls_test.rows('select 1 from public.pools where id = ''00000000-0000-0000-0000-0000000000a1''') = 1,
   'A sees A''s pool'
@@ -156,6 +172,7 @@ select rls_test.check(rls_test.rows('select 1 from public.readings where id = ''
 select rls_test.check(rls_test.rows('select 1 from public.doses where id = ''00000000-0000-0000-0000-0000000000b3''') = 0, 'A cannot read B''s doses');
 select rls_test.check(rls_test.rows('select 1 from public.events where id = ''00000000-0000-0000-0000-0000000000b4''') = 0, 'A cannot read B''s events');
 select rls_test.check(rls_test.rows('select 1 from public.scans where id = ''00000000-0000-0000-0000-0000000000b5''') = 0, 'A cannot read B''s scans');
+select rls_test.check(rls_test.rows('select 1 from public.feedback where id = ''00000000-0000-0000-0000-0000000000b6''') = 0, 'A cannot read B''s feedback');
 
 -- update B's rows
 select rls_test.check(rls_test.touched('update public.profiles set units = ''metric'' where id = ''00000000-0000-0000-0000-00000000000b''') = 0, 'A cannot update B''s profile');
@@ -230,6 +247,45 @@ select rls_test.denied(
   'A cannot write weather'
 );
 
+-- feedback: A sends A's own, nothing else
+select rls_test.check(
+  rls_test.touched('insert into public.feedback (user_id, kind, message, page) values (''00000000-0000-0000-0000-00000000000a'', ''question'', ''How?'', ''/app'')') = 1,
+  'A can send feedback'
+);
+select rls_test.check(
+  (select status = 'new' from public.feedback where message = 'How?'),
+  'new feedback starts as new'
+);
+select rls_test.denied(
+  'insert into public.feedback (user_id, kind, message) values (''00000000-0000-0000-0000-00000000000b'', ''idea'', ''planted'')',
+  'A cannot send feedback as B'
+);
+select rls_test.denied(
+  'insert into public.feedback (user_id, kind, message, status) values (''00000000-0000-0000-0000-00000000000a'', ''idea'', ''x'', ''done'')',
+  'A cannot set the status of new feedback'
+);
+select rls_test.denied('update public.feedback set status = ''done''', 'A cannot change a feedback status');
+select rls_test.denied('update public.feedback set message = ''edited''', 'A cannot edit feedback');
+select rls_test.denied('delete from public.feedback', 'A cannot delete feedback');
+
+-- the daily limit: A has 2 now; 8 more reach 10, the 11th is refused
+do $$
+begin
+  for i in 1..8 loop
+    insert into public.feedback (user_id, kind, message) values ('00000000-0000-0000-0000-00000000000a', 'other', 'more');
+  end loop;
+  begin
+    insert into public.feedback (user_id, kind, message) values ('00000000-0000-0000-0000-00000000000a', 'other', 'one too many');
+    raise exception 'RLS FAIL: the 11th feedback in a day was accepted';
+  exception
+    when raise_exception then
+      if sqlerrm <> 'feedback limit reached' then
+        raise;
+      end if;
+  end;
+end;
+$$;
+
 -- ---------------------------------------------------------------------------
 -- Signed out (anon): no table can be read at all
 -- ---------------------------------------------------------------------------
@@ -263,5 +319,16 @@ select rls_test.check((select fc = 4 from public.readings where id = '00000000-0
 select rls_test.check((select amount = 2000 from public.doses where id = '00000000-0000-0000-0000-0000000000b3'), 'B''s dose is unchanged');
 select rls_test.check((select notes is null from public.events where id = '00000000-0000-0000-0000-0000000000b4'), 'B''s event is unchanged');
 select rls_test.check((select units = 'us' from public.profiles where id = '00000000-0000-0000-0000-00000000000b'), 'B''s profile is unchanged');
+select rls_test.check(
+  (select count(*) = 1 from public.feedback where user_id = '00000000-0000-0000-0000-00000000000b'),
+  'B''s feedback is unchanged'
+);
+
+-- deleting an account deletes its feedback
+delete from auth.users where id = '00000000-0000-0000-0000-00000000000a';
+select rls_test.check(
+  not exists (select 1 from public.feedback where user_id = '00000000-0000-0000-0000-00000000000a'),
+  'feedback is deleted with the account'
+);
 
 rollback;

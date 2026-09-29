@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy notice" updated="September 28, 2026">
+    <LegalPage title="Privacy notice" updated="September 29, 2026">
       <p>
         Tuffo is a pool-care app: you log water tests, it shows what the weather did to your water and suggests what to
         add. This notice lists what Tuffo keeps about you, who else handles it, how long it stays, and how to take it
@@ -53,6 +53,15 @@ export default function PrivacyPage() {
         one log line per scan: the time, whether it worked, the kind of test, how sure the model was and how much
         processing it used. That log is what counts your monthly scans.
       </p>
+      <h3>Feedback</h3>
+      <p>
+        When you send feedback from the app, Tuffo keeps your message, the kind you picked (idea, problem, question or
+        other), when you sent it, the app page you sent it from (with pool identifiers removed), the app version,
+        whether you said it is OK to email you about it, and the status the developer gives it. It is linked to your
+        account so you can see your own feedback and its status. Only the developer reads it. To sort and group
+        suggestions, the messages may be summarized with the help of Anthropic&apos;s AI model; that step sees the
+        message, kind, page, app version, status and time, never your email address or account.
+      </p>
       <h3>The waitlist</h3>
       <p>
         If you join the waitlist on the home page, Tuffo keeps your email address, when you joined and the label of the
@@ -84,6 +93,10 @@ export default function PrivacyPage() {
           To run the service you signed up for: signing you in, keeping your pool history, working out doses and
           matching your tests with the weather at your pool. For readers in the EU and UK, the legal basis is the
           contract between you and Tuffo.
+        </li>
+        <li>
+          To improve Tuffo from the feedback you send, and to reply when you said it is OK to email you. Legal basis:
+          legitimate interest.
         </li>
         <li>
           To keep the service secure and affordable, for example by limiting photo scans. Legal basis: legitimate
@@ -119,6 +132,8 @@ export default function PrivacyPage() {
         <li>
           <strong>Anthropic</strong> reads the numbers in photos you choose to scan, in the United States. Under
           Anthropic&apos;s commercial terms, the photo is not used to train its models and is deleted within 30 days.
+          Its AI model may also help summarize feedback messages, as described above, without your email address or
+          account.
         </li>
         <li>
           <strong>Open-Meteo</strong> provides the weather and the town search. It receives the coordinates of your
@@ -152,14 +167,15 @@ export default function PrivacyPage() {
           Your account, pools and logs: until you delete them or your account. An account unused for two years may be
           deleted, after an email warning you first.
         </li>
+        <li>Feedback: until you delete your account.</li>
         <li>The photo-scan log: 12 months.</li>
         <li>Error reports: 90 days at most.</li>
         <li>Waitlist emails: until you are invited, or until you ask to be removed.</li>
         <li>The providers&apos; technical logs: their own short periods, usually days to weeks.</li>
       </ul>
       <p>
-        Deleting your account removes it from the live database at once, with every pool, test, dose, event and scan
-        log line. Copies in the database provider&apos;s backups expire on the provider&apos;s own schedule.
+        Deleting your account removes it from the live database at once, with every pool, test, dose, event, feedback
+        message and scan log line. Copies in the database provider&apos;s backups expire on the provider&apos;s own schedule.
       </p>
 
       <h2>Your rights</h2>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth/user";
+import { feedbackHref } from "@/lib/feedback";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Units } from "@/lib/format";
 import { DeleteForm, UnitsForm } from "./account-forms";
@@ -33,8 +34,8 @@ export default async function AccountPage() {
       <section className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-5">
         <h2 className="text-xl font-semibold">Your data</h2>
         <p className="text-sm text-muted">
-          Everything Tuffo holds about you: your email, unit preference, pools, tests, doses, events and a log of
-          your photo scans (when, not the photos), as one JSON file. Locations are the 5 km weather cell and town name
+          Everything Tuffo holds about you: your email, unit preference, pools, tests, doses, events, the feedback
+          you sent and a log of your photo scans (when, not the photos), as one JSON file. Locations are the 5 km weather cell and town name
           you chose; no address is stored.
         </p>
         <a
@@ -43,6 +44,17 @@ export default async function AccountPage() {
         >
           Download my data
         </a>
+      </section>
+
+      <section className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-5">
+        <h2 className="text-xl font-semibold">Feedback</h2>
+        <p className="text-sm text-muted">Send an idea, a problem or a question, and see what happened to earlier ones.</p>
+        <Link
+          href={feedbackHref("/app/account")}
+          className="self-start rounded-xl border border-border px-4 py-2 text-sm font-semibold hover:border-lagoon"
+        >
+          Send feedback
+        </Link>
       </section>
 
       <section className="flex flex-col gap-3 rounded-2xl border border-red-200 bg-surface p-5">

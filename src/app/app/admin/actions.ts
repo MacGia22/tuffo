@@ -4,13 +4,21 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/admin";
 import { normalizeEmail } from "@/lib/beta";
+import { isFeedbackStatus } from "@/lib/feedback";
 import { publicEnv } from "@/lib/env";
-import { text } from "@/lib/form-data";
+import { isUuid, text } from "@/lib/form-data";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-function done(status: string): never {
+/** Back to the admin page with a message, keeping the feedback filters ("kind=idea&fstatus=new"). */
+function done(status: string, filters: string | null = null): never {
   revalidatePath("/app/admin");
-  redirect(`/app/admin?status=${status}`);
+  const keep = new URLSearchParams(filters ?? "");
+  const params = new URLSearchParams({ status });
+  for (const key of ["kind", "fstatus"]) {
+    const value = keep.get(key);
+    if (value) params.set(key, value);
+  }
+  redirect(`/app/admin?${params}${filters === null ? "" : "#feedback"}`);
 }
 
 /**
@@ -43,4 +51,16 @@ export async function removeFromWaitlist(formData: FormData): Promise<void> {
   if (!email) done("bad-email");
   const { error } = await createSupabaseAdminClient().from("waitlist").delete().eq("email", email);
   done(error ? "remove-failed" : "removed");
+}
+
+/** Sets a feedback message's status (new, planned, done or declined). */
+export async function setFeedbackStatus(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const id = text(formData, "id");
+  const status = text(formData, "status");
+  const back = text(formData, "back");
+  if (!isUuid(id) || !isFeedbackStatus(status)) done("status-failed", back);
+  const { error } = await createSupabaseAdminClient().from("feedback").update({ status }).eq("id", id);
+  if (error) console.error(`[admin] feedback status: ${error.code ?? ""} ${error.message}`);
+  done(error ? "status-failed" : "status-saved", back);
 }
