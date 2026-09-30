@@ -25,7 +25,7 @@ src/engine/server  the only import path application code may use for the engine
 src/lib/model      chlorine-consumption model: test pairs, fitting, backtest, pool-page summary
 src/lib/auth       current user helpers and redirect hygiene
 src/lib/supabase   server, browser and admin clients; session refresh used by src/proxy.ts
-src/lib/weather    weather cells (0.05° grid), town lookup, refresh job, between-test summary
+src/lib/weather    weather cells (0.03° grid), town lookup, refresh job, between-test summary
 src/lib/scan       photo reading (vision model) and the monthly scan allowance
 supabase           database migrations and notes
 docs/ROADMAP.md    what to build next and the final target (rules for agents: CLAUDE.md)
@@ -303,6 +303,13 @@ Weather does not wait for the cron: creating a pool fetches its cell in the back
 (`after()`), and opening a pool whose cell is more than 20 hours old refreshes that cell
 after the page is sent. `/api/health` reports the newest and oldest fetch times and a
 `late` flag (a cell never fetched, or older than 30 hours).
+
+Cells are 0.03° (about 3 km, 2 miles), close to the 3 km HRRR model Open-Meteo uses in the
+US; the pool's position is already a town or ZIP centroid, so nothing finer would help.
+Pools created before September 30, 2026 are on the older 0.05° grid until the owner uses
+"Change location" (`/app/pools/[id]/location`). Moving a pool fetches the new cell with
+92 days of history (`backfill`), refits the model and plan, and stops refreshing the old
+cell if no pool uses it.
 
 ## Email
 

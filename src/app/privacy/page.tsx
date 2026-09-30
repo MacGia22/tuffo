@@ -35,7 +35,8 @@ export default function PrivacyPage() {
         numbers such as your fill water&apos;s calcium or your salt cell&apos;s model and output. For a salt pool, also
         the pump schedules you enter (run times, speeds, whether the cell runs) and the dates they started. If you enter the
         rain that fell at your pool on a day, that amount and date. The location is stored as a
-        weather cell about 5 km (3 miles) across, plus the town name you picked and the time zone. Tuffo never stores a
+        weather cell about 3 km (2 miles) across (5 km for pools set up before September 30, 2026, until their location is
+        picked again), plus the town name you picked and the time zone. Tuffo never stores a
         street address or a GPS position.
       </p>
       <h3>What you log</h3>

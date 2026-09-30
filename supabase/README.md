@@ -90,7 +90,8 @@ migration must survive a second run.
   leaves `anon` with nothing; Supabase's default privileges are not relied on.
 
 - Units in the database are SI: liters, grams, millilitres, degrees Celsius, ppm.
-- A pool's location is a weather cell (0.05°, about 5 km), never an address.
+- A pool's location is a weather cell (0.03°, about 3 km; 0.05° for pools not moved since
+  September 2026), never an address.
 - `pool_models` has no user policy on purpose: coefficients are served through the API,
   never read directly by the browser.
 - `scans` is written only by the server (the photo-scan route); users can read their

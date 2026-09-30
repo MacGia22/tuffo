@@ -1,14 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/user";
 import { formFields, instantInZone, isTimeZone, isUuid, text } from "@/lib/form-data";
 import { scheduleFromForm } from "@/lib/pump";
 import { saveDoseEntry, saveEventEntry, saveReadingEntry, type LogKind, type SaveResult } from "@/lib/log/save";
-import { recomputeAfterResponse } from "@/lib/model/recompute";
+import { recomputeAfterResponse, recomputePoolModel } from "@/lib/model/recompute";
 import { cellFromForm } from "@/lib/salt-cells";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { cellFor } from "@/lib/weather/cells";
+import { refreshCellIfStale } from "@/lib/weather/job";
 import { isRainDate, rainFromForm } from "@/lib/weather/own-rain";
 import { localDateRange } from "@/lib/weather/summary";
 import type { Units } from "@/lib/format";
@@ -193,4 +197,71 @@ export async function clearRain(formData: FormData): Promise<void> {
   if (removed && removed.length > 0) recomputeAfterResponse(poolId);
   revalidatePath(`/app/pools/${poolId}`);
   redirect(`/app/pools/${poolId}`);
+}
+
+export interface LocationState {
+  error?: string;
+  saved?: boolean;
+}
+
+/**
+ * Moves a pool to the weather cell of a newly picked town or ZIP (on the current grid).
+ * The new cell's weather is fetched with all the history the API has, then the chlorine
+ * model and the plan are refitted, after the response. A cell no pool uses any more
+ * stops being refreshed.
+ */
+export async function saveLocation(_prev: LocationState, formData: FormData): Promise<LocationState> {
+  const poolId = text(formData, "pool_id");
+  if (!isUuid(poolId)) return { error: "Unknown pool." };
+  await requireUser(`/app/pools/${poolId}/location`);
+  const lat = Number(text(formData, "lat"));
+  const lon = Number(text(formData, "lon"));
+  const timezone = text(formData, "timezone");
+  const placeLabel = text(formData, "place_label");
+  if (!text(formData, "lat") || !text(formData, "lon") || !placeLabel || !isTimeZone(timezone)) {
+    return { error: "Search for your ZIP code or town and pick it from the list." };
+  }
+  let cell;
+  try {
+    cell = cellFor(lat, lon);
+  } catch {
+    return { error: "That location is not valid. Search for your town again." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data: pool } = await supabase.from("pools").select("cell_id").eq("id", poolId).maybeSingle<{ cell_id: string | null }>();
+  if (!pool) return { error: "Unknown pool." };
+
+  // Weather cells are shared reference data; the server creates them, never the browser.
+  const admin = createSupabaseAdminClient();
+  const { error: cellError } = await admin
+    .from("weather_cells")
+    .upsert({ id: cell.id, lat: cell.lat, lon: cell.lon, timezone, active: true }, { onConflict: "id" });
+  if (cellError) return { error: `Could not register the weather location (${cellError.message}).` };
+
+  const { error } = await supabase
+    .from("pools")
+    .update({ cell_id: cell.id, place_label: placeLabel.slice(0, 120), timezone })
+    .eq("id", poolId);
+  if (error) return { error: `Could not save (${error.message}).` };
+
+  const oldCell = pool.cell_id;
+  const newCell = cell.id;
+  after(async () => {
+    try {
+      if (oldCell && oldCell !== newCell) {
+        const { count } = await admin.from("pools").select("id", { count: "exact", head: true }).eq("cell_id", oldCell);
+        if (count === 0) await admin.from("weather_cells").update({ active: false }).eq("id", oldCell);
+      }
+      await refreshCellIfStale(admin, newCell, { backfill: true });
+      await recomputePoolModel(admin, poolId);
+      const { refreshPlan } = await import("@/lib/plan/build");
+      await refreshPlan(admin, poolId);
+    } catch (err) {
+      console.error(`[location] pool ${poolId}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  });
+  revalidatePath(`/app/pools/${poolId}`);
+  revalidatePath("/app");
+  return { saved: true };
 }

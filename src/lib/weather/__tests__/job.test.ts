@@ -60,6 +60,9 @@ function openMeteoBody(n: number, days = 5) {
 describe("pastDaysNeeded", () => {
   it("asks for a month on the first fetch and covers any gap after that", () => {
     expect(pastDaysNeeded(null, NOW.getTime())).toBe(31);
+    // A pool moving to a new cell backfills all the history the API has.
+    expect(pastDaysNeeded(null, NOW.getTime(), 92)).toBe(92);
+    expect(pastDaysNeeded(null, NOW.getTime(), 200)).toBe(92);
     expect(pastDaysNeeded(YESTERDAY, NOW.getTime())).toBe(2);
     expect(pastDaysNeeded("2026-09-17T06:00:00Z", NOW.getTime())).toBe(11);
     expect(pastDaysNeeded("2026-01-01T00:00:00Z", NOW.getTime())).toBe(92);

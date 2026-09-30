@@ -1,9 +1,12 @@
 /**
- * Weather cells: pools are grouped on a 0.05° grid (about 5 km) so one weather
- * fetch serves every pool in the cell and no precise location is ever stored.
+ * Weather cells: pools are grouped on a 0.03° grid (about 3 km, 2 miles) so one weather
+ * fetch serves every pool in the cell and no precise location is ever stored. That is
+ * about the resolution of the finest weather models behind Open-Meteo in the US (HRRR,
+ * 3 km). Pools created before September 30, 2026 sit on the older 0.05° grid until
+ * their owner picks the town again.
  */
 
-export const CELL_DEGREES = 0.05;
+export const CELL_DEGREES = 0.03;
 
 export interface WeatherCell {
   id: string;

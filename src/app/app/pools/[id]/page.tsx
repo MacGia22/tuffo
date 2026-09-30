@@ -419,6 +419,10 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
             {pool.surface}
             {pool.covered ? " · covered" : ""}
             {pool.place_label ? ` · ${pool.place_label}` : ""}
+            {" · "}
+            <Link href={`/app/pools/${pool.id}/location`} className="text-lagoon underline-offset-2 hover:underline">
+              {pool.place_label ? "Change location" : "Set location"}
+            </Link>
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

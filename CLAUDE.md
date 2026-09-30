@@ -48,7 +48,7 @@ CI (`.github/workflows/ci.yml`) runs the same checks on every push and pull requ
    migration lands: add first, use later, drop only after nothing uses it. Never edit an
    applied migration; add a new timestamped file. Test locally on Postgres 16 with the
    stand-in auth schema described in `supabase/README.md`.
-5. **Privacy by design.** Store only what `/privacy` says. A pool's location is a 0.05°
+5. **Privacy by design.** Store only what `/privacy` says. A pool's location is a 0.03°
    weather cell plus a town name, never an address or GPS point. Photos are read once and
    never stored. No analytics or ad trackers without a certified consent platform. If a
    change collects new data or adds a processor, update `src/app/privacy/page.tsx` (and
