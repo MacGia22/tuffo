@@ -4,7 +4,8 @@ import { useActionState, useRef, useState } from "react";
 import { CATALOG, CATALOG_GROUPS, catalogProduct } from "@/lib/catalog";
 import { shelfUnits, type ShelfUnit } from "@/lib/dose-format";
 import type { Units } from "@/lib/format";
-import { createDose, type LogState } from "../../actions";
+import { EditFields, type EditTarget } from "@/components/edit-fields";
+import { saveDose, type LogState } from "../../actions";
 
 const initial: LogState = {};
 
@@ -23,9 +24,20 @@ function defaultUnit(productId: string, units: Units): ShelfUnit {
   return options[1] ?? options[0];
 }
 
-export function DoseForm({ poolId, units, prefill }: { poolId: string; units: Units; prefill: DosePrefill }) {
-  const [state, action, pending] = useActionState(createDose, initial);
-  const f = state.fields ?? {};
+export function DoseForm({
+  poolId,
+  units,
+  prefill,
+  edit,
+}: {
+  poolId: string;
+  units: Units;
+  prefill: DosePrefill;
+  /** Set when changing a saved dose; its values include product, amount and unit. */
+  edit?: EditTarget;
+}) {
+  const [state, action, pending] = useActionState(saveDose, initial);
+  const f = state.fields ?? edit?.values ?? {};
   const tzOffset = useRef<HTMLInputElement>(null);
 
   const [productId, setProductId] = useState(f.product ?? prefill.product ?? "liquid-chlorine-12.5");
@@ -46,6 +58,7 @@ export function DoseForm({ poolId, units, prefill }: { poolId: string; units: Un
     >
       <input type="hidden" name="pool_id" value={poolId} />
       <input type="hidden" name="tz_offset" ref={tzOffset} defaultValue="0" />
+      <EditFields edit={edit} whenField="added_at" />
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="product" className="text-sm font-semibold">
@@ -111,7 +124,7 @@ export function DoseForm({ poolId, units, prefill }: { poolId: string; units: Un
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="added_at" className="text-sm font-semibold">
-            When <span className="font-normal text-muted">(empty = now)</span>
+            When <span className="font-normal text-muted">{edit ? "(time at the pool)" : "(empty = now)"}</span>
           </label>
           <input id="added_at" name="added_at" type="datetime-local" defaultValue={f.added_at ?? ""} className={input} />
         </div>
@@ -134,7 +147,7 @@ export function DoseForm({ poolId, units, prefill }: { poolId: string; units: Un
         disabled={pending}
         className="h-12 self-start rounded-xl bg-lagoon px-6 text-base font-semibold text-white transition hover:bg-lagoon-deep disabled:opacity-60"
       >
-        {pending ? "Saving…" : "Save"}
+        {pending ? "Saving…" : edit ? "Save changes" : "Save"}
       </button>
     </form>
   );

@@ -181,6 +181,12 @@ select rls_test.check(rls_test.touched('update public.readings set fc = 0 where 
 select rls_test.check(rls_test.touched('update public.doses set amount = 1 where id = ''00000000-0000-0000-0000-0000000000b3''') = 0, 'A cannot update B''s doses');
 select rls_test.check(rls_test.touched('update public.events set notes = ''x'' where id = ''00000000-0000-0000-0000-0000000000b4''') = 0, 'A cannot update B''s events');
 
+-- edit A's own rows in place (2.6b): allowed, and only those
+select rls_test.check(rls_test.touched('update public.readings set fc = 2.5 where id = ''00000000-0000-0000-0000-0000000000a2''') = 1, 'A can edit A''s reading');
+select rls_test.check(rls_test.touched('update public.doses set amount = 1500 where id = ''00000000-0000-0000-0000-0000000000a3''') = 1, 'A can edit A''s dose');
+select rls_test.check(rls_test.touched('update public.events set notes = ''edited'' where id = ''00000000-0000-0000-0000-0000000000a4''') = 1, 'A can edit A''s event');
+select rls_test.check(rls_test.touched('update public.readings set fc = 2.5') = 1, 'an unfiltered edit by A touches only A''s reading');
+
 -- delete B's rows
 select rls_test.check(rls_test.touched('delete from public.pools where id = ''00000000-0000-0000-0000-0000000000b1''') = 0, 'A cannot delete B''s pool');
 select rls_test.check(rls_test.touched('delete from public.readings where id = ''00000000-0000-0000-0000-0000000000b2''') = 0, 'A cannot delete B''s readings');

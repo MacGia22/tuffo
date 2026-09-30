@@ -96,7 +96,7 @@ The public launch (end of milestone 3) happens when all of these hold:
 ### 2.6 Imports, edits and small gaps
 - 2.6a Pool Math import: CSV upload, map columns, preview, dedupe by timestamp. Research
   the current export format first and keep a sample file in the tests.
-- 2.6b Edit a test, dose or event in place (today it is remove and log again).
+- 2.6b Edit a test, dose or event in place — done 2026-09-30 (#15).
 - 2.6c Count calcium chloride and salt logged since the latest test the way stabilizer is
   counted in `adviseFor` (its `since` list, PR #1) — done 2026-09-30 (#14).
 
