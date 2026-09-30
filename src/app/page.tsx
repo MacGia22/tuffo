@@ -7,7 +7,7 @@ import { serverEnv } from "@/lib/env";
 const steps = [
   {
     title: "Log a test in thirty seconds",
-    body: "Drop kit, strips or the printout from the pool store. Free chlorine, pH, alkalinity, calcium, stabilizer, salt: type the numbers, done.",
+    body: "Type the numbers from a drop kit or strips, photograph the pool store's printout, or import your Pool Math history. No signal at the pool? It saves on your phone and sends later.",
   },
   {
     title: "See what the weather did",
@@ -15,7 +15,7 @@ const steps = [
   },
   {
     title: "Plan the week ahead",
-    body: "With the forecast and your pool's own history, it tells you what to add and when, in the units of the product you have in hand.",
+    body: "From the forecast and how fast your pool has used chlorine, it shows how much liquid chlorine to add each day (or where to set a salt cell), and flags algae-risk days and heavy rain.",
   },
 ];
 
@@ -49,8 +49,8 @@ export default function Home() {
             </h1>
             <p className="max-w-xl text-lg text-muted">
               Pool chemistry that knows your weather. Log a water test, see what the
-              sun, heat and rain did between readings, and get a seven-day dosing plan
-              for your own pool.
+              sun, heat and rain did between readings, get advice on what to add now,
+              and a seven-day chlorine plan for your own pool.
             </p>
             {open ? (
               <StartFreeLink className="self-start rounded-xl bg-lagoon px-6 py-3 text-base font-semibold text-white transition hover:bg-lagoon-deep">

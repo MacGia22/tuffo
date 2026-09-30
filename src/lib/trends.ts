@@ -11,6 +11,16 @@ export interface TrendDay {
   label: string; // "Sep 27"
   uv: number | null;
   rainMm: number | null;
+  /** A day ahead, from the 7-day plan and the weather forecast. */
+  forecast: boolean;
+  /** The plan for this day: FC expected at its end, and what to add ("1 qt of liquid chlorine"). */
+  plan: { fcEnd: number; add: string | null } | null;
+}
+
+/** A point on the plan's predicted free chlorine line. */
+export interface TrendForecastPoint {
+  x: number;
+  fc: number;
 }
 
 export interface TrendPoint {
@@ -34,6 +44,10 @@ export interface TrendData {
   phBand: { low: number; high: number };
   units: Units;
   hasWeather: boolean;
+  /** Predicted FC if the plan is followed: after each addition and at the end of each day. */
+  forecast: TrendForecastPoint[];
+  /** x where the forecast starts (now), or null without a plan. */
+  forecastFrom: number | null;
 }
 
 const DAY_MS = 86_400_000;
@@ -114,6 +128,17 @@ export interface BuildTrendInput {
   weather: Array<{ date: string; uv_index_max: number | null; precipitation_mm: number | null }>;
   fcBand: { low: number; high: number };
   phBand: { low: number; high: number };
+  /** The 7-day plan from today, with the forecast weather for each day. */
+  plan?: {
+    days: Array<{
+      date: string;
+      fcAfterAdd: number;
+      fcEnd: number;
+      add: string | null;
+      uv_index_max: number | null;
+      precipitation_mm: number | null;
+    }>;
+  } | null;
 }
 
 export function buildTrend(input: BuildTrendInput): TrendData {
@@ -123,15 +148,31 @@ export function buildTrend(input: BuildTrendInput): TrendData {
   const count = daysBetween(start, end) + 1;
 
   const weatherByDate = new Map(input.weather.map((w) => [w.date, w]));
-  const days: TrendDay[] = Array.from({ length: count }, (_, i) => {
+  const planDays = (input.plan?.days ?? []).filter((d) => d.date >= end).sort((a, b) => a.date.localeCompare(b.date));
+  const planByDate = new Map(planDays.map((d) => [d.date, d]));
+  const ahead = planDays.filter((d) => d.date > end).length;
+  const days: TrendDay[] = Array.from({ length: count + ahead }, (_, i) => {
     const date = addDays(start, i);
     const w = weatherByDate.get(date);
+    const p = planByDate.get(date);
+    const forecast = date > end;
     return {
       date,
       label: dayLabel(date),
-      uv: w?.uv_index_max ?? null,
-      rainMm: w?.precipitation_mm ?? null,
+      uv: forecast ? (p?.uv_index_max ?? null) : (w?.uv_index_max ?? null),
+      rainMm: forecast ? (p?.precipitation_mm ?? null) : (w?.precipitation_mm ?? null),
+      forecast,
+      plan: p ? { fcEnd: p.fcEnd, add: p.add } : null,
     };
+  });
+
+  // The plan line: from now, after each day's addition and at the end of each day.
+  const forecast: TrendForecastPoint[] = [];
+  const nowX = xFor(new Date(input.now).toISOString(), start, timeZone);
+  planDays.forEach((p) => {
+    const k = daysBetween(start, p.date);
+    forecast.push({ x: Math.max(k, nowX), fc: p.fcAfterAdd });
+    forecast.push({ x: k + 1, fc: p.fcEnd });
   });
 
   const inWindow = (x: number) => x >= 0 && x <= count;
@@ -151,5 +192,7 @@ export function buildTrend(input: BuildTrendInput): TrendData {
     phBand: input.phBand,
     units: input.units,
     hasWeather: days.some((d) => d.uv !== null || d.rainMm !== null),
+    forecast,
+    forecastFrom: forecast.length ? nowX : null,
   };
 }

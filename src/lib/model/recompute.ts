@@ -160,13 +160,17 @@ export async function recomputePoolModel(admin: SupabaseClient, poolId: string):
 }
 
 /**
- * Refits the pool's model once the response has been sent. Call only after the user's
- * own client has written to that pool, which proves they own it.
+ * Refits the pool's model, then its 7-day plan, once the response has been sent. Call
+ * only after the user's own client has written to that pool, which proves they own it.
  */
 export function recomputeAfterResponse(poolId: string): void {
   after(async () => {
     try {
-      await recomputePoolModel(createSupabaseAdminClient(), poolId);
+      const admin = createSupabaseAdminClient();
+      await recomputePoolModel(admin, poolId);
+      // The 7-day plan starts from the latest test and the refitted model.
+      const { refreshPlan } = await import("@/lib/plan/build");
+      await refreshPlan(admin, poolId);
     } catch (err) {
       console.error(`[model] pool ${poolId}: ${err instanceof Error ? err.message : String(err)}`);
     }

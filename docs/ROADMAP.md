@@ -112,7 +112,7 @@ The public launch (end of milestone 3) happens when all of these hold:
 
 ## Milestone 3: forecast and premium = public launch (target 2026-11-13)
 
-### 3.1 The 7-day plan
+### 3.1 The 7-day plan — done 2026-09-30 (#18)
 - Nightly per pool (and after each new test): simulate FC day by day over
   `weather_forecast` with the pool's model; pick the smallest daily dose, or salt-cell
   output %, that keeps FC inside the CYA-based range with a margin; flag days where FC

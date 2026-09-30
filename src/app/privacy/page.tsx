@@ -44,7 +44,9 @@ export default function PrivacyPage() {
       <h3>What Tuffo works out</h3>
       <p>
         From your tests, what you added and the weather at your pool, Tuffo works out how fast each pool uses chlorine
-        and keeps those figures with the pool. They are deleted with the pool or your account.
+        and keeps those figures with the pool. From them and the weather forecast for your pool&apos;s area it makes a
+        7-day plan (what to add each day, days to watch), updated nightly and after each test. Both are deleted with the
+        pool or your account.
       </p>
       <h3>Photo scans</h3>
       <p>
@@ -179,8 +181,8 @@ export default function PrivacyPage() {
         <li>The providers&apos; technical logs: their own short periods, usually days to weeks.</li>
       </ul>
       <p>
-        Deleting your account removes it from the live database at once, with every pool, test, dose, event, feedback
-        message and scan log line. Copies in the database provider&apos;s backups expire on the provider&apos;s own schedule.
+        Deleting your account removes it from the live database at once, with every pool, test, dose, event, plan,
+        feedback message and scan log line. Copies in the database provider&apos;s backups expire on the provider&apos;s own schedule.
       </p>
 
       <h2>Your rights</h2>

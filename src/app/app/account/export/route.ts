@@ -9,7 +9,7 @@ export async function GET() {
   if (!user) return new Response("Sign in first.", { status: 401 });
 
   const supabase = await createSupabaseServerClient();
-  const [profile, pools, readings, doses, events, scans, feedback] = await Promise.all([
+  const [profile, pools, readings, doses, events, scans, feedback, plans] = await Promise.all([
     supabase.from("profiles").select("display_name, locale, units, consent_marketing_at, created_at").maybeSingle(),
     supabase.from("pools").select("*").order("created_at"),
     supabase.from("readings").select("*").order("taken_at"),
@@ -21,6 +21,8 @@ export async function GET() {
       .from("feedback")
       .select("id, created_at, kind, message, page, app_version, contact_ok, status")
       .order("created_at"),
+    // The 7-day plans Tuffo worked out: advice per day, no model parameters.
+    supabase.from("plans").select("pool_id, computed_at, summary, days"),
   ]);
 
   const body = {
@@ -39,6 +41,7 @@ export async function GET() {
     events: events.data ?? [],
     photo_scans: scans.data ?? [],
     feedback: feedback.data ?? [],
+    plans: plans.data ?? [],
     units_note: "Volumes in liters, temperatures in °C, doses in grams or milliliters; locations are 0.05° weather cells.",
   };
 
