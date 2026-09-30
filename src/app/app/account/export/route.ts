@@ -50,7 +50,7 @@ export async function GET() {
     alerts_sent: alertLog.data ?? [],
     pump_schedules: pumpSchedules.data ?? [],
     rain_at_pool: poolRain.data ?? [],
-    units_note: "Volumes in liters, temperatures in °C, rain in millimeters, doses in grams or milliliters; locations are 0.05° weather cells.",
+    units_note: "Volumes in liters, temperatures in °C, rain in millimeters, doses in grams or milliliters; locations are 0.03° weather cells (0.05° for pools not moved since September 2026).",
   };
 
   const stamp = new Date().toISOString().slice(0, 10);

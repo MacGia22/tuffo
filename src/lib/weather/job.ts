@@ -28,6 +28,13 @@ export interface CellRow {
   last_actuals_at: string | null;
 }
 
+export interface RefreshOptions {
+  fetchImpl?: typeof fetch;
+  now?: Date;
+  /** A cell never fetched gets all the history the API has (92 days), not a month: a pool moved to it keeps weather for its older tests. */
+  backfill?: boolean;
+}
+
 const BATCH = 40;
 /** Open-Meteo's forecast API returns up to 92 past days. */
 const MAX_PAST_DAYS = 92;
@@ -39,8 +46,8 @@ export const FRESH_HOURS = 20;
 const DAY_MS = 86_400_000;
 
 /** Past days to request so nothing is missed since the cell's last successful fetch. */
-export function pastDaysNeeded(lastActualsAt: string | null, now: number): number {
-  if (!lastActualsAt) return FIRST_FETCH_DAYS;
+export function pastDaysNeeded(lastActualsAt: string | null, now: number, firstFetchDays = FIRST_FETCH_DAYS): number {
+  if (!lastActualsAt) return Math.min(MAX_PAST_DAYS, firstFetchDays);
   const days = Math.ceil((now - Date.parse(lastActualsAt)) / DAY_MS) + 1;
   return Math.min(MAX_PAST_DAYS, Math.max(2, days));
 }
@@ -104,7 +111,7 @@ async function refreshBatch(
 export async function refreshCells(
   admin: SupabaseClient,
   cells: CellRow[],
-  options: { fetchImpl?: typeof fetch; now?: Date } = {},
+  options: RefreshOptions = {},
 ): Promise<WeatherJobResult> {
   const result: WeatherJobResult = {
     cells: cells.length,
@@ -118,7 +125,10 @@ export async function refreshCells(
   const fetchedAt = now.toISOString();
 
   const withNeed = cells
-    .map((cell) => ({ cell, need: pastDaysNeeded(cell.last_actuals_at, now.getTime()) }))
+    .map((cell) => ({
+      cell,
+      need: pastDaysNeeded(cell.last_actuals_at, now.getTime(), options.backfill ? MAX_PAST_DAYS : FIRST_FETCH_DAYS),
+    }))
     .sort((a, b) => b.need - a.need);
 
   for (const batch of chunk(withNeed, BATCH)) {
@@ -164,7 +174,7 @@ export async function runWeatherJob(
 export async function refreshCellIfStale(
   admin: SupabaseClient,
   cellId: string,
-  options: { fetchImpl?: typeof fetch; now?: Date } = {},
+  options: RefreshOptions = {},
 ): Promise<boolean> {
   try {
     const { data: cell, error } = await admin

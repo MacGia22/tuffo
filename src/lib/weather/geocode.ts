@@ -6,7 +6,7 @@ import { labelFor, parseQuery, rankResults, type GeoResult } from "./place-query
  * Town or postal-code lookup through Open-Meteo's geocoding API (free for
  * non-commercial use; the commercial plan covers it once Tuffo charges). Called from
  * the server so the user's IP is never sent to a third party, and nothing typed here
- * is stored: only the chosen place's 0.05° cell, town name and timezone are kept.
+ * is stored: only the chosen place's 0.03° cell, town name and timezone are kept.
  */
 
 export interface Place {

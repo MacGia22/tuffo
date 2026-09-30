@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import { cellFor } from "../cells";
 
 describe("cellFor", () => {
-  it("snaps to the 0.05° grid", () => {
+  it("snaps to the 0.03° grid", () => {
     // St. Petersburg, FL
-    expect(cellFor(27.7676, -82.6403)).toEqual({ id: "27.75,-82.65", lat: 27.75, lon: -82.65 });
-    expect(cellFor(27.774, -82.626)).toEqual({ id: "27.75,-82.65", lat: 27.75, lon: -82.65 });
+    expect(cellFor(27.7676, -82.6403)).toEqual({ id: "27.78,-82.65", lat: 27.78, lon: -82.65 });
+    expect(cellFor(27.79, -82.64)).toEqual({ id: "27.78,-82.65", lat: 27.78, lon: -82.65 });
+    // 0.03° further east is the next cell.
+    expect(cellFor(27.7676, -82.61).id).toBe("27.78,-82.62");
   });
 
   it("keeps two decimals and never prints negative zero", () => {
