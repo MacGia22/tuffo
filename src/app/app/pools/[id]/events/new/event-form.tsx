@@ -3,16 +3,17 @@
 import { useActionState, useRef, useState } from "react";
 import { EVENT_KINDS, eventKindInfo, type EventKind } from "@/lib/events";
 import type { Units } from "@/lib/format";
-import { createEvent, type LogState } from "../../actions";
+import { EditFields, type EditTarget } from "@/components/edit-fields";
+import { saveEvent, type LogState } from "../../actions";
 
 const initial: LogState = {};
 
 const input =
   "h-11 w-full rounded-xl border border-border bg-surface px-3 text-base text-foreground outline-none placeholder:text-muted/70 focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
 
-export function EventForm({ poolId, units }: { poolId: string; units: Units }) {
-  const [state, action, pending] = useActionState(createEvent, initial);
-  const f = state.fields ?? {};
+export function EventForm({ poolId, units, edit }: { poolId: string; units: Units; edit?: EditTarget }) {
+  const [state, action, pending] = useActionState(saveEvent, initial);
+  const f = state.fields ?? edit?.values ?? {};
   const tzOffset = useRef<HTMLInputElement>(null);
   const [kind, setKind] = useState<EventKind>((f.kind as EventKind) || "refill");
   const info = eventKindInfo(kind);
@@ -28,6 +29,7 @@ export function EventForm({ poolId, units }: { poolId: string; units: Units }) {
       <input type="hidden" name="pool_id" value={poolId} />
       <input type="hidden" name="units" value={units} />
       <input type="hidden" name="tz_offset" ref={tzOffset} defaultValue="0" />
+      <EditFields edit={edit} whenField="occurred_at" />
 
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-1 text-sm font-semibold">What happened?</legend>
@@ -88,7 +90,7 @@ export function EventForm({ poolId, units }: { poolId: string; units: Units }) {
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="occurred_at" className="text-sm font-semibold">
-            When <span className="font-normal text-muted">(empty = now)</span>
+            When <span className="font-normal text-muted">{edit ? "(time at the pool)" : "(empty = now)"}</span>
           </label>
           <input id="occurred_at" name="occurred_at" type="datetime-local" defaultValue={f.occurred_at ?? ""} className={input} />
         </div>
@@ -111,7 +113,7 @@ export function EventForm({ poolId, units }: { poolId: string; units: Units }) {
         disabled={pending}
         className="h-12 self-start rounded-xl bg-lagoon px-6 text-base font-semibold text-white transition hover:bg-lagoon-deep disabled:opacity-60"
       >
-        {pending ? "Saving…" : "Save"}
+        {pending ? "Saving…" : edit ? "Save changes" : "Save"}
       </button>
     </form>
   );

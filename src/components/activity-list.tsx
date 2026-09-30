@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { deleteEntry } from "@/app/app/pools/[id]/actions";
 import { ConfirmButton } from "@/components/confirm-button";
 
@@ -9,7 +10,7 @@ export interface ActivityItem {
   notes: string | null;
 }
 
-/** Recent doses and events, newest first, each removable. */
+/** Recent doses and events, newest first, each editable and removable. */
 export function ActivityList({ poolId, items }: { poolId: string; items: ActivityItem[] }) {
   return (
     <section aria-labelledby="activity" className="flex flex-col gap-3">
@@ -28,12 +29,21 @@ export function ActivityList({ poolId, items }: { poolId: string; items: Activit
                 {item.notes ? ` · ${item.notes}` : ""}
               </p>
             </div>
-            <form action={deleteEntry} className="shrink-0">
-              <input type="hidden" name="pool_id" value={poolId} />
-              <input type="hidden" name="kind" value={item.kind} />
-              <input type="hidden" name="id" value={item.id} />
-              <ConfirmButton question={`Remove "${item.text}"?`} label="Remove" />
-            </form>
+            <div className="flex shrink-0 items-center gap-2">
+              <Link
+                href={`/app/pools/${poolId}/${item.kind === "dose" ? "doses" : "events"}/${item.id}/edit`}
+                aria-label={`Edit "${item.text}"`}
+                className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold hover:border-lagoon"
+              >
+                Edit
+              </Link>
+              <form action={deleteEntry}>
+                <input type="hidden" name="pool_id" value={poolId} />
+                <input type="hidden" name="kind" value={item.kind} />
+                <input type="hidden" name="id" value={item.id} />
+                <ConfirmButton question={`Remove "${item.text}"?`} label="Remove" />
+              </form>
+            </div>
           </li>
         ))}
       </ul>

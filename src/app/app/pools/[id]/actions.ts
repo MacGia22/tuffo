@@ -7,7 +7,7 @@ import { catalogProduct } from "@/lib/catalog";
 import { baseUnitFor, isShelfUnit, shelfToBase } from "@/lib/dose-format";
 import { CM_PER_INCH, eventKindInfo } from "@/lib/events";
 import type { Units } from "@/lib/format";
-import { formFields, instantFromLocal, isUuid, optionalNumber, text } from "@/lib/form-data";
+import { formFields, isUuid, optionalNumber, text, whenFromForm } from "@/lib/form-data";
 import { recomputeAfterResponse } from "@/lib/model/recompute";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -23,10 +23,52 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-export async function createDose(_prev: LogState, formData: FormData): Promise<LogState> {
+type Table = "doses" | "events";
+
+/**
+ * Inserts a new row, or updates the one named by the form's `id`. Row-level security
+ * limits both to the owner's pools. An edit can change what the chlorine model learned
+ * from, so it refits the pool after the response; a new dose or event only counts once
+ * a later test exists, which refits then.
+ */
+async function insertOrUpdate(
+  table: Table,
+  poolId: string,
+  id: string,
+  row: Record<string, unknown>,
+  fail: (error: string) => LogState,
+): Promise<LogState | null> {
+  const supabase = await createSupabaseServerClient();
+  if (id) {
+    const { data, error } = await supabase.from(table).update(row).eq("id", id).eq("pool_id", poolId).select("id");
+    if (error) return errorState(error.message, fail);
+    if (!data || data.length === 0) return fail("That entry is no longer there.");
+    recomputeAfterResponse(poolId);
+    return null;
+  }
+  const { error } = await supabase.from(table).insert({ pool_id: poolId, ...row });
+  return error ? errorState(error.message, fail) : null;
+}
+
+function errorState(message: string, fail: (error: string) => LogState): LogState {
+  // Before migration 3 lands, the database does not know drain_refill yet.
+  return /events_kind_check/.test(message)
+    ? fail("That kind of event is not available yet. Try again in a few minutes.")
+    : fail(`Could not save it (${message}).`);
+}
+
+/** The entry id an edit form carries, "" for a new entry, or null when it is malformed. */
+function entryId(formData: FormData): string | null {
+  const id = text(formData, "id");
+  return id === "" || isUuid(id) ? id : null;
+}
+
+export async function saveDose(_prev: LogState, formData: FormData): Promise<LogState> {
   const poolId = text(formData, "pool_id");
   if (!isUuid(poolId)) return { error: "Unknown pool." };
-  await requireUser(`/app/pools/${poolId}/doses/new`);
+  const id = entryId(formData);
+  if (id === null) return { error: "Unknown dose." };
+  await requireUser(id ? `/app/pools/${poolId}/doses/${id}/edit` : `/app/pools/${poolId}/doses/new`);
   const fields = formFields(formData);
   const fail = (error: string): LogState => ({ error, fields });
 
@@ -44,31 +86,37 @@ export async function createDose(_prev: LogState, formData: FormData): Promise<L
   }
   if (base.amount > MAX_BASE[base.unit]) return fail("That is more than a pool takes in one go. Check the unit.");
 
-  const when = instantFromLocal(text(formData, "added_at"), Number(text(formData, "tz_offset") || "0"));
+  const when = whenFromForm(formData, "added_at");
   if (!when.ok) return fail(when.error);
 
   const notes = text(formData, "notes");
   if (notes.length > 2000) return fail("Notes are limited to 2,000 characters.");
 
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.from("doses").insert({
-    pool_id: poolId,
-    product_id: product.id,
-    amount: round2(base.amount),
-    unit: base.unit,
-    ...(when.iso ? { added_at: when.iso } : {}),
-    notes: notes || null,
-  });
-  if (error) return fail(`Could not save it (${error.message}).`);
+  const failed = await insertOrUpdate(
+    "doses",
+    poolId,
+    id,
+    {
+      product_id: product.id,
+      amount: round2(base.amount),
+      unit: base.unit,
+      ...("iso" in when && when.iso ? { added_at: when.iso } : {}),
+      notes: notes || null,
+    },
+    fail,
+  );
+  if (failed) return failed;
 
   revalidatePath(`/app/pools/${poolId}`);
   redirect(`/app/pools/${poolId}`);
 }
 
-export async function createEvent(_prev: LogState, formData: FormData): Promise<LogState> {
+export async function saveEvent(_prev: LogState, formData: FormData): Promise<LogState> {
   const poolId = text(formData, "pool_id");
   if (!isUuid(poolId)) return { error: "Unknown pool." };
-  await requireUser(`/app/pools/${poolId}/events/new`);
+  const id = entryId(formData);
+  if (id === null) return { error: "Unknown event." };
+  await requireUser(id ? `/app/pools/${poolId}/events/${id}/edit` : `/app/pools/${poolId}/events/new`);
   const fields = formFields(formData);
   const fail = (error: string): LogState => ({ error, fields });
 
@@ -92,26 +140,26 @@ export async function createEvent(_prev: LogState, formData: FormData): Promise<
     }
   }
 
-  const when = instantFromLocal(text(formData, "occurred_at"), Number(text(formData, "tz_offset") || "0"));
+  const when = whenFromForm(formData, "occurred_at");
   if (!when.ok) return fail(when.error);
 
   const notes = text(formData, "notes");
   if (notes.length > 2000) return fail("Notes are limited to 2,000 characters.");
   if (info.kind === "other" && !notes) return fail("Say what happened in the notes.");
 
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.from("events").insert({
-    pool_id: poolId,
-    kind: info.kind,
-    value,
-    ...(when.iso ? { occurred_at: when.iso } : {}),
-    notes: notes || null,
-  });
-  if (error) {
-    // Before migration 3 lands, the database does not know drain_refill yet.
-    const unknownKind = /events_kind_check/.test(error.message);
-    return fail(unknownKind ? "That kind of event is not available yet. Try again in a few minutes." : `Could not save it (${error.message}).`);
-  }
+  const failed = await insertOrUpdate(
+    "events",
+    poolId,
+    id,
+    {
+      kind: info.kind,
+      value,
+      ...("iso" in when && when.iso ? { occurred_at: when.iso } : {}),
+      notes: notes || null,
+    },
+    fail,
+  );
+  if (failed) return failed;
 
   revalidatePath(`/app/pools/${poolId}`);
   redirect(`/app/pools/${poolId}`);

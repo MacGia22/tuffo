@@ -60,7 +60,8 @@ What `rls.sql` proves, with two users A and B who own one pool each:
   any of them (checked from the catalog, so new tables are covered automatically);
 - a signed-out visitor cannot read any table;
 - A sees only A's own profile, pools, readings, doses, events, scans and feedback, and
-  cannot read, update, delete, create or move rows into B's;
+  cannot read, update, delete, create or move rows into B's; A can edit A's own
+  readings, doses and events in place, and an unfiltered update touches only those;
 - A can send feedback as A only, cannot set its status, edit or delete it, and the 11th
   message in 24 hours is refused; feedback goes when the account is deleted;
 - users cannot write `scans`, read or write `pool_models` or the `waitlist`, or write

@@ -427,7 +427,7 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
                   <th className="px-3 py-3 text-right">Salt</th>
                   <th className="px-3 py-3 text-right">Temp</th>
                   <th className="px-3 py-3">
-                    <span className="sr-only">Remove</span>
+                    <span className="sr-only">Edit or remove</span>
                   </th>
                 </tr>
               </thead>
@@ -446,12 +446,21 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
                       {r.water_temp_c === null ? "—" : formatTemperature(Number(r.water_temp_c), units)}
                     </td>
                     <td className="px-2 py-1.5 text-right">
-                      <form action={deleteEntry}>
-                        <input type="hidden" name="pool_id" value={pool.id} />
-                        <input type="hidden" name="kind" value="reading" />
-                        <input type="hidden" name="id" value={r.id} />
-                        <ConfirmButton question={`Remove the test from ${formatDateTime(r.taken_at, tz)}?`} label="Remove" />
-                      </form>
+                      <div className="flex justify-end gap-2">
+                        <Link
+                          href={`/app/pools/${pool.id}/readings/${r.id}/edit`}
+                          aria-label={`Edit the test from ${formatDateTime(r.taken_at, tz)}`}
+                          className="rounded-lg border border-border px-3 py-1.5 font-semibold hover:border-lagoon"
+                        >
+                          Edit
+                        </Link>
+                        <form action={deleteEntry}>
+                          <input type="hidden" name="pool_id" value={pool.id} />
+                          <input type="hidden" name="kind" value="reading" />
+                          <input type="hidden" name="id" value={r.id} />
+                          <ConfirmButton question={`Remove the test from ${formatDateTime(r.taken_at, tz)}?`} label="Remove" />
+                        </form>
+                      </div>
                     </td>
                   </tr>
                 ))}

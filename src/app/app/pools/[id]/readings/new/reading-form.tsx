@@ -3,7 +3,8 @@
 import { useActionState, useRef, useState } from "react";
 import { ScanButton, type ScanAllowance, type ScanResponse } from "@/components/scan-button";
 import { READING_METHODS, type Units } from "@/lib/format";
-import { createReading, type ReadingState } from "./actions";
+import { EditFields, type EditTarget } from "@/components/edit-fields";
+import { saveReading, type ReadingState } from "./actions";
 
 const initial: ReadingState = {};
 
@@ -42,15 +43,18 @@ export function ReadingForm({
   swg,
   scanEnabled,
   scanAllowance,
+  edit,
 }: {
   poolId: string;
   units: Units;
   swg: boolean;
   scanEnabled: boolean;
   scanAllowance: ScanAllowance | null;
+  /** Set when changing a saved test instead of logging a new one. */
+  edit?: EditTarget;
 }) {
-  const [state, action, pending] = useActionState(createReading, initial);
-  const f = state.fields ?? {};
+  const [state, action, pending] = useActionState(saveReading, initial);
+  const f = state.fields ?? edit?.values ?? {};
   const tzOffset = useRef<HTMLInputElement>(null);
   const [values, setValues] = useState<Values>(() => ({ ...f }));
   const [showMore, setShowMore] = useState(swg || Boolean(f.salt || f.borate || f.phosphate));
@@ -104,8 +108,9 @@ export function ReadingForm({
       <input type="hidden" name="pool_id" value={poolId} />
       <input type="hidden" name="units" value={units} />
       <input type="hidden" name="tz_offset" ref={tzOffset} defaultValue="0" />
+      <EditFields edit={edit} whenField="taken_at" />
 
-      {scanEnabled ? (
+      {scanEnabled && !edit ? (
         <div className="flex flex-col gap-3 rounded-2xl border border-dashed border-border p-4">
           <ScanButton onResult={applyScan} disabled={pending} allowance={scanAllowance} />
           <p className="text-xs text-muted">
@@ -176,7 +181,7 @@ export function ReadingForm({
         </div>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="taken_at" className="text-sm font-semibold">
-            When <span className="font-normal text-muted">(empty = now)</span>
+            When <span className="font-normal text-muted">{edit ? "(time at the pool)" : "(empty = now)"}</span>
           </label>
           <input
             id="taken_at"
@@ -216,7 +221,7 @@ export function ReadingForm({
         disabled={pending}
         className="h-12 self-start rounded-xl bg-lagoon px-6 text-base font-semibold text-white transition hover:bg-lagoon-deep disabled:opacity-60"
       >
-        {pending ? "Saving…" : "Save test"}
+        {pending ? "Saving…" : edit ? "Save changes" : "Save test"}
       </button>
     </form>
   );

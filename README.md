@@ -183,7 +183,8 @@ the fit in `pool_models` (server-only: users never read it, the page shows a fig
 - Fit: ridge regression towards a population prior (the default, blended with the fits
   of pools that have 6+ pairs), weather coefficients kept at zero or above. Stored:
   coefficients, `sample_count`, `residual` (RMS error, ppm/day).
-- Runs after each new or removed test (`after()`), and for every pool in the nightly
+- Runs after each new, edited or removed test, and after an edited or removed dose or
+  event (`after()`), and for every pool in the nightly
   job. Failures are logged; the page shows without it.
 - The pool page shows "about X ppm a day on a sunny, 90 °F day" from 4 test pairs on.
 

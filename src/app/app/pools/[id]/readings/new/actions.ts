@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/user";
 import type { Units } from "@/lib/format";
-import { formFields, instantFromLocal, isUuid, optionalNumber, text } from "@/lib/form-data";
+import { formFields, isUuid, optionalNumber, text, whenFromForm } from "@/lib/form-data";
 import { recomputeAfterResponse } from "@/lib/model/recompute";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -33,10 +33,17 @@ const RANGES: Record<string, Range> = {
   phosphate: { min: 0, max: 20000, label: "Phosphates" },
 };
 
-export async function createReading(_prev: ReadingState, formData: FormData): Promise<ReadingState> {
+/**
+ * Saves a test: a new one, or, when the form carries an `id`, changes to an existing
+ * one (row-level security limits both to the owner's pools). Either way the pool's
+ * chlorine model is refitted after the response.
+ */
+export async function saveReading(_prev: ReadingState, formData: FormData): Promise<ReadingState> {
   const poolId = text(formData, "pool_id");
   if (!isUuid(poolId)) return { error: "Unknown pool." };
-  await requireUser(`/app/pools/${poolId}/readings/new`);
+  const id = text(formData, "id");
+  if (id && !isUuid(id)) return { error: "Unknown test." };
+  await requireUser(id ? `/app/pools/${poolId}/readings/${id}/edit` : `/app/pools/${poolId}/readings/new`);
 
   const fields = formFields(formData);
   const fail = (error: string): ReadingState => ({ error, fields });
@@ -69,17 +76,23 @@ export async function createReading(_prev: ReadingState, formData: FormData): Pr
   if (!METHODS.has(method)) return fail("Pick how the water was tested.");
   row.method = method;
 
-  const when = instantFromLocal(text(formData, "taken_at"), Number(text(formData, "tz_offset") || "0"));
+  const when = whenFromForm(formData, "taken_at");
   if (!when.ok) return fail(when.error);
-  if (when.iso) row.taken_at = when.iso;
+  if ("iso" in when && when.iso) row.taken_at = when.iso;
 
   const notes = text(formData, "notes");
   if (notes.length > 2000) return fail("Notes are limited to 2,000 characters.");
   row.notes = notes || null;
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.from("readings").insert(row);
-  if (error) return fail(`Could not save the test (${error.message}).`);
+  if (id) {
+    const { data, error } = await supabase.from("readings").update(row).eq("id", id).eq("pool_id", poolId).select("id");
+    if (error) return fail(`Could not save the test (${error.message}).`);
+    if (!data || data.length === 0) return fail("That test is no longer there.");
+  } else {
+    const { error } = await supabase.from("readings").insert(row);
+    if (error) return fail(`Could not save the test (${error.message}).`);
+  }
 
   recomputeAfterResponse(poolId);
   revalidatePath(`/app/pools/${poolId}`);
