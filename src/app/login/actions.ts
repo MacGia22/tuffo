@@ -112,3 +112,26 @@ export async function verifyCode(_prev: CodeState, formData: FormData): Promise<
   await settleAfterSignIn("code", data.session?.access_token);
   redirect(next);
 }
+
+/**
+ * Sign in with Google (Supabase OAuth, PKCE): sends the browser to Google, which comes
+ * back to /auth/callback with a code. An invite-only project still refuses addresses
+ * that were not invited. Only the email is used; Google's name and picture are not.
+ */
+export async function signInWithGoogle(formData: FormData): Promise<void> {
+  const next = safeNextPath(String(formData.get("next") ?? ""));
+  const supabase = await createSupabaseServerClient();
+  const origin = await requestOrigin();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
+      queryParams: { prompt: "select_account" },
+    },
+  });
+  if (error || !data.url) {
+    console.error(`[auth] google sign-in did not start: ${error?.message ?? "no url"}`);
+    redirect(`/login?error=google&next=${encodeURIComponent(next)}`);
+  }
+  redirect(data.url);
+}

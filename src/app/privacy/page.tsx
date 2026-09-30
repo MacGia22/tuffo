@@ -25,7 +25,9 @@ export default function PrivacyPage() {
       <h2>What Tuffo keeps</h2>
       <h3>Your account</h3>
       <p>
-        Your email address, which is how you sign in: Tuffo emails you a code or a link, and there is no password. Your
+        Your email address, which is how you sign in: Tuffo emails you a code or a link, and there is no password. If
+        you choose &ldquo;Continue with Google&rdquo;, Google confirms your address instead; the sign-in system also
+        keeps the name and profile-picture link Google sends with it, which Tuffo does not use or show. Your
         choice of US or metric units. When the account was created and last signed in to. If you came through a link
         with a label (for example the name of a forum), that label, to see which places bring people to Tuffo.
       </p>
@@ -168,6 +170,10 @@ export default function PrivacyPage() {
           browser loads them directly, so the Foundation receives your IP address and the map area shown, stored in the
           United Kingdom and the Netherlands under its own privacy policy. Tuffo never sends it your account or the
           point you tap.
+        </li>
+        <li>
+          <strong>Google</strong> confirms who you are if you sign in with your Google account. Google then knows you
+          signed in to Tuffo; Tuffo receives only your address, name and picture link from it, never your password.
         </li>
         <li>
           <strong>Sentry</strong> receives the error reports described above, in the United States.
