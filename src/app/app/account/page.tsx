@@ -34,8 +34,8 @@ export default async function AccountPage() {
       <section className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-5">
         <h2 className="text-xl font-semibold">Your data</h2>
         <p className="text-sm text-muted">
-          Everything Tuffo holds about you: your email, unit preference, pools, tests, doses, events, the feedback
-          you sent and a log of your photo scans (when, not the photos), as one JSON file. Locations are the 5 km weather cell and town name
+          Everything Tuffo holds about you: your email, unit preference, pools, tests, doses, events, the 7-day plans, the
+          feedback you sent and a log of your photo scans (when, not the photos), as one JSON file. Locations are the 5 km weather cell and town name
           you chose; no address is stored.
         </p>
         <a

@@ -136,6 +136,7 @@ const TABLES = [
   "scans",
   "waitlist",
   "feedback",
+  "plans",
 ];
 
 /** A cell whose actuals are older than this is late: the nightly job runs every 24 hours. */

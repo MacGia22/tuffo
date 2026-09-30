@@ -7,7 +7,8 @@ import type { TrendData } from "@/lib/trends";
 /**
  * Free chlorine, pH, peak UV and rain as four small multiples on one date axis:
  * one scale per panel (never two on one plot), a shared crosshair and tooltip, and
- * a table view underneath. Marks follow the dataviz specs: 2px lines, 8px markers
+ * a table view underneath. With a 7-day plan, the days ahead are shaded and the free
+ * chlorine the plan expects is drawn dashed on the same scale, over forecast weather. Marks follow the dataviz specs: 2px lines, 8px markers
  * with a surface ring, thin columns with rounded tops, hairline grid.
  */
 
@@ -96,7 +97,7 @@ export function TrendCharts({ data }: { data: TrendData }) {
   const center = (i: number) => LEFT + (i + 0.5) * day;
 
   // Scales, one per panel.
-  const fcValues = data.points.flatMap((p) => (p.fc === null ? [] : [p.fc]));
+  const fcValues = [...data.points.flatMap((p) => (p.fc === null ? [] : [p.fc])), ...data.forecast.map((p) => p.fc)];
   const phValues = data.points.flatMap((p) => (p.ph === null ? [] : [p.ph]));
   const uvValues = data.days.flatMap((d) => (d.uv === null ? [] : [d.uv]));
   const rainValues = data.days.flatMap((d) => (d.rainMm === null ? [] : [rainValue(d.rainMm)]));
@@ -144,6 +145,11 @@ export function TrendCharts({ data }: { data: TrendData }) {
     setPointerY(tops.ph);
   }
 
+  const forecastPath =
+    data.forecast.length > 1
+      ? data.forecast.map((p, i) => `${i ? "L" : "M"}${xAt(p.x).toFixed(1)},${yAt("fc", p.fc).toFixed(1)}`).join("")
+      : null;
+
   function lineFor(key: "fc" | "ph") {
     const pts = data.points.filter((p) => p[key] !== null);
     if (pts.length < 2) return null;
@@ -176,8 +182,9 @@ export function TrendCharts({ data }: { data: TrendData }) {
     <figure className="flex flex-col gap-3">
       <figcaption id={titleId} className="sr-only">
         Free chlorine and pH at each test
-        {data.hasWeather ? ", with the peak UV index and rain for each day," : ""} over the last {n} days. Use the left
-        and right arrow keys to read each day.
+        {data.hasWeather ? ", with the peak UV index and rain for each day," : ""} over the last days
+        {data.forecastFrom !== null ? ", and the free chlorine the 7-day plan expects for the days ahead" : ""}. Use the
+        left and right arrow keys to read each day.
       </figcaption>
       <div
         ref={ref}
@@ -233,6 +240,23 @@ export function TrendCharts({ data }: { data: TrendData }) {
               </g>
             ))}
 
+            {/* Days ahead: shaded across every panel, labelled once */}
+            {data.forecastFrom !== null ? (
+              <g>
+                <rect
+                  x={xAt(data.forecastFrom)}
+                  y={tops.fc}
+                  width={Math.max(0, LEFT + plot - xAt(data.forecastFrom))}
+                  height={plotBottom - tops.fc}
+                  className="fill-chart-grid"
+                  fillOpacity={0.35}
+                />
+                <text x={LEFT + plot} y={tops.fc - 14} textAnchor="end" className="fill-muted text-[11px]">
+                  Forecast →
+                </text>
+              </g>
+            ) : null}
+
             {/* Target bands */}
             {(["fc", "ph"] as const).map((key) => {
               const band = key === "fc" ? data.fcBand : data.phBand;
@@ -258,6 +282,7 @@ export function TrendCharts({ data }: { data: TrendData }) {
                   key={`uv-${d.date}`}
                   d={columnPath(center(i) - colWidth / 2, yAt("uv", d.uv), colWidth, yAt("uv", 0))}
                   className="fill-chart-uv"
+                  fillOpacity={d.forecast ? 0.5 : 1}
                 />
               ) : null,
             )}
@@ -267,6 +292,7 @@ export function TrendCharts({ data }: { data: TrendData }) {
                   key={`rain-${d.date}`}
                   d={columnPath(center(i) - colWidth / 2, yAt("rain", rainValue(d.rainMm)), colWidth, yAt("rain", 0))}
                   className="fill-chart-rain"
+                  fillOpacity={d.forecast ? 0.5 : 1}
                 />
               ) : null,
             )}
@@ -286,6 +312,16 @@ export function TrendCharts({ data }: { data: TrendData }) {
                 />
               ) : null;
             })}
+            {forecastPath ? (
+              <path
+                d={forecastPath}
+                fill="none"
+                className="stroke-chart-chem"
+                strokeWidth={2}
+                strokeDasharray="4 4"
+                strokeLinejoin="round"
+              />
+            ) : null}
             {(["fc", "ph"] as const).flatMap((key) =>
               data.points
                 .filter((p) => p[key] !== null)
@@ -362,6 +398,7 @@ export function TrendCharts({ data }: { data: TrendData }) {
           >
             <p className="mb-2 text-xs font-semibold text-muted">
               {activeDay.label}
+              {activeDay.forecast ? " · forecast" : ""}
               {singleTest ? ` · tested ${singleTest}` : ""}
             </p>
             <ul className="flex flex-col gap-1">
@@ -409,6 +446,23 @@ export function TrendCharts({ data }: { data: TrendData }) {
                   <span className="font-semibold text-foreground">Added</span> {d.label}
                 </li>
               ))}
+              {activeDay.plan ? (
+                <>
+                  <li className="flex items-baseline gap-2">
+                    <svg width="12" height="4" aria-hidden="true" className="shrink-0 self-center">
+                      <line x1="0" x2="12" y1="2" y2="2" className="stroke-chart-chem" strokeWidth={2} strokeDasharray="3 3" />
+                    </svg>
+                    <span className="whitespace-nowrap font-semibold text-foreground tabular-nums">
+                      ≈{fmt(activeDay.plan.fcEnd, 1)} ppm
+                    </span>
+                    <span className="text-muted">Free chlorine by evening, on the plan</span>
+                  </li>
+                  <li className="text-muted">
+                    <span className="font-semibold text-foreground">Plan</span>{" "}
+                    {activeDay.plan.add ? `add ${activeDay.plan.add}` : "nothing to add"}
+                  </li>
+                </>
+              ) : null}
             </ul>
           </div>
         ) : null}
@@ -424,6 +478,10 @@ export function TrendCharts({ data }: { data: TrendData }) {
                 activeDay.uv === null ? "" : `peak UV ${fmt(activeDay.uv, 1)}`,
                 activeDay.rainMm === null ? "" : `rain ${fmt(rainValue(activeDay.rainMm), rainDecimals)} ${rainUnit}`,
                 ...activeDoses.map((d) => `added ${d.label}`),
+                activeDay.plan
+                  ? `plan: ${activeDay.plan.add ? `add ${activeDay.plan.add}` : "nothing to add"}, free chlorine about ${fmt(activeDay.plan.fcEnd, 1)} ppm by evening`
+                  : "",
+                activeDay.forecast ? "forecast" : "",
               ]
                 .filter(Boolean)
                 .join("; ")
@@ -438,6 +496,14 @@ export function TrendCharts({ data }: { data: TrendData }) {
           </svg>
           Target range
         </span>
+        {data.forecast.length ? (
+          <span className="inline-flex items-center gap-1.5">
+            <svg width="16" height="4" aria-hidden="true">
+              <line x1="0" x2="16" y1="2" y2="2" className="stroke-chart-chem" strokeWidth={2} strokeDasharray="4 3" />
+            </svg>
+            Free chlorine if you follow the plan
+          </span>
+        ) : null}
         {data.doses.length ? (
           <span className="inline-flex items-center gap-1.5">
             <svg width="10" height="8" aria-hidden="true">
@@ -475,9 +541,15 @@ export function TrendCharts({ data }: { data: TrendData }) {
                 const doses = data.doses.filter((x) => Math.floor(x.x) === i);
                 return (
                   <tr key={d.date} className="border-t border-border">
-                    <td className="px-3 py-1.5 whitespace-nowrap">{d.label}</td>
+                    <td className="px-3 py-1.5 whitespace-nowrap">
+                      {d.label}
+                      {d.forecast ? <span className="text-muted"> (forecast)</span> : null}
+                    </td>
                     <td className="px-3 py-1.5 text-right tabular-nums">
-                      {pts.filter((p) => p.fc !== null).map((p) => fmt(p.fc as number, 1)).join(" / ") || "—"}
+                      {[
+                        ...pts.filter((p) => p.fc !== null).map((p) => fmt(p.fc as number, 1)),
+                        ...(d.plan ? [`≈${fmt(d.plan.fcEnd, 1)} by evening`] : []),
+                      ].join(" / ") || "—"}
                     </td>
                     <td className="px-3 py-1.5 text-right tabular-nums">
                       {pts.filter((p) => p.ph !== null).map((p) => fmtPh(p.ph as number)).join(" / ") || "—"}
@@ -490,7 +562,12 @@ export function TrendCharts({ data }: { data: TrendData }) {
                         </td>
                       </>
                     ) : null}
-                    <td className="px-3 py-1.5 text-muted">{doses.map((x) => x.label).join("; ")}</td>
+                    <td className="px-3 py-1.5 text-muted">
+                      {[
+                        ...doses.map((x) => x.label),
+                        ...(d.plan ? [`Plan: ${d.plan.add ? `add ${d.plan.add}` : "nothing to add"}`] : []),
+                      ].join("; ")}
+                    </td>
                   </tr>
                 );
               })}

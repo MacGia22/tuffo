@@ -10,6 +10,10 @@ import { AdvicePanel } from "@/components/advice-panel";
 import { BetweenTests } from "@/components/between-tests";
 import { ChlorineUse } from "@/components/chlorine-use";
 import { ConfirmButton } from "@/components/confirm-button";
+import { planAddLabel, PlanStrip } from "@/components/plan-strip";
+import { canSeePlan } from "@/lib/entitlements";
+import { refreshPlanAfterResponse } from "@/lib/plan/build";
+import { parseStoredPlan, planIsStale, type StoredPlan } from "@/lib/plan/stored";
 import { PoolCrumbs } from "@/components/pool-crumbs";
 import { TrendCharts } from "@/components/trend-charts";
 import { adviseFor } from "@/lib/advice";
@@ -182,13 +186,28 @@ async function loadPoolView(id: string) {
   const previous = allReadings[1];
   const latestCya = allReadings.find((r) => r.cya !== null)?.cya ?? null;
   const use = await loadChlorineUse(pool.id, latestCya === null ? null : Number(latestCya), pool.covered);
+  const today = localDateRange(new Date(now).toISOString(), new Date(now).toISOString(), tz).to;
+
+  // The 7-day plan, written by the server. A missing or old one is rebuilt after the
+  // response, so the next visit has it; the page never waits for it.
+  let plan: StoredPlan | null = null;
+  if (await canSeePlan()) {
+    const { data: planRow } = await supabase
+      .from("plans")
+      .select("computed_at, version, summary, days")
+      .eq("pool_id", pool.id)
+      .maybeSingle<{ computed_at: string; version: number; summary: unknown; days: unknown }>();
+    plan = parseStoredPlan(planRow ?? null);
+    const latestFcAt = allReadings.find((r) => r.fc !== null)?.taken_at ?? null;
+    if (pool.cell_id && latestFcAt && planIsStale(plan, latestFcAt, now)) refreshPlanAfterResponse(pool.id);
+  }
 
   // Weather for the chart window (and the between-tests box), plus today's forecast.
   let weather: WeatherRow[] = [];
+  let forecastDays: WeatherRow[] = [];
   let lastActualsAt: string | null = null;
   if (pool.cell_id) {
     const windowStart = new Date(now - MAX_DAYS * DAY_MS).toISOString().slice(0, 10);
-    const today = localDateRange(new Date(now).toISOString(), new Date(now).toISOString(), tz).to;
     const [{ data: daily }, { data: forecast }, { data: cellRow }] = await Promise.all([
       supabase
         .from("weather_daily")
@@ -201,12 +220,16 @@ async function loadPoolView(id: string) {
         .from("weather_forecast")
         .select("date, tmax_c, tmin_c, uv_index_max, sunshine_s, precipitation_mm")
         .eq("cell_id", pool.cell_id)
-        .eq("date", today)
+        .gte("date", today)
+        .order("date")
+        .limit(7)
         .returns<WeatherRow[]>(),
       supabase.from("weather_cells").select("last_actuals_at").eq("id", pool.cell_id).maybeSingle<{ last_actuals_at: string | null }>(),
     ]);
     weather = daily ?? [];
-    if (forecast?.[0] && !weather.some((w) => w.date === today)) weather.push(forecast[0]);
+    forecastDays = forecast ?? [];
+    const todayForecast = forecastDays.find((w) => w.date === today);
+    if (todayForecast && !weather.some((w) => w.date === today)) weather.push(todayForecast);
     lastActualsAt = cellRow?.last_actuals_at ?? null;
 
     // The nightly job keeps cells fresh; if it has not run for this one, refresh it
@@ -279,6 +302,22 @@ async function loadPoolView(id: string) {
             ? { low: advice.targets.fc.targetLow, high: advice.targets.fc.targetHigh }
             : { low: 3, high: 5 },
           phBand: { low: 7.2, high: 7.8 },
+          plan: plan
+            ? {
+                days: plan.days.map((d) => {
+                  const add = planAddLabel(d, units);
+                  const w = forecastDays.find((f) => f.date === d.date);
+                  return {
+                    date: d.date,
+                    fcAfterAdd: d.fcAfterAdd,
+                    fcEnd: d.fcEnd,
+                    add: add ? `${add} of liquid chlorine` : null,
+                    uv_index_max: w?.uv_index_max ?? null,
+                    precipitation_mm: w?.precipitation_mm ?? d.rainMm,
+                  };
+                }),
+              }
+            : null,
         })
       : null;
 
@@ -303,13 +342,14 @@ async function loadPoolView(id: string) {
     .sort((a, b) => b.at.localeCompare(a.at))
     .slice(0, 15);
 
-  return { pool, units, tz, liters, allReadings, latest, advice, between, use, trend, activity };
+  return { pool, units, tz, liters, allReadings, latest, advice, between, use, trend, activity, plan, today };
 }
 
 export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">) {
   const { id } = await params;
   if (!isUuid(id)) notFound();
-  const { pool, units, tz, liters, allReadings, latest, advice, between, use, trend, activity } = await loadPoolView(id);
+  const { pool, units, tz, liters, allReadings, latest, advice, between, use, trend, activity, plan, today } =
+    await loadPoolView(id);
 
   const secondary =
     "rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold hover:border-lagoon";
@@ -399,6 +439,8 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
       )}
 
       {advice && advice.items.length > 0 ? <AdvicePanel advice={advice} units={units} poolId={pool.id} /> : null}
+
+      {plan ? <PlanStrip plan={plan} units={units} today={today} /> : null}
 
       {between ? <BetweenTests summary={between} units={units} swg={pool.sanitizer === "swg"} /> : null}
 

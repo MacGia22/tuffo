@@ -105,6 +105,12 @@ select rls_test.check(
   'authenticated cannot set a feedback status or time'
 );
 
+select rls_test.check(
+  not has_table_privilege('authenticated', 'public.plans', 'insert, update, delete, truncate'),
+  'authenticated cannot write plans'
+);
+
+
 -- ---------------------------------------------------------------------------
 -- Two users with one pool each
 -- ---------------------------------------------------------------------------
@@ -137,6 +143,11 @@ insert into public.scans (id, user_id, ok) values
   ('00000000-0000-0000-0000-0000000000b5', '00000000-0000-0000-0000-00000000000b', true);
 
 insert into public.waitlist (email) values ('c@example.com');
+
+insert into public.plans (pool_id, version, summary, days) values
+  ('00000000-0000-0000-0000-0000000000a1', 1, '{}', '[]'),
+  ('00000000-0000-0000-0000-0000000000b1', 1, '{}', '[]');
+
 
 insert into public.feedback (id, user_id, kind, message) values
   ('00000000-0000-0000-0000-0000000000a6', '00000000-0000-0000-0000-00000000000a', 'idea', 'A idea'),
@@ -269,6 +280,16 @@ select rls_test.denied(
   'A cannot write weather'
 );
 
+-- plans: A reads A's plan only and cannot write any
+select rls_test.check(rls_test.rows('select 1 from public.plans') = 1, 'A sees only A''s plan');
+select rls_test.check(rls_test.rows('select 1 from public.plans where pool_id = ''00000000-0000-0000-0000-0000000000b1''') = 0, 'A cannot read B''s plan');
+select rls_test.denied('update public.plans set version = 9', 'A cannot change a plan');
+select rls_test.denied('delete from public.plans', 'A cannot delete a plan');
+select rls_test.denied(
+  'insert into public.plans (pool_id, version, summary, days) values (''00000000-0000-0000-0000-0000000000a1'', 1, ''{}'', ''[]'')',
+  'A cannot write a plan'
+);
+
 -- feedback: A sends A's own, nothing else
 select rls_test.check(
   rls_test.touched('insert into public.feedback (user_id, kind, message, page) values (''00000000-0000-0000-0000-00000000000a'', ''question'', ''How?'', ''/app'')') = 1,
@@ -351,6 +372,10 @@ delete from auth.users where id = '00000000-0000-0000-0000-00000000000a';
 select rls_test.check(
   not exists (select 1 from public.feedback where user_id = '00000000-0000-0000-0000-00000000000a'),
   'feedback is deleted with the account'
+);
+select rls_test.check(
+  not exists (select 1 from public.plans where pool_id = '00000000-0000-0000-0000-0000000000a1'),
+  'the plan is deleted with the account'
 );
 
 rollback;

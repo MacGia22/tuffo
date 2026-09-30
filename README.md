@@ -165,6 +165,25 @@ most 6 attempts per user in 10 minutes, and a daily total across everyone as a s
 backstop. If the table is missing or a count fails, scanning stays open. The hard cap
 is the monthly spend limit set in the Anthropic console.
 
+## The 7-day plan
+
+`src/engine/plan.ts` simulates free chlorine day by day over the pool's weather forecast
+with its chlorine model (the population prior until 4 test pairs, with an extra 0.5 ppm
+of margin): each day the smallest addition of liquid chlorine, in 0.25 ppm steps and at
+least 0.5 ppm, that ends the day at or above a floor of max(minimum + 1, target low − 1)
+ppm for its stabilizer; at most 8 ppm in one addition. Salt pools get the lowest cell
+output (in 5% steps) that holds the floor all week, when the cell's rated output is
+known. It flags algae-risk days (FC below the minimum even on the plan) and rain that
+replaces 2% of the water or more (rain depth × surface area ÷ volume; area from the
+volume at 1.5 m when not set), with the diluted stabilizer, calcium and salt.
+
+`src/lib/plan/build.ts` starts it from the latest free chlorine test (plus chlorine logged
+since, minus the predicted use since) and stores it in `plans`: nightly inside the weather
+job after the forecast and models, after each new, edited or removed entry, and after a
+page view that finds it missing or older than 26 hours. The pool page shows it as a
+7-day strip and as a dashed forecast on the chlorine chart. `canSeePlan()`
+(`src/lib/entitlements.ts`) gates it; everyone sees it during the beta.
+
 ## Importing tests
 
 `/app/pools/[id]/import` (linked from the pool page as **Import CSV**) reads a CSV of
