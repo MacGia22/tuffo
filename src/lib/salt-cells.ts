@@ -21,6 +21,14 @@ export const SALT_CELLS: SaltCell[] = [
   { id: "pentair-ic60", name: "Pentair IntelliChlor IC60", lbPerDay: 2.0 },
   { id: "pentair-ic40", name: "Pentair IntelliChlor IC40", lbPerDay: 1.4 },
   { id: "pentair-ic20", name: "Pentair IntelliChlor IC20", lbPerDay: 0.7 },
+  { id: "circupool-core55", name: "CircuPool CORE55", lbPerDay: 2.0 },
+  { id: "circupool-core35", name: "CircuPool CORE35", lbPerDay: 1.4 },
+  { id: "circupool-core15", name: "CircuPool CORE15", lbPerDay: 0.9 },
+  { id: "circupool-edge40", name: "CircuPool EDGE40", lbPerDay: 1.7 },
+  { id: "circupool-edge25", name: "CircuPool EDGE25", lbPerDay: 1.2 },
+  { id: "circupool-edge15", name: "CircuPool EDGE15", lbPerDay: 0.7 },
+  { id: "circupool-rj60", name: "CircuPool RJ-60 Plus", lbPerDay: 2.7 },
+  { id: "circupool-rj30", name: "CircuPool RJ-30 Plus", lbPerDay: 1.5 },
 ];
 
 export type OutputUnit = "lb_day" | "g_hour" | "kg_day";

@@ -189,7 +189,8 @@ page view that finds it missing or older than 26 hours. The pool page shows it a
 ## Salt pools
 
 A salt pool's page asks which cell it has: a listed model (Hayward TurboCell T-15/T-9/T-5,
-Pentair IntelliChlor IC60/IC40/IC20, with their rated lb/day, `src/lib/salt-cells.ts`)
+Pentair IntelliChlor IC60/IC40/IC20, CircuPool CORE55/35/15, EDGE40/25/15 and RJ-60/30
+Plus, with their rated lb/day, `src/lib/salt-cells.ts`)
 or the rated output from the label in lb/day, g/hour or kg/day. It is stored as
 `pools.swg_cell_lb_per_day` and `swg_cell_model`, and the chlorine model and plan are
 refitted. With it, the 7-day plan suggests the lowest cell output that holds free

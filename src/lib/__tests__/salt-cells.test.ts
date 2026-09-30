@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { cellFromForm, toLbPerDay } from "../salt-cells";
 
 describe("salt cells", () => {
+  it("lists CircuPool cells", () => {
+    // CORE35: 1.4 lb/day in 15,000 gal = 1.4 × 453.6 × 1000 / 56,781 ≈ 11.2 ppm/day at 100%.
+    expect(cellFromForm({ model: "circupool-core35", value: "", unit: "" })).toEqual({ ok: true, lbPerDay: 1.4, model: "CircuPool CORE35" });
+  });
+
   it("takes a listed cell's rating", () => {
     expect(cellFromForm({ model: "pentair-ic40", value: "", unit: "" })).toEqual({ ok: true, lbPerDay: 1.4, model: "Pentair IntelliChlor IC40" });
   });
