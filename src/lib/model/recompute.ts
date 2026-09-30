@@ -22,6 +22,7 @@ import {
   type TestPair,
 } from "./observations";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { loadOwnRain, withOwnRain } from "@/lib/weather/own-rain";
 
 /**
  * Loads a pool's log with the service key, fits its chlorine model and stores the result
@@ -97,7 +98,8 @@ export async function loadPoolLog(admin: SupabaseClient, poolId: string, now = D
       .order("date")
       .returns<ModelWeatherDay[]>();
     if (wErr) throw new Error(`pool ${poolId} weather: ${wErr.message}`);
-    weather = data ?? [];
+    // The owner's rain at the pool, where logged, in place of the cell's.
+    weather = withOwnRain(data ?? [], await loadOwnRain(admin, poolId, from));
   }
 
   const modelPool: ModelPool = {

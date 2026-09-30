@@ -55,6 +55,24 @@ describe("buildTrend", () => {
     expect(trend.hasWeather).toBe(true);
   });
 
+  it("marks days whose rain is the owner's own figure", () => {
+    const trend = buildTrend({
+      timeZone: TZ,
+      now,
+      units: "us",
+      readings: [],
+      doses: [],
+      weather: [
+        { date: "2026-09-25", uv_index_max: 8, precipitation_mm: 12.7, ownRain: true },
+        { date: "2026-09-26", uv_index_max: 9, precipitation_mm: 50.8 },
+      ],
+      fcBand: { low: 5, high: 7 },
+      phBand: { low: 7.2, high: 7.8 },
+    });
+    expect(trend.days.find((d) => d.date === "2026-09-25")).toMatchObject({ rainMm: 12.7, ownRain: true });
+    expect(trend.days.find((d) => d.date === "2026-09-26")).toMatchObject({ rainMm: 50.8, ownRain: false });
+  });
+
   it("adds the plan's days ahead and its predicted free chlorine line", () => {
     const trend = buildTrend({
       timeZone: TZ,

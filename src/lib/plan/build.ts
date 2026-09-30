@@ -17,6 +17,7 @@ import {
 import { loadPopulationPrior } from "@/lib/model/recompute";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { estimateStartFc, type StoredPlanDay, type StoredPlanSummary } from "./stored";
+import { loadOwnRain, withOwnRain } from "@/lib/weather/own-rain";
 
 /**
  * Builds and stores a pool's 7-day plan with the service key: the pool's model (or the
@@ -169,7 +170,9 @@ export async function buildPlan(admin: SupabaseClient, poolId: string, now = Dat
       return sum;
     }
   }, 0);
-  const days = forecast.map((row) => ({ date: row.date, weather: weatherOf(row) }));
+  // Today's rain at the pool, when the owner logged it, in place of the cell's forecast.
+  const rows = withOwnRain(forecast, await loadOwnRain(admin, poolId, today));
+  const days = rows.map((row) => ({ date: row.date, weather: weatherOf(row) }));
   const todayDrivers = dayDrivers(days[0].weather, { cya: cya ?? DEFAULT_CYA, covered: pool.covered, heavyUse: 0 });
   const daysSince = (now - Date.parse(latestFc.taken_at)) / DAY_MS;
   const fcStart = estimateStartFc({

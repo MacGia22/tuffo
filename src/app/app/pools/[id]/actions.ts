@@ -9,6 +9,9 @@ import { saveDoseEntry, saveEventEntry, saveReadingEntry, type LogKind, type Sav
 import { recomputeAfterResponse } from "@/lib/model/recompute";
 import { cellFromForm } from "@/lib/salt-cells";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isRainDate, rainFromForm } from "@/lib/weather/own-rain";
+import { localDateRange } from "@/lib/weather/summary";
+import type { Units } from "@/lib/format";
 
 export interface LogState {
   error?: string;
@@ -136,4 +139,58 @@ export async function savePumpSchedule(_prev: PumpState, formData: FormData): Pr
   revalidatePath(`/app/pools/${poolId}`);
   revalidatePath(`/app/pools/${poolId}/pump`);
   return { saved: true };
+}
+
+export interface RainState {
+  error?: string;
+}
+
+/** Today's date in the pool's time zone. */
+async function poolToday(poolId: string): Promise<string | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data: pool } = await supabase.from("pools").select("timezone").eq("id", poolId).maybeSingle<{ timezone: string | null }>();
+  if (!pool) return null;
+  const now = new Date().toISOString();
+  return localDateRange(now, now, pool.timezone ?? "UTC").to;
+}
+
+/**
+ * Stores the rain that fell at the pool on a day, in place of the weather cell's figure.
+ * Refits the chlorine model and the plan after the response.
+ */
+export async function saveRain(_prev: RainState, formData: FormData): Promise<RainState> {
+  const poolId = text(formData, "pool_id");
+  if (!isUuid(poolId)) return { error: "Unknown pool." };
+  const date = text(formData, "date");
+  await requireUser(`/app/pools/${poolId}/rain?date=${encodeURIComponent(date)}`);
+  const today = await poolToday(poolId);
+  if (!today) return { error: "Unknown pool." };
+  if (!isRainDate(date, today)) return { error: "Pick a day from the last year, up to today." };
+  const units: Units = text(formData, "units") === "metric" ? "metric" : "us";
+  const rain = rainFromForm(text(formData, "rain"), units);
+  if (!rain.ok) return { error: rain.error };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("pool_rain")
+    .upsert({ pool_id: poolId, date, rain_mm: rain.mm, updated_at: new Date().toISOString() }, { onConflict: "pool_id,date" });
+  if (error) {
+    return { error: /pool_rain/.test(error.message) ? "This is not available yet. Try again in a few minutes." : `Could not save (${error.message}).` };
+  }
+  recomputeAfterResponse(poolId);
+  revalidatePath(`/app/pools/${poolId}`);
+  redirect(`/app/pools/${poolId}`);
+}
+
+/** Goes back to the weather cell's rain for that day. */
+export async function clearRain(formData: FormData): Promise<void> {
+  const poolId = text(formData, "pool_id");
+  const date = text(formData, "date");
+  if (!isUuid(poolId) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+  await requireUser(`/app/pools/${poolId}`);
+  const supabase = await createSupabaseServerClient();
+  const { data: removed } = await supabase.from("pool_rain").delete().eq("pool_id", poolId).eq("date", date).select("date");
+  if (removed && removed.length > 0) recomputeAfterResponse(poolId);
+  revalidatePath(`/app/pools/${poolId}`);
+  redirect(`/app/pools/${poolId}`);
 }
