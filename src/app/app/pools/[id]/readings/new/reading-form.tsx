@@ -177,6 +177,7 @@ export function ReadingForm({
                 {m.label}
               </option>
             ))}
+            {values.method === "imported" ? <option value="imported">Imported</option> : null}
           </select>
         </div>
         <div className="flex flex-col gap-1.5">

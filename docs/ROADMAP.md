@@ -94,8 +94,10 @@ The public launch (end of milestone 3) happens when all of these hold:
 - Done when a test logged in airplane mode appears on the server after reconnecting.
 
 ### 2.6 Imports, edits and small gaps
-- 2.6a Pool Math import: CSV upload, map columns, preview, dedupe by timestamp. Research
-  the current export format first and keep a sample file in the tests.
+- 2.6a Pool Math import: CSV upload, map columns, preview, dedupe by timestamp — done
+  2026-09-30 (#16). Pool Math's header row is not published; the mapper presets its
+  likely names and works with any CSV that has a date column. Add a real export as a
+  test fixture when one is available.
 - 2.6b Edit a test, dose or event in place — done 2026-09-30 (#15).
 - 2.6c Count calcium chloride and salt logged since the latest test the way stabilizer is
   counted in `adviseFor` (its `since` list, PR #1) — done 2026-09-30 (#14).

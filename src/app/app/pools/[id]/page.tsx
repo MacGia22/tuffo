@@ -340,6 +340,9 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
           <Link href={`/app/pools/${pool.id}/events/new`} className={secondary}>
             Log an event
           </Link>
+          <Link href={`/app/pools/${pool.id}/import`} className={secondary}>
+            Import CSV
+          </Link>
           <Link href={feedbackHref(`/app/pools/${pool.id}`)} className={`${secondary} sm:ml-auto`}>
             Send feedback
           </Link>
@@ -384,6 +387,9 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
             className="rounded-xl bg-lagoon px-4 py-2.5 text-sm font-semibold text-white hover:bg-lagoon-deep"
           >
             Log the first test
+          </Link>
+          <Link href={`/app/pools/${pool.id}/import`} className="text-sm font-semibold text-lagoon">
+            Or import your history from Pool Math (CSV)
           </Link>
         </section>
       )}
