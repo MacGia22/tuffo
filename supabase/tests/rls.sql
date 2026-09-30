@@ -187,6 +187,22 @@ select rls_test.check(rls_test.touched('update public.doses set amount = 1500 wh
 select rls_test.check(rls_test.touched('update public.events set notes = ''edited'' where id = ''00000000-0000-0000-0000-0000000000a4''') = 1, 'A can edit A''s event');
 select rls_test.check(rls_test.touched('update public.readings set fc = 2.5') = 1, 'an unfiltered edit by A touches only A''s reading');
 
+-- device ids (offline logging): a second insert with the same client_id is refused
+select rls_test.check(
+  rls_test.touched('insert into public.readings (pool_id, fc, client_id) values (''00000000-0000-0000-0000-0000000000a1'', 3, ''11111111-1111-4111-8111-111111111111'')') = 1,
+  'A can log a test with a device id'
+);
+do $$
+begin
+  insert into public.readings (pool_id, fc, client_id)
+    values ('00000000-0000-0000-0000-0000000000a1', 3, '11111111-1111-4111-8111-111111111111');
+  raise exception 'RLS FAIL: the same device id was stored twice';
+exception
+  when unique_violation then
+    null;
+end;
+$$;
+
 -- delete B's rows
 select rls_test.check(rls_test.touched('delete from public.pools where id = ''00000000-0000-0000-0000-0000000000b1''') = 0, 'A cannot delete B''s pool');
 select rls_test.check(rls_test.touched('delete from public.readings where id = ''00000000-0000-0000-0000-0000000000b2''') = 0, 'A cannot delete B''s readings');

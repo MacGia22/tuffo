@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useState } from "react";
+import { QueuedNotice, useOfflineLog } from "@/components/offline-log";
 import { ScanButton, type ScanAllowance, type ScanResponse } from "@/components/scan-button";
 import { READING_METHODS, type Units } from "@/lib/format";
 import { EditFields, type EditTarget } from "@/components/edit-fields";
-import { saveReading, type ReadingState } from "./actions";
+import { saveReading, type LogState as ReadingState } from "../../actions";
 
 const initial: ReadingState = {};
 
@@ -53,9 +54,9 @@ export function ReadingForm({
   /** Set when changing a saved test instead of logging a new one. */
   edit?: EditTarget;
 }) {
-  const [state, action, pending] = useActionState(saveReading, initial);
+  const offline = useOfflineLog("reading", Boolean(edit), saveReading);
+  const [state, action, pending] = useActionState(offline.submit, initial);
   const f = state.fields ?? edit?.values ?? {};
-  const tzOffset = useRef<HTMLInputElement>(null);
   const [values, setValues] = useState<Values>(() => ({ ...f }));
   const [showMore, setShowMore] = useState(swg || Boolean(f.salt || f.borate || f.phosphate));
   const [scan, setScan] = useState<ScanResponse | null>(null);
@@ -96,18 +97,13 @@ export function ReadingForm({
     </div>
   );
 
+  if (offline.queued) return <QueuedNotice poolId={poolId} what="test" />;
+
   return (
-    <form
-      action={action}
-      onSubmit={() => {
-        // datetime-local carries no zone; send the browser's offset so the server can place it.
-        if (tzOffset.current) tzOffset.current.value = String(new Date().getTimezoneOffset());
-      }}
-      className="flex max-w-2xl flex-col gap-6"
-    >
+    <form action={action} onSubmit={offline.onSubmit} className="flex max-w-2xl flex-col gap-6">
       <input type="hidden" name="pool_id" value={poolId} />
       <input type="hidden" name="units" value={units} />
-      <input type="hidden" name="tz_offset" ref={tzOffset} defaultValue="0" />
+      {offline.hidden}
       <EditFields edit={edit} whenField="taken_at" />
 
       {scanEnabled && !edit ? (

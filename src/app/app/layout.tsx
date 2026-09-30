@@ -3,6 +3,7 @@ import Link from "next/link";
 import { TuffoLockup } from "@/components/brand/logo";
 import { FeedbackLink } from "@/components/feedback-link";
 import { InstallBanner } from "@/components/install-banner";
+import { OfflineSync } from "@/components/offline-sync";
 import { isAdmin } from "@/lib/auth/admin";
 import { requireUser } from "@/lib/auth/user";
 
@@ -45,6 +46,7 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
         </div>
       </header>
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-5 py-8">
+        <OfflineSync userId={user.id} />
         <InstallBanner />
         {children}
       </main>

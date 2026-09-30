@@ -87,7 +87,7 @@ The public launch (end of milestone 3) happens when all of these hold:
 - "Send feedback" link in the app footer (mailto hello@tuffo.app with the app version);
   replaced by in-app feedback (2.7).
 
-### 2.5 Installable app and offline logging
+### 2.5 Installable app and offline logging — done 2026-09-30 (#17)
 - Service worker: offline shell, and a queue (IndexedDB) for tests, doses and events
   logged without signal, sent when back online, with a visible "waiting to send" state.
 - "Add to Home Screen" hint on iOS Safari.
