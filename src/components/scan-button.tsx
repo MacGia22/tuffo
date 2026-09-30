@@ -56,6 +56,7 @@ export function ScanButton({
   allowance,
   endpoint = "/api/scan",
   label = "Scan a printout or strip",
+  camera = true,
 }: {
   onResult: (result: ScanResponse) => void;
   disabled?: boolean;
@@ -63,6 +64,9 @@ export function ScanButton({
   /** Where the photo goes: test results by default, or the pump-schedule reader. */
   endpoint?: string;
   label?: string;
+  /** Open the camera straight away (photos of a printout or strip). False lets people pick
+   * an existing picture, such as a screenshot. */
+  camera?: boolean;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -99,7 +103,7 @@ export function ScanButton({
         ref={input}
         type="file"
         accept="image/*"
-        capture="environment"
+        capture={camera ? "environment" : undefined}
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];

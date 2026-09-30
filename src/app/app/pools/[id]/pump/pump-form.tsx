@@ -87,7 +87,7 @@ export function PumpForm({
 
       {scanEnabled ? (
         <div className="flex flex-col gap-2 rounded-2xl border border-dashed border-border p-4">
-          <ScanButton onResult={applyScan} disabled={pending} allowance={allowance} endpoint="/api/scan/pump" label="Read a screenshot of the schedule" />
+          <ScanButton onResult={applyScan} disabled={pending} allowance={allowance} endpoint="/api/scan/pump" label="Read a screenshot of the schedule" camera={false} />
           <p className="text-xs text-muted">
             A screenshot of the pump&apos;s app or a photo of its panel or timer. It is read once and not kept, and counts
             as one scan.
