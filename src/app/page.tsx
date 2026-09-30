@@ -44,6 +44,9 @@ export default function Home() {
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-20 px-5 pb-24 pt-10">
         <section className="flex flex-col gap-8 md:flex-row md:items-center md:gap-14">
           <div className="flex flex-1 flex-col gap-6">
+            <p className="font-display text-sm font-semibold uppercase tracking-wider text-lagoon">
+              Tuffo · pool care app
+            </p>
             <h1 className="text-5xl font-semibold leading-[1.02] text-foreground sm:text-6xl">
               Your pool, <span className="text-lagoon">forecast.</span>
             </h1>
@@ -61,7 +64,7 @@ export default function Home() {
             )}
             <p className="text-sm text-muted">
               Free during the beta. No ads, no tracking, works with any test kit.
-              {open ? " Sign in with your email: no password." : ""}
+              {open ? " Sign in with Google or your email: no password." : ""}
             </p>
           </div>
           <div className="flex justify-center md:flex-none">
@@ -94,6 +97,26 @@ export default function Home() {
             dilutes stabilizer and calcium. Every calculator app treats each test as a
             fresh start. Tuffo treats your pool as the same pool, under the sky it is
             actually under, and learns how it behaves.
+          </p>
+        </section>
+
+        <section aria-labelledby="about" className="flex max-w-3xl flex-col gap-3">
+          <h2 id="about" className="text-2xl font-semibold">
+            About Tuffo
+          </h2>
+          <p className="text-muted">
+            Tuffo is a web app for people who look after their own swimming pool. You log your water tests (free
+            chlorine, pH, alkalinity, calcium, stabilizer, salt), and Tuffo matches them with the weather at your pool
+            to explain what changed and suggest how much of each chemical to add. Tuffo advises; you decide.
+          </p>
+          <p className="text-muted">
+            You can sign in with your email address or with your Google account. With Google, Tuffo uses your account
+            only to confirm your email address and sign you in; it does not read your contacts, files, calendar or
+            anything else. What Tuffo keeps and why is in the{" "}
+            <Link href="/privacy" className="font-semibold text-lagoon underline-offset-2 hover:underline">
+              privacy notice
+            </Link>
+            .
           </p>
         </section>
       </main>
