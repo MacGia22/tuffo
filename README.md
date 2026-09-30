@@ -165,6 +165,19 @@ most 6 attempts per user in 10 minutes, and a daily total across everyone as a s
 backstop. If the table is missing or a count fails, scanning stays open. The hard cap
 is the monthly spend limit set in the Anthropic console.
 
+## Importing tests
+
+`/app/pools/[id]/import` (linked from the pool page as **Import CSV**) reads a CSV of
+water tests: Pool Math's "Export All Test Logs (.csv)" or any sheet with a date column.
+The browser parses it for the column mapping and a preview; `POST /api/pools/[id]/import`
+parses it again with the same code (`src/lib/import/`), checks ranges, reads times
+without a zone in the pool's time zone, and drops rows in the same minute as another row
+or a test already logged. A dry run returns the counts; the real run inserts every row in
+one statement with `method = 'imported'` and refits the chlorine model once. Limits:
+1 MB and 5,000 rows per file. Pool Math exports hold tests only, not chemical additions.
+Its header row is not published, so the mapper presets likely names (`FC`, `pH`, `TA`,
+`CH`, `CYA`, `Salt`, `Bor`, `Water Temp`, …); a real export should become a test fixture.
+
 ## Chlorine-consumption model
 
 Each pool learns how much free chlorine it uses per day. The math is in

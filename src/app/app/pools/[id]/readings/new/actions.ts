@@ -13,7 +13,8 @@ export interface ReadingState {
   fields?: Record<string, string>;
 }
 
-const METHODS = new Set(["drop_kit", "strips", "digital", "store_leslies", "store_pinch", "monitor", "other"]);
+// "imported" is set by the CSV import; an edit keeps it.
+const METHODS = new Set(["drop_kit", "strips", "digital", "store_leslies", "store_pinch", "monitor", "other", "imported"]);
 
 interface Range {
   min: number;

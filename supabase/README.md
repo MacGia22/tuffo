@@ -32,6 +32,7 @@ History:
 | 20260927000001_scans_and_event_kinds.sql | by the `migrate` job |
 | 20260928000001_waitlist.sql | by the `migrate` job |
 | 20260929000001_feedback.sql | by the `migrate` job |
+| 20260930000001_imported_readings.sql | by the `migrate` job |
 
 The first two predate the job; it marks them applied (`supabase migration repair`) so
 they never run twice. New files are written so a second run is harmless anyway

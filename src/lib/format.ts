@@ -69,5 +69,6 @@ export const READING_METHODS = [
 ] as const;
 
 export function methodLabel(method: string): string {
+  if (method === "imported") return "Imported";
   return READING_METHODS.find((m) => m.value === method)?.label ?? method.replace(/_/g, " ");
 }
