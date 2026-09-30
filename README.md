@@ -36,14 +36,19 @@ so importing it from a client component fails the build.
 
 ## Sign-in and the beta gate
 
-Sign-in is a Supabase magic link: `/login` sends it, `/auth/callback` turns it into a
-session cookie, `POST /auth/signout` ends it. `src/proxy.ts` refreshes the session on
+Sign-in is a Supabase magic link or "Continue with Google": `/login` sends the link (or
+starts Google OAuth with PKCE), `/auth/callback` turns the code into a session cookie,
+`POST /auth/signout` ends it. Google is configured in Supabase (Authentication → Sign In /
+Providers → Google, client ID and secret from the "Tuffo" Google Cloud project, basic
+scopes only); an invited address that signs in with Google lands in the same account.
+Errors Google or Supabase send back to the callback show on `/login` (`?error=beta` for an
+address not invited, `?error=google` otherwise; `src/lib/auth/oauth.ts`). `src/proxy.ts` refreshes the session on
 every request and bounces signed-out visitors away from `/app`; pages verify the user
 again before reading data.
 
 Who may sign in is a Supabase setting, not code: Authentication → Sign In / Providers →
-Email → "Allow new users to sign up". Off means invite-only; on opens the beta to
-anyone. Keep `SIGNUPS_OPEN` in Vercel in step with it: unset or anything but `false`
+"Allow new users to sign up". Off means invite-only for every provider, Google included;
+on opens the beta to anyone. Keep `SIGNUPS_OPEN` in Vercel in step with it: unset or anything but `false`
 shows **Start free** on the home page and open wording on `/login`; `false` shows the
 waitlist form and the private-beta wording (redeploy after changing it). With sign-ups
 open, also raise Supabase's email rate limit (Authentication → Rate Limits), which is
