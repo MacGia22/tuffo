@@ -141,6 +141,7 @@ const TABLES = [
   "alert_emails",
   "alert_log",
   "pump_schedules",
+  "pool_rain",
 ];
 
 /** A cell whose actuals are older than this is late: the nightly job runs every 24 hours. */

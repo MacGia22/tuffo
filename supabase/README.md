@@ -106,6 +106,8 @@ migration must survive a second run.
   a day the cell runs, from when); owner reads, inserts and deletes, never updates, so the
   history the chlorine model reads stays true. Cell settings are `events` of kind
   `cell_setting` with the percent in `value`.
+- `pool_rain`: the rain an owner entered for a day at the pool (mm, one row per pool and
+  day), used instead of the weather cell's rain; owner reads, inserts, updates and deletes.
 - `plans` (the 7-day plan per pool) is written only by the server (nightly job, after a
   test, on a stale page view) and read by the pool's owner. It holds advice per day, never
   model coefficients.

@@ -156,6 +156,10 @@ insert into public.pump_schedules (id, pool_id, segments, cell_hours) values
   ('00000000-0000-0000-0000-0000000000a7', '00000000-0000-0000-0000-0000000000a1', '[{"start":"08:00","end":"16:00","cell":true}]', 8),
   ('00000000-0000-0000-0000-0000000000b7', '00000000-0000-0000-0000-0000000000b1', '[{"start":"08:00","end":"16:00","cell":true}]', 8);
 
+insert into public.pool_rain (pool_id, date, rain_mm) values
+  ('00000000-0000-0000-0000-0000000000a1', '2026-09-01', 5),
+  ('00000000-0000-0000-0000-0000000000b1', '2026-09-01', 7);
+
 
 insert into public.plans (pool_id, version, summary, days) values
   ('00000000-0000-0000-0000-0000000000a1', 1, '{}', '[]'),
@@ -360,6 +364,32 @@ select rls_test.check(
   'A can log a cell setting'
 );
 
+-- rain at the pool: A reads, sets, changes and removes A's only
+select rls_test.check(rls_test.rows('select 1 from public.pool_rain') = 1, 'A sees only A''s rain');
+select rls_test.check(
+  rls_test.touched('insert into public.pool_rain (pool_id, date, rain_mm) values (''00000000-0000-0000-0000-0000000000a1'', ''2026-09-02'', 12.7)') = 1,
+  'A can set rain for A''s pool'
+);
+select rls_test.denied(
+  'insert into public.pool_rain (pool_id, date, rain_mm) values (''00000000-0000-0000-0000-0000000000b1'', ''2026-09-02'', 1)',
+  'A cannot set rain for B''s pool'
+);
+select rls_test.check(rls_test.touched('update public.pool_rain set rain_mm = 3') = 2, 'A can change A''s rain only');
+select rls_test.denied(
+  'update public.pool_rain set pool_id = ''00000000-0000-0000-0000-0000000000b1'' where date = ''2026-09-02''',
+  'A cannot move rain to B''s pool'
+);
+select rls_test.check(rls_test.touched('delete from public.pool_rain') = 2, 'A can remove A''s rain only');
+do $$
+begin
+  insert into public.pool_rain (pool_id, date, rain_mm) values ('00000000-0000-0000-0000-0000000000a1', '2026-09-03', 900);
+  raise exception 'RLS FAIL: rain above 500 mm was accepted';
+exception
+  when check_violation then
+    null;
+end;
+$$;
+
 -- feedback: A sends A's own, nothing else
 select rls_test.check(
   rls_test.touched('insert into public.feedback (user_id, kind, message, page) values (''00000000-0000-0000-0000-00000000000a'', ''question'', ''How?'', ''/app'')') = 1,
@@ -437,6 +467,7 @@ select rls_test.check(
   'B''s feedback is unchanged'
 );
 select rls_test.check((select cell_hours = 8 from public.pump_schedules where id = '00000000-0000-0000-0000-0000000000b7'), 'B''s pump schedule is unchanged');
+select rls_test.check((select rain_mm = 7 from public.pool_rain where pool_id = '00000000-0000-0000-0000-0000000000b1'), 'B''s rain is unchanged');
 
 -- one alert email per person per day: a second claim for the same day is refused
 do $$

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 import { innerTicks, ticks } from "@/lib/chart-scale";
 import type { TrendData } from "@/lib/trends";
@@ -61,9 +62,22 @@ function useWidth<T extends HTMLElement>() {
   return { ref, width };
 }
 
-export function TrendCharts({ data }: { data: TrendData }) {
+export function TrendCharts({
+  data,
+  rainHref = null,
+}: {
+  data: TrendData;
+  /** The pool's rain page; with it, a picked past day offers "Set rain at your pool". */
+  rainHref?: string | null;
+}) {
   const { ref, width } = useWidth<HTMLDivElement>();
-  const [active, setActive] = useState<number | null>(null);
+  const [active, setActiveState] = useState<number | null>(null);
+  // The last past day read on the chart; stays after the pointer leaves, for the rain link.
+  const [picked, setPicked] = useState<number | null>(null);
+  const setActive = (i: number | null) => {
+    setActiveState(i);
+    if (i !== null && data.days[i] && !data.days[i].forecast) setPicked(i);
+  };
   const [pointerY, setPointerY] = useState(0);
   const titleId = useId();
   const n = data.days.length;
@@ -157,6 +171,7 @@ export function TrendCharts({ data }: { data: TrendData }) {
   }
 
   const activeDay = active === null ? null : data.days[active];
+  const pickedDay = picked === null ? null : (data.days[picked] ?? null);
   const activePoints = active === null ? [] : data.points.filter((p) => Math.floor(p.x) === active);
   const activeDoses = active === null ? [] : data.doses.filter((d) => Math.floor(d.x) === active);
   // Beside the crosshair when there is room; on narrow screens, pinned to the half of
@@ -192,7 +207,7 @@ export function TrendCharts({ data }: { data: TrendData }) {
         aria-labelledby={titleId}
         tabIndex={0}
         onKeyDown={onKey}
-        onFocus={() => setActive((a) => a ?? n - 1)}
+        onFocus={() => setActive(active ?? n - 1)}
         onBlur={() => setActive(null)}
         onPointerMove={(e: PointerEvent<HTMLDivElement>) => pick(e.clientX, e.clientY, e.currentTarget)}
         onPointerDown={(e: PointerEvent<HTMLDivElement>) => pick(e.clientX, e.clientY, e.currentTarget)}
@@ -437,7 +452,7 @@ export function TrendCharts({ data }: { data: TrendData }) {
                     <span className="whitespace-nowrap font-semibold text-foreground tabular-nums">
                       {activeDay.rainMm === null ? "—" : `${fmt(rainValue(activeDay.rainMm), rainDecimals)} ${rainUnit}`}
                     </span>
-                    <span className="text-muted">Rain</span>
+                    <span className="text-muted">{activeDay.ownRain ? "Rain at your pool" : "Rain"}</span>
                   </li>
                 </>
               ) : null}
@@ -476,7 +491,9 @@ export function TrendCharts({ data }: { data: TrendData }) {
                     .join(", "),
                 ),
                 activeDay.uv === null ? "" : `peak UV ${fmt(activeDay.uv, 1)}`,
-                activeDay.rainMm === null ? "" : `rain ${fmt(rainValue(activeDay.rainMm), rainDecimals)} ${rainUnit}`,
+                activeDay.rainMm === null
+                  ? ""
+                  : `${activeDay.ownRain ? "rain at your pool" : "rain"} ${fmt(rainValue(activeDay.rainMm), rainDecimals)} ${rainUnit}`,
                 ...activeDoses.map((d) => `added ${d.label}`),
                 activeDay.plan
                   ? `plan: ${activeDay.plan.add ? `add ${activeDay.plan.add}` : "nothing to add"}, free chlorine about ${fmt(activeDay.plan.fcEnd, 1)} ppm by evening`
@@ -515,6 +532,23 @@ export function TrendCharts({ data }: { data: TrendData }) {
       </div>
       {!data.hasWeather ? (
         <p className="text-sm text-muted">UV and rain appear here once the weather for this pool has loaded.</p>
+      ) : rainHref ? (
+        <p className="text-sm text-muted">
+          {pickedDay ? (
+            <>
+              Rain on {pickedDay.label}:{" "}
+              <span className="font-semibold text-foreground tabular-nums">
+                {pickedDay.rainMm === null ? "not known" : `${fmt(rainValue(pickedDay.rainMm), rainDecimals)} ${rainUnit}`}
+              </span>{" "}
+              {pickedDay.ownRain ? "at your pool" : "for your area"}.{" "}
+              <Link href={`${rainHref}?date=${pickedDay.date}`} className="font-semibold text-lagoon underline-offset-2 hover:underline">
+                {pickedDay.ownRain ? "Change" : "Set rain at your pool"}
+              </Link>
+            </>
+          ) : (
+            "Rain is for your area. Tap a day to set what fell at your pool."
+          )}
+        </p>
       ) : null}
       <details className="text-sm">
         <summary className="cursor-pointer font-semibold text-lagoon">Show as a table</summary>
@@ -559,6 +593,19 @@ export function TrendCharts({ data }: { data: TrendData }) {
                         <td className="px-3 py-1.5 text-right tabular-nums">{d.uv === null ? "—" : fmt(d.uv, 1)}</td>
                         <td className="px-3 py-1.5 text-right tabular-nums">
                           {d.rainMm === null ? "—" : fmt(rainValue(d.rainMm), rainDecimals)}
+                          {d.ownRain ? <span className="text-muted"> (your pool)</span> : null}
+                          {rainHref && !d.forecast ? (
+                            <>
+                              {" "}
+                              <Link
+                                href={`${rainHref}?date=${d.date}`}
+                                className="font-semibold text-lagoon underline-offset-2 hover:underline"
+                                aria-label={`Set rain at your pool on ${d.label}`}
+                              >
+                                Set
+                              </Link>
+                            </>
+                          ) : null}
                         </td>
                       </>
                     ) : null}

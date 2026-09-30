@@ -29,6 +29,7 @@ import { retryAllOnClockSkew } from "@/lib/supabase/retry";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildTrend, MAX_DAYS } from "@/lib/trends";
 import { FRESH_HOURS, refreshCellIfStale } from "@/lib/weather/job";
+import { loadOwnRain, withOwnRain } from "@/lib/weather/own-rain";
 import { localDateRange, summarizeBetween, type WeatherDay } from "@/lib/weather/summary";
 import { deleteEntry } from "./actions";
 
@@ -206,12 +207,12 @@ async function loadPoolView(id: string) {
   }
 
   // Weather for the chart window (and the between-tests box), plus today's forecast.
-  let weather: WeatherRow[] = [];
+  let weather: Array<WeatherRow & { ownRain: boolean }> = [];
   let forecastDays: WeatherRow[] = [];
   let lastActualsAt: string | null = null;
   if (pool.cell_id) {
     const windowStart = new Date(now - MAX_DAYS * DAY_MS).toISOString().slice(0, 10);
-    const [{ data: daily }, { data: forecast }, { data: cellRow }] = await Promise.all([
+    const [{ data: daily }, { data: forecast }, { data: cellRow }, ownRain] = await Promise.all([
       supabase
         .from("weather_daily")
         .select("date, tmax_c, tmin_c, uv_index_max, sunshine_s, precipitation_mm")
@@ -228,11 +229,14 @@ async function loadPoolView(id: string) {
         .limit(7)
         .returns<WeatherRow[]>(),
       supabase.from("weather_cells").select("last_actuals_at").eq("id", pool.cell_id).maybeSingle<{ last_actuals_at: string | null }>(),
+      loadOwnRain(supabase, pool.id, windowStart),
     ]);
-    weather = daily ?? [];
     forecastDays = forecast ?? [];
+    const rows = daily ?? [];
     const todayForecast = forecastDays.find((w) => w.date === today);
-    if (todayForecast && !weather.some((w) => w.date === today)) weather.push(todayForecast);
+    if (todayForecast && !rows.some((w) => w.date === today)) rows.push(todayForecast);
+    // The owner's rain at the pool, where logged, in place of the cell's.
+    weather = withOwnRain(rows, ownRain);
     lastActualsAt = cellRow?.last_actuals_at ?? null;
 
     // The nightly job keeps cells fresh; if it has not run for this one, refresh it
@@ -310,7 +314,12 @@ async function loadPoolView(id: string) {
           units,
           readings: allReadings.map((r) => ({ taken_at: r.taken_at, fc: r.fc, ph: r.ph })),
           doses: allDoses.map((d) => ({ added_at: d.added_at, label: doseLabel(d, units) })),
-          weather: weather.map((w) => ({ date: w.date, uv_index_max: w.uv_index_max, precipitation_mm: w.precipitation_mm })),
+          weather: weather.map((w) => ({
+            date: w.date,
+            uv_index_max: w.uv_index_max,
+            precipitation_mm: w.precipitation_mm,
+            ownRain: w.ownRain,
+          })),
           fcBand: advice
             ? { low: advice.targets.fc.targetLow, high: advice.targets.fc.targetHigh }
             : { low: 3, high: 5 },
@@ -530,7 +539,7 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
             </h2>
             <p className="text-xs text-muted">Shaded bands are the targets for this pool. ▼ marks a logged dose.</p>
           </div>
-          <TrendCharts data={trend} />
+          <TrendCharts data={trend} rainHref={pool.cell_id ? `/app/pools/${pool.id}/rain` : null} />
         </section>
       ) : null}
 

@@ -207,6 +207,16 @@ rated output × setting × cell hours ÷ 24 for the settings and schedules in fo
 (`src/engine/swg.ts`); a salt pair with no setting or schedule known at its first test is
 left out instead of guessed. The plan suggests the setting for the current pump hours.
 
+## Rain at the pool
+
+The weather cell's rain is a model estimate for a few kilometers around; storms vary a
+lot within that. Picking a past day on the chart (or its table view) links to
+`/app/pools/[id]/rain?date=…`, where the owner enters what fell at the pool (inches or
+mm; stored in mm in `pool_rain`). That figure replaces the cell's for that day in the
+chart, the between-tests box, the chlorine model's pairs and today's plan
+(`src/lib/weather/own-rain.ts`); "Use the area figure again" removes it. A missing table
+or read error falls back to the cell's rain.
+
 ## Email alerts
 
 Per pool, off by default, on the account page (`#alerts`): an algae-risk warning (the

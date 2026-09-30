@@ -11,6 +11,8 @@ export interface TrendDay {
   label: string; // "Sep 27"
   uv: number | null;
   rainMm: number | null;
+  /** The rain is the owner's own figure for the pool, not the weather cell's. */
+  ownRain: boolean;
   /** A day ahead, from the 7-day plan and the weather forecast. */
   forecast: boolean;
   /** The plan for this day: FC expected at its end, and what to add ("1 qt of liquid chlorine"). */
@@ -125,7 +127,7 @@ export interface BuildTrendInput {
   units: Units;
   readings: Array<{ taken_at: string; fc: number | null; ph: number | null }>;
   doses: Array<{ added_at: string; label: string }>;
-  weather: Array<{ date: string; uv_index_max: number | null; precipitation_mm: number | null }>;
+  weather: Array<{ date: string; uv_index_max: number | null; precipitation_mm: number | null; ownRain?: boolean }>;
   fcBand: { low: number; high: number };
   phBand: { low: number; high: number };
   /** The 7-day plan from today, with the forecast weather for each day. */
@@ -161,6 +163,7 @@ export function buildTrend(input: BuildTrendInput): TrendData {
       label: dayLabel(date),
       uv: forecast ? (p?.uv_index_max ?? null) : (w?.uv_index_max ?? null),
       rainMm: forecast ? (p?.precipitation_mm ?? null) : (w?.precipitation_mm ?? null),
+      ownRain: !forecast && Boolean(w?.ownRain),
       forecast,
       plan: p ? { fcEnd: p.fcEnd, add: p.add } : null,
     };
