@@ -87,6 +87,55 @@ describe("adviseFor", () => {
     expect(cya?.dose).toBeUndefined();
   });
 
+  it("counts calcium chloride logged after the test instead of asking for more", () => {
+    // 15,000 gal plaster pool at CH 200: target low 250, so the card asks for +100 ppm,
+    // 100 × 56,781 / 680.8 ≈ 8,340 g (18.4 lb) of 77% calcium chloride.
+    const before = adviseFor(pool, { ...balanced, ch: 200 }).items.find((i) => i.measure === "ch");
+    expect(before?.dose?.amount).toBeGreaterThan(8_300);
+    expect(before?.dose?.amount).toBeLessThan(8_380);
+
+    // 10 lb (4,536 g) adds 4,536 × 680.8 / 56,781 ≈ 54 ppm: CH about 254, in range.
+    const tenLb: LoggedDose = { productId: "calcium-chloride-77", amount: 4535.9, amountText: "10 lb", dateText: "Sep 29" };
+    const after = adviseFor(pool, { ...balanced, ch: 200 }, [tenLb]).items.find((i) => i.measure === "ch");
+    expect(after?.title).toBe("Calcium about 254 ppm is in range");
+    expect(after?.severity).toBe("ok");
+    expect(after?.detail).toContain("Counts your 10 lb from Sep 29.");
+    expect(after?.dose).toBeUndefined();
+
+    // 5 lb adds about 27 ppm: 227, still low, but no second dose until a retest.
+    const fiveLb: LoggedDose = { ...tenLb, amount: 2268, amountText: "5 lb" };
+    const partial = adviseFor(pool, { ...balanced, ch: 200 }, [fiveLb]).items.find((i) => i.measure === "ch");
+    expect(partial?.title).toBe("Calcium about 227 ppm is still low");
+    expect(partial?.severity).toBe("watch");
+    expect(partial?.detail).toContain("retest before adding more");
+    expect(partial?.dose).toBeUndefined();
+  });
+
+  it("does not add a calcium card for the calcium in cal-hypo when CH is in range", () => {
+    const calHypo: LoggedDose = { productId: "cal-hypo-65", amount: 454, amountText: "1 lb", dateText: "Sep 29" };
+    const advice = adviseFor(pool, { ...balanced, ch: 300 }, [calHypo]);
+    expect(advice.items.find((i) => i.measure === "ch")).toBeUndefined();
+  });
+
+  it("counts salt logged after the test instead of asking for more", () => {
+    const swgPool = { ...pool, sanitizer: "swg" as const };
+    // Salt 2400, aim 3200: 800 ppm ≈ 45.4 kg before anything is logged.
+    // 40 lb (18,144 g) adds 18,144 / 56.781 ≈ 320 ppm: about 2720, still below 2800.
+    const fortyLb: LoggedDose = { productId: "salt", amount: 18143.7, amountText: "40 lb", dateText: "Sep 29" };
+    const partial = adviseFor(swgPool, { ...balanced, salt: 2400 }, [fortyLb]).items.find((i) => i.measure === "salt");
+    expect(partial?.title).toBe("Salt about 2720 ppm is still below the chlorinator's range");
+    expect(partial?.severity).toBe("watch");
+    expect(partial?.dose).toBeUndefined();
+
+    // 100 lb (45,359 g) adds about 799 ppm: 3199, in range.
+    const hundredLb: LoggedDose = { ...fortyLb, amount: 45359, amountText: "100 lb" };
+    const done = adviseFor(swgPool, { ...balanced, salt: 2400 }, [hundredLb]).items.find((i) => i.measure === "salt");
+    expect(done?.title).toBe("Salt about 3199 ppm is in range");
+    expect(done?.severity).toBe("ok");
+    expect(done?.detail).toContain("Counts your 100 lb from Sep 29.");
+    expect(done?.dose).toBeUndefined();
+  });
+
   it("asks for a retest, not a dose, after chlorine or acid is logged", () => {
     const advice = adviseFor(pool, { ...balanced, fc: 1, ph: 8.0 }, [
       { productId: "liquid-chlorine-12.5", amount: 1900, amountText: "2 qt", dateText: "Sep 27" },

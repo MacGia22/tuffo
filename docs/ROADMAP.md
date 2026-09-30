@@ -2,7 +2,7 @@
 
 Where Tuffo is going, in the order to build it. Each item says what to build, where it
 lives and how to know it is done. Rules for how to work are in `CLAUDE.md`. Last updated
-2026-09-28.
+2026-09-30.
 
 ## Final target
 
@@ -94,12 +94,11 @@ The public launch (end of milestone 3) happens when all of these hold:
 - Done when a test logged in airplane mode appears on the server after reconnecting.
 
 ### 2.6 Imports, edits and small gaps
-- Pool Math import: CSV upload, map columns, preview, dedupe by timestamp. Research the
-  current export format first and keep a sample file in the tests.
-- Edit a test, dose or event in place (today it is remove and log again).
-- Count calcium chloride and salt logged since the latest test the way stabilizer is
-  counted in `adviseFor` (its `since` list, PR #1). Today those cards still offer the
-  same dose after it was logged.
+- 2.6a Pool Math import: CSV upload, map columns, preview, dedupe by timestamp. Research
+  the current export format first and keep a sample file in the tests.
+- 2.6b Edit a test, dose or event in place (today it is remove and log again).
+- 2.6c Count calcium chloride and salt logged since the latest test the way stabilizer is
+  counted in `adviseFor` (its `since` list, PR #1) — done 2026-09-30 (#14).
 
 ### 2.7 In-app feedback — done 2026-09-29
 - `/app/feedback`: kind, message (2000 characters), "OK to email me", and the person's
