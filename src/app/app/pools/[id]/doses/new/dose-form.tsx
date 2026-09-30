@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useState } from "react";
+import { QueuedNotice, useOfflineLog } from "@/components/offline-log";
 import { CATALOG, CATALOG_GROUPS, catalogProduct } from "@/lib/catalog";
 import { shelfUnits, type ShelfUnit } from "@/lib/dose-format";
 import type { Units } from "@/lib/format";
@@ -36,9 +37,9 @@ export function DoseForm({
   /** Set when changing a saved dose; its values include product, amount and unit. */
   edit?: EditTarget;
 }) {
-  const [state, action, pending] = useActionState(saveDose, initial);
+  const offline = useOfflineLog("dose", Boolean(edit), saveDose);
+  const [state, action, pending] = useActionState(offline.submit, initial);
   const f = state.fields ?? edit?.values ?? {};
-  const tzOffset = useRef<HTMLInputElement>(null);
 
   const [productId, setProductId] = useState(f.product ?? prefill.product ?? "liquid-chlorine-12.5");
   const product = catalogProduct(productId) ?? CATALOG[0];
@@ -48,16 +49,12 @@ export function DoseForm({
   );
   const unitValid = options.includes(unit);
 
+  if (offline.queued) return <QueuedNotice poolId={poolId} what="dose" />;
+
   return (
-    <form
-      action={action}
-      onSubmit={() => {
-        if (tzOffset.current) tzOffset.current.value = String(new Date().getTimezoneOffset());
-      }}
-      className="flex max-w-xl flex-col gap-6"
-    >
+    <form action={action} onSubmit={offline.onSubmit} className="flex max-w-xl flex-col gap-6">
       <input type="hidden" name="pool_id" value={poolId} />
-      <input type="hidden" name="tz_offset" ref={tzOffset} defaultValue="0" />
+      {offline.hidden}
       <EditFields edit={edit} whenField="added_at" />
 
       <div className="flex flex-col gap-1.5">

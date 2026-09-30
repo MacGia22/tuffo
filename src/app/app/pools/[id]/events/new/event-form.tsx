@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useState } from "react";
+import { QueuedNotice, useOfflineLog } from "@/components/offline-log";
 import { EVENT_KINDS, eventKindInfo, type EventKind } from "@/lib/events";
 import type { Units } from "@/lib/format";
 import { EditFields, type EditTarget } from "@/components/edit-fields";
@@ -12,23 +13,19 @@ const input =
   "h-11 w-full rounded-xl border border-border bg-surface px-3 text-base text-foreground outline-none placeholder:text-muted/70 focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
 
 export function EventForm({ poolId, units, edit }: { poolId: string; units: Units; edit?: EditTarget }) {
-  const [state, action, pending] = useActionState(saveEvent, initial);
+  const offline = useOfflineLog("event", Boolean(edit), saveEvent);
+  const [state, action, pending] = useActionState(offline.submit, initial);
   const f = state.fields ?? edit?.values ?? {};
-  const tzOffset = useRef<HTMLInputElement>(null);
   const [kind, setKind] = useState<EventKind>((f.kind as EventKind) || "refill");
   const info = eventKindInfo(kind);
 
+  if (offline.queued) return <QueuedNotice poolId={poolId} what="event" />;
+
   return (
-    <form
-      action={action}
-      onSubmit={() => {
-        if (tzOffset.current) tzOffset.current.value = String(new Date().getTimezoneOffset());
-      }}
-      className="flex max-w-xl flex-col gap-6"
-    >
+    <form action={action} onSubmit={offline.onSubmit} className="flex max-w-xl flex-col gap-6">
       <input type="hidden" name="pool_id" value={poolId} />
       <input type="hidden" name="units" value={units} />
-      <input type="hidden" name="tz_offset" ref={tzOffset} defaultValue="0" />
+      {offline.hidden}
       <EditFields edit={edit} whenField="occurred_at" />
 
       <fieldset className="flex flex-col gap-2">

@@ -256,6 +256,23 @@ Chrome or Edge: an Install button when the browser offers one, otherwise the men
 hidden once installed, where installing is not possible, and after it is closed (a flag
 in the browser's local storage on that device).
 
+## Offline logging
+
+A hand-written service worker (`src/app/sw.js/route.ts`, served at `/sw.js`, registered
+in production by `OfflineSync` in the app layout) keeps the last copy of each app page
+opened (network first; never `/app/admin`) and Next.js build files (cache first), and
+shows `/offline` for a page never opened. The pool page asks it to keep that pool's log
+forms too. Sign-out and the sign-in page drop the kept pages.
+
+Without a connection, the log forms put new tests, doses and events in an IndexedDB
+queue (`src/lib/offline`) with the time fixed and a UUID made on the device; the banner
+at the top of the app shows what is waiting. On reconnect (and on load, and when the app
+comes to the front) the queue is sent to `POST /api/log`, which validates like the forms
+(`src/lib/log/save.ts`). `client_id` is unique in `readings`, `doses` and `events`, so a
+resend after a lost reply is answered "already saved" and never makes a second row. A
+refused entry stays in the banner with its reason until discarded. Edits need a
+connection.
+
 ## Brand
 
 Colours: lagoon `#0E7C9E`, navy `#0B2E4F`, ice `#8FD3F4`, sun `#F5B301`. Type: Sora for

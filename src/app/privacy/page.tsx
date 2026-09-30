@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy notice" updated="September 29, 2026">
+    <LegalPage title="Privacy notice" updated="September 30, 2026">
       <p>
         Tuffo is a pool-care app: you log water tests, it shows what the weather did to your water and suggests what to
         add. This notice lists what Tuffo keeps about you, who else handles it, how long it stays, and how to take it
@@ -85,6 +85,11 @@ export default function PrivacyPage() {
       <p>
         No name, phone number, payment details, precise location or contacts. There is no advertising and no analytics
         tracking. The only cookies are the ones that keep you signed in.
+      </p>
+      <p>
+        So the app works without signal, your device keeps copies of the app pages you open and any test, dose or event
+        you log while offline, until it is sent. These stay on your device and are not shared. Signing out removes the
+        page copies; entries still waiting are sent the next time you sign in on that device.
       </p>
 
       <h2>Why Tuffo uses it</h2>

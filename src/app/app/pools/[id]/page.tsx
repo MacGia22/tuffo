@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { feedbackHref } from "@/lib/feedback";
+import { WarmOffline } from "@/components/warm-offline";
 import { notFound } from "next/navigation";
 import { after } from "next/server";
 import { effectsOf } from "@/engine/server";
@@ -316,6 +317,9 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
   return (
     <>
       <PoolCrumbs poolId={pool.id} poolName={pool.name} />
+      <WarmOffline
+        urls={["/app", ...["readings", "doses", "events"].map((kind) => `/app/pools/${pool.id}/${kind}/new`)]}
+      />
 
       <div className="flex flex-col gap-4">
         <div>

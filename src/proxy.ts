@@ -37,6 +37,6 @@ export async function proxy(request: NextRequest) {
 export const config = {
   // Everything except static assets, generated images and API routes (which do their own auth).
   matcher: [
-    "/((?!_next/static|_next/image|icon.svg|apple-icon|opengraph-image|pwa/|manifest.webmanifest|robots.txt|sitemap.xml|api/).*)",
+    "/((?!_next/static|_next/image|icon.svg|apple-icon|opengraph-image|pwa/|manifest.webmanifest|sw.js|offline|robots.txt|sitemap.xml|api/).*)",
   ],
 };

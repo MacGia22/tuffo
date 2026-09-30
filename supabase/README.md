@@ -33,6 +33,7 @@ History:
 | 20260928000001_waitlist.sql | by the `migrate` job |
 | 20260929000001_feedback.sql | by the `migrate` job |
 | 20260930000001_imported_readings.sql | by the `migrate` job |
+| 20260930000002_client_ids.sql | by the `migrate` job |
 
 The first two predate the job; it marks them applied (`supabase migration repair`) so
 they never run twice. New files are written so a second run is harmless anyway
@@ -63,6 +64,7 @@ What `rls.sql` proves, with two users A and B who own one pool each:
 - A sees only A's own profile, pools, readings, doses, events, scans and feedback, and
   cannot read, update, delete, create or move rows into B's; A can edit A's own
   readings, doses and events in place, and an unfiltered update touches only those;
+- a device id (`client_id`) can be stored only once;
 - A can send feedback as A only, cannot set its status, edit or delete it, and the 11th
   message in 24 hours is refused; feedback goes when the account is deleted;
 - users cannot write `scans`, read or write `pool_models` or the `waitlist`, or write
@@ -89,6 +91,9 @@ migration must survive a second run.
 - `waitlist` has no policies and no user grants: only the server writes it (the
   waitlist route, the admin invite page). A row is deleted when the person is invited,
   asks to be removed, or deletes an account with the same address.
+- `readings`, `doses` and `events` have a unique `client_id` (a UUID made on the device
+  for offline logging); a second insert with the same id fails with 23505, which the
+  app treats as "already saved". Null for older rows.
 - `feedback`: users insert and read their own rows only (insert limited to the columns
   they fill in, so `status` always starts as `new`); no update or delete. A trigger
   refuses more than 10 rows per user in 24 hours. The admin page changes the status with
