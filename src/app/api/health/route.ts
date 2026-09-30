@@ -137,6 +137,9 @@ const TABLES = [
   "waitlist",
   "feedback",
   "plans",
+  "alert_settings",
+  "alert_emails",
+  "alert_log",
 ];
 
 /** A cell whose actuals are older than this is late: the nightly job runs every 24 hours. */
@@ -245,5 +248,6 @@ export async function GET() {
     waitlist: schema?.tables.waitlist === true,
     feedback: schema?.tables.feedback === true,
     admins: Boolean(serverEnv.adminEmails()),
+    alerts: Boolean(serverEnv.resendApiKey()),
   });
 }

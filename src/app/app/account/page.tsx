@@ -5,13 +5,22 @@ import { feedbackHref } from "@/lib/feedback";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Units } from "@/lib/format";
 import { DeleteForm, UnitsForm } from "./account-forms";
+import { AlertsForm, type AlertChoices } from "./alerts-form";
 
 export const metadata: Metadata = { title: "Account" };
 
 export default async function AccountPage() {
   const user = await requireUser("/app/account");
   const supabase = await createSupabaseServerClient();
-  const { data: profile } = await supabase.from("profiles").select("units").maybeSingle<{ units: Units }>();
+  const [{ data: profile }, { data: pools }, { data: alertRows }] = await Promise.all([
+    supabase.from("profiles").select("units").maybeSingle<{ units: Units }>(),
+    supabase.from("pools").select("id, name").order("created_at").returns<{ id: string; name: string }[]>(),
+    supabase
+      .from("alert_settings")
+      .select("pool_id, algae, test_reminder, test_after_days, weekly")
+      .returns<(AlertChoices & { pool_id: string })[]>(),
+  ]);
+  const off: AlertChoices = { algae: false, test_reminder: false, test_after_days: 7, weekly: false };
 
   return (
     <>
@@ -31,11 +40,31 @@ export default async function AccountPage() {
         <UnitsForm units={profile?.units ?? "us"} />
       </section>
 
+      <section id="alerts" className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-5">
+        <h2 className="text-xl font-semibold">Email alerts</h2>
+        <p className="text-sm text-muted">
+          Off unless you switch them on, per pool. At most one email a day, around 7:30 am Eastern, from
+          hello@tuffo.app; every email has a link to stop them.
+        </p>
+        {pools && pools.length > 0 ? (
+          pools.map((pool) => (
+            <AlertsForm
+              key={pool.id}
+              poolId={pool.id}
+              poolName={pool.name}
+              choices={alertRows?.find((r) => r.pool_id === pool.id) ?? off}
+            />
+          ))
+        ) : (
+          <p className="text-sm text-muted">Add a pool first.</p>
+        )}
+      </section>
+
       <section className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-5">
         <h2 className="text-xl font-semibold">Your data</h2>
         <p className="text-sm text-muted">
-          Everything Tuffo holds about you: your email, unit preference, pools, tests, doses, events, the 7-day plans, the
-          feedback you sent and a log of your photo scans (when, not the photos), as one JSON file. Locations are the 5 km weather cell and town name
+          Everything Tuffo holds about you: your email, unit preference, pools, tests, doses, events, the 7-day plans, your
+          alert choices and the alerts sent, the feedback you sent and a log of your photo scans (when, not the photos), as one JSON file. Locations are the 5 km weather cell and town name
           you chose; no address is stored.
         </p>
         <a

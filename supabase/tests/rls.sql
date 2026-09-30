@@ -110,6 +110,14 @@ select rls_test.check(
   'authenticated cannot write plans'
 );
 
+select rls_test.check(
+  not has_table_privilege('authenticated', 'public.alert_settings', 'delete, truncate')
+    and not has_table_privilege('authenticated', 'public.alert_emails', 'insert, update, delete, truncate')
+    and not has_table_privilege('authenticated', 'public.alert_log', 'insert, update, delete, truncate'),
+  'authenticated cannot delete alert settings or write the alert log'
+);
+
+
 
 -- ---------------------------------------------------------------------------
 -- Two users with one pool each
@@ -147,6 +155,17 @@ insert into public.waitlist (email) values ('c@example.com');
 insert into public.plans (pool_id, version, summary, days) values
   ('00000000-0000-0000-0000-0000000000a1', 1, '{}', '[]'),
   ('00000000-0000-0000-0000-0000000000b1', 1, '{}', '[]');
+
+insert into public.alert_settings (pool_id, algae) values
+  ('00000000-0000-0000-0000-0000000000a1', true),
+  ('00000000-0000-0000-0000-0000000000b1', true);
+insert into public.alert_emails (user_id, sent_on, alerts) values
+  ('00000000-0000-0000-0000-00000000000a', '2026-10-01', 1),
+  ('00000000-0000-0000-0000-00000000000b', '2026-10-01', 1);
+insert into public.alert_log (user_id, pool_id, kind, sent_on) values
+  ('00000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-0000000000a1', 'algae', '2026-10-01'),
+  ('00000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-0000000000b1', 'algae', '2026-10-01');
+
 
 
 insert into public.feedback (id, user_id, kind, message) values
@@ -290,6 +309,32 @@ select rls_test.denied(
   'A cannot write a plan'
 );
 
+-- alerts: A manages A's own choices and sees what was sent to A, nothing else
+select rls_test.check(rls_test.rows('select 1 from public.alert_settings') = 1, 'A sees only A''s alert settings');
+select rls_test.check(rls_test.rows('select 1 from public.alert_emails') = 1, 'A sees only A''s alert emails');
+select rls_test.check(rls_test.rows('select 1 from public.alert_log') = 1, 'A sees only A''s alert log');
+select rls_test.check(
+  rls_test.touched('update public.alert_settings set weekly = true where pool_id = ''00000000-0000-0000-0000-0000000000a1''') = 1,
+  'A can change A''s alert settings'
+);
+select rls_test.check(
+  rls_test.touched('update public.alert_settings set algae = false where pool_id = ''00000000-0000-0000-0000-0000000000b1''') = 0,
+  'A cannot change B''s alert settings'
+);
+select rls_test.denied(
+  'insert into public.alert_settings (pool_id, algae) values (''00000000-0000-0000-0000-0000000000b9'', true)',
+  'A cannot add alert settings for a pool that is not A''s'
+);
+select rls_test.denied(
+  'update public.alert_settings set pool_id = ''00000000-0000-0000-0000-0000000000b1'' where pool_id = ''00000000-0000-0000-0000-0000000000a1''',
+  'A cannot move alert settings to B''s pool'
+);
+select rls_test.denied(
+  'insert into public.alert_emails (user_id, sent_on) values (''00000000-0000-0000-0000-00000000000a'', ''2026-10-02'')',
+  'A cannot write the alert emails'
+);
+select rls_test.denied('delete from public.alert_log', 'A cannot delete the alert log');
+
 -- feedback: A sends A's own, nothing else
 select rls_test.check(
   rls_test.touched('insert into public.feedback (user_id, kind, message, page) values (''00000000-0000-0000-0000-00000000000a'', ''question'', ''How?'', ''/app'')') = 1,
@@ -367,6 +412,17 @@ select rls_test.check(
   'B''s feedback is unchanged'
 );
 
+-- one alert email per person per day: a second claim for the same day is refused
+do $$
+begin
+  insert into public.alert_emails (user_id, sent_on) values ('00000000-0000-0000-0000-00000000000b', '2026-10-01');
+  raise exception 'RLS FAIL: a second alert email was claimed for the same day';
+exception
+  when unique_violation then
+    null;
+end;
+$$;
+
 -- deleting an account deletes its feedback
 delete from auth.users where id = '00000000-0000-0000-0000-00000000000a';
 select rls_test.check(
@@ -376,6 +432,16 @@ select rls_test.check(
 select rls_test.check(
   not exists (select 1 from public.plans where pool_id = '00000000-0000-0000-0000-0000000000a1'),
   'the plan is deleted with the account'
+);
+select rls_test.check(
+  (select algae from public.alert_settings where pool_id = '00000000-0000-0000-0000-0000000000b1'),
+  'B''s alert settings are unchanged'
+);
+select rls_test.check(
+  not exists (select 1 from public.alert_emails where user_id = '00000000-0000-0000-0000-00000000000a')
+    and not exists (select 1 from public.alert_log where user_id = '00000000-0000-0000-0000-00000000000a')
+    and not exists (select 1 from public.alert_settings where pool_id = '00000000-0000-0000-0000-0000000000a1'),
+  'alert settings and log are deleted with the account'
 );
 
 rollback;

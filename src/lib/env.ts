@@ -49,6 +49,10 @@ export const serverEnv = {
   /** Enables photo scanning of test results (Anthropic API). */
   anthropicApiKey: () => first("ANTHROPIC_API_KEY"),
   scanModel: () => first("SCAN_MODEL"),
+  /** Resend API key for alert emails (sign-in emails go through Supabase's SMTP). Unset = no alerts. */
+  resendApiKey: () => first("RESEND_API_KEY"),
+  /** Safety cap on alert emails per day across everyone (default 1,000). */
+  alertDailyLimit: () => first("ALERT_DAILY_LIMIT"),
   /** Turns on error reporting to Sentry (server; the browser gets it at build time). */
   sentryDsn: () => first("SENTRY_DSN", "NEXT_PUBLIC_SENTRY_DSN"),
 };
