@@ -14,7 +14,7 @@ import { planAddLabel, PlanStrip } from "@/components/plan-strip";
 import { SaltCellForm } from "@/components/salt-cell-form";
 import { canSeePlan } from "@/lib/entitlements";
 import { refreshPlanAfterResponse } from "@/lib/plan/build";
-import { parseStoredPlan, planIsStale, type StoredPlan } from "@/lib/plan/stored";
+import { parseStoredPlan, planHasFcLine, planIsStale, type StoredPlan } from "@/lib/plan/stored";
 import { PoolCrumbs } from "@/components/pool-crumbs";
 import { TrendCharts } from "@/components/trend-charts";
 import { adviseFor } from "@/lib/advice";
@@ -315,7 +315,8 @@ async function loadPoolView(id: string) {
             ? { low: advice.targets.fc.targetLow, high: advice.targets.fc.targetHigh }
             : { low: 3, high: 5 },
           phBand: { low: 7.2, high: 7.8 },
-          plan: plan
+          // A salt pool's plan without the cell's output has no meaningful FC line.
+          plan: plan && planHasFcLine(plan.summary)
             ? {
                 days: plan.days.map((d) => {
                   const add = planAddLabel(d, units);

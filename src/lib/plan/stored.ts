@@ -77,6 +77,15 @@ export function estimateStartFc(input: {
   return Math.round(Math.max(0, added - input.dailyLossPpm * elapsed) * 100) / 100;
 }
 
+/**
+ * Whether the plan's free chlorine line means anything: always for liquid chlorine; for a
+ * salt pool only once the cell's output is known (rating and pump schedule), otherwise
+ * the simulation leaves the cell out and FC would seem to drain to zero.
+ */
+export function planHasFcLine(summary: Pick<StoredPlanSummary, "kind" | "swgPercent">): boolean {
+  return summary.kind === "manual" || summary.swgPercent !== null;
+}
+
 /** "Based on typical pools…" or "From your pool's own…", for the page and emails. */
 export function confidenceText(summary: Pick<StoredPlanSummary, "confidence" | "pairs">, ownPairs: number): string {
   if (summary.confidence === "typical") {
