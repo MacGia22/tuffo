@@ -138,6 +138,8 @@ Copy `.env.example` to `.env.local`. Nothing is required for the landing page.
 | `SIGNUPS_OPEN` | `false` switches the home page to the waitlist and `/login` to invite-only wording; unset = open. Must match the Supabase sign-up setting |
 | `ADMIN_EMAILS` | Comma-separated emails that may open `/app/admin` and send beta invitations; unset = nobody |
 | `WAITLIST_HOURLY_LIMIT` | Optional waitlist sign-ups per hour across everyone; default 100 |
+| `RESEND_API_KEY` | Resend API key for alert emails (secret). Unset: no alerts are sent |
+| `ALERT_DAILY_LIMIT` | Optional: alert emails per day across everyone, a safety net (default 1000) |
 | `CRON_SECRET` | Bearer token the Vercel cron sends to `/api/jobs/*`; the jobs refuse every call until it is set |
 | `ANTHROPIC_API_KEY` | Enables photo scanning of test results (`/api/scan`); unset hides the scan button |
 | `SCAN_MODEL` | Optional model id for scans; defaults to `claude-sonnet-4-6` |
@@ -183,6 +185,21 @@ job after the forecast and models, after each new, edited or removed entry, and 
 page view that finds it missing or older than 26 hours. The pool page shows it as a
 7-day strip and as a dashed forecast on the chlorine chart. `canSeePlan()`
 (`src/lib/entitlements.ts`) gates it; everyone sees it during the beta.
+
+## Email alerts
+
+Per pool, off by default, on the account page (`#alerts`): an algae-risk warning (the
+plan expects FC below the minimum today or tomorrow, or it is estimated low now; at most
+every 3 days), "time to test" after N days without a test (2–14, default 7; once per
+gap) and a weekly summary on Saturdays. `GET /api/jobs/alerts` (second Vercel cron,
+`30 11 * * *`, morning in the US) sends them through Resend's API from hello@tuffo.app:
+one email per person per day with every due alert in it (`alert_emails` primary key),
+at most `ALERT_DAILY_LIMIT` a day (default 1,000; over it, `[alerts]` is logged and the
+rest wait). It runs only when `VERCEL_ENV` is `production` (previews share the database)
+and `RESEND_API_KEY` is set. Each email has a signed link to stop them (key derived from
+`CRON_SECRET`) and `List-Unsubscribe` / `List-Unsubscribe-Post` headers for one-click
+unsubscribe (`POST /api/alerts/unsubscribe`). Hobby crons run once a day, so every
+alert goes at the same hour; sending at each person's local morning waits for Vercel Pro.
 
 ## Importing tests
 
@@ -243,11 +260,11 @@ Its message contains an example address, which should arrive as `[email]`.
 
 ## Scheduled jobs
 
-`vercel.json` runs `/api/jobs/weather` once a day at 06:00 UTC (the Hobby plan allows
-daily crons). The job takes every active weather cell, asks Open-Meteo for the days
+`vercel.json` runs `/api/jobs/weather` once a day at 06:00 UTC and `/api/jobs/alerts` at
+11:30 UTC (the Hobby plan allows daily crons; see "Email alerts"). The job takes every active weather cell, asks Open-Meteo for the days
 since that cell's last fetch (a month for a new cell, at most 92) and the next week, in
 one request per 40 cells, and upserts `weather_daily` (actuals) and `weather_forecast`.
-It then refits every pool's chlorine model and deletes photo-scan log rows older than a
+It then refits every pool's chlorine model, rebuilds every 7-day plan and deletes photo-scan log rows older than a
 year. Trigger it by hand with
 `curl -H "Authorization: Bearer $CRON_SECRET" https://tuffo.app/api/jobs/weather`.
 

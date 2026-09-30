@@ -53,7 +53,12 @@ export function PlanStrip({ plan, units, today }: { plan: StoredPlan; units: Uni
         <h2 id="plan" className="text-xl font-semibold">
           This week
         </h2>
-        <p className="text-sm text-muted">From the forecast for your pool. Tuffo advises; you decide.</p>
+        <p className="text-sm text-muted">
+          From the forecast for your pool. Tuffo advises; you decide.{" "}
+          <a href="/app/account#alerts" className="font-semibold text-lagoon">
+            Email me before a risky day
+          </a>
+        </p>
       </div>
 
       {swg ? (

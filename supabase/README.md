@@ -35,6 +35,7 @@ History:
 | 20260930000001_imported_readings.sql | by the `migrate` job |
 | 20260930000002_client_ids.sql | by the `migrate` job |
 | 20260930000003_plans.sql | by the `migrate` job |
+| 20260930000004_alerts.sql | by the `migrate` job |
 
 The first two predate the job; it marks them applied (`supabase migration repair`) so
 they never run twice. New files are written so a second run is harmless anyway
@@ -67,6 +68,8 @@ What `rls.sql` proves, with two users A and B who own one pool each:
   readings, doses and events in place, and an unfiltered update touches only those;
 - a device id (`client_id`) can be stored only once;
 - A reads only A's 7-day plan and cannot write plans; plans go with the account;
+- A reads and changes only A's alert settings, sees only A's alert log, cannot write the
+  log, and a second alert email for the same person and day is refused;
 - A can send feedback as A only, cannot set its status, edit or delete it, and the 11th
   message in 24 hours is refused; feedback goes when the account is deleted;
 - users cannot write `scans`, read or write `pool_models` or the `waitlist`, or write
@@ -99,6 +102,9 @@ migration must survive a second run.
 - `plans` (the 7-day plan per pool) is written only by the server (nightly job, after a
   test, on a stale page view) and read by the pool's owner. It holds advice per day, never
   model coefficients.
+- `alert_settings` (per pool, owner reads, inserts and updates), `alert_emails` (one row
+  per person per day: the primary key is the one-email-a-day rule) and `alert_log` (one
+  row per alert sent, kept 90 days); the last two are written only by the alerts job.
 - `feedback`: users insert and read their own rows only (insert limited to the columns
   they fill in, so `status` always starts as `new`); no update or delete. A trigger
   refuses more than 10 rows per user in 24 hours. The admin page changes the status with

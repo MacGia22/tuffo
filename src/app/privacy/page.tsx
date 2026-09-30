@@ -64,6 +64,14 @@ export default function PrivacyPage() {
         suggestions, the messages may be summarized with the help of Anthropic&apos;s AI model; that step sees the
         message, kind, page, app version, status and time, never your email address or account.
       </p>
+      <h3>Email alerts</h3>
+      <p>
+        Alerts are off unless you switch them on for a pool. If you do, Tuffo keeps your choices for that pool (algae-risk
+        warning, test reminder and after how many days, weekly summary) and, for 90 days, a record of each alert it
+        sent (the date and the kind), so it does not repeat itself or email you more than once a day. The emails go to
+        your sign-in address. Every one has a link that switches them off, and you can change them on your account
+        page.
+      </p>
       <h3>The waitlist</h3>
       <p>
         If you join the waitlist on the home page, Tuffo keeps your email address, when you joined and the label of the
@@ -106,6 +114,10 @@ export default function PrivacyPage() {
           legitimate interest.
         </li>
         <li>
+          To send the alert emails you switched on. Legal basis: your consent, which you can withdraw at any time
+          with the link in each email or on your account page.
+        </li>
+        <li>
           To keep the service secure and affordable, for example by limiting photo scans. Legal basis: legitimate
           interest.
         </li>
@@ -117,7 +129,7 @@ export default function PrivacyPage() {
       </ul>
       <p>
         Tuffo emails you sign-in codes and, rarely, messages about your account or about changes to this notice or the
-        terms. It sends no marketing email unless you ask for it.
+        terms, and the alert emails you switched on. It sends no marketing email unless you ask for it.
       </p>
 
       <h2>Who else handles your data</h2>
@@ -134,7 +146,8 @@ export default function PrivacyPage() {
           <strong>Vercel</strong> hosts the website and the app, in the United States.
         </li>
         <li>
-          <strong>Resend</strong> sends the sign-in emails, from the United States.
+          <strong>Resend</strong> sends the sign-in emails and, if you switch them on, alert emails, from the United
+          States.
         </li>
         <li>
           <strong>Anthropic</strong> reads the numbers in photos you choose to scan, in the United States. Under
@@ -175,6 +188,7 @@ export default function PrivacyPage() {
           deleted, after an email warning you first.
         </li>
         <li>Feedback: until you delete your account.</li>
+        <li>Alert choices: until you change them or delete the pool; the record of alerts sent: 90 days.</li>
         <li>The photo-scan log: 12 months.</li>
         <li>Error reports: 90 days at most.</li>
         <li>Waitlist emails: until you are invited, or until you ask to be removed.</li>

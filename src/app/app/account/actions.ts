@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/user";
+import { isUuid } from "@/lib/form-data";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -43,4 +44,36 @@ export async function deleteAccount(_prev: AccountState, formData: FormData): Pr
   const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();
   redirect("/?deleted=1");
+}
+
+export interface AlertState {
+  message?: string;
+  error?: string;
+}
+
+/** Saves one pool's email alert choices. Row-level security limits it to the owner's pools. */
+export async function saveAlertSettings(_prev: AlertState, formData: FormData): Promise<AlertState> {
+  await requireUser("/app/account");
+  const poolId = String(formData.get("pool_id") ?? "");
+  if (!isUuid(poolId)) return { error: "Unknown pool." };
+  const days = Number(formData.get("test_after_days") ?? 7);
+  if (!Number.isInteger(days) || days < 1 || days > 60) return { error: "Pick between 1 and 60 days." };
+  const on = (name: string) => formData.get(name) === "on";
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.from("alert_settings").upsert(
+    {
+      pool_id: poolId,
+      algae: on("algae"),
+      test_reminder: on("test_reminder"),
+      test_after_days: days,
+      weekly: on("weekly"),
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "pool_id" },
+  );
+  if (error) return { error: /alert_settings/.test(error.message) ? "Alerts are not available yet. Try again in a few minutes." : `Could not save (${error.message}).` };
+  revalidatePath("/app/account");
+  const any = on("algae") || on("test_reminder") || on("weekly");
+  return { message: any ? "Saved. Emails come from hello@tuffo.app, at most one a day." : "Saved. No alert emails for this pool." };
 }

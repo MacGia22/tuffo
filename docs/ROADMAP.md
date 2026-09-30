@@ -122,7 +122,7 @@ The public launch (end of milestone 3) happens when all of these hold:
   pool page plus the chart's forecast extension.
 - Respect the dosing caps and handling notes the advice already uses.
 
-### 3.2 Alerts and reminders
+### 3.2 Alerts and reminders — done 2026-09-30 (#19)
 - Email through Resend: algae-risk warning, "time to test" after N days without a test,
   weekly summary; per-pool opt-in, one-click unsubscribe, quiet hours.
 - Web push later; email first.

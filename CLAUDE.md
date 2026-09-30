@@ -74,7 +74,9 @@ CI (`.github/workflows/ci.yml`) runs the same checks on every push and pull requ
   (one scale per panel, no dual axes, table view, keyboard access).
 - Copy: short, plain, specific, US English, units always shown. No marketing adjectives.
 - Tests: vitest next to the code in `__tests__` folders; pure functions over mocks.
-- Jobs: the daily Vercel cron hits `/api/jobs/weather` with `CRON_SECRET`; Hobby allows
-  daily crons only, so anything more frequent waits for Vercel Pro or runs on page views.
+- Jobs: two daily Vercel crons hit `/api/jobs/weather` (06:00 UTC) and `/api/jobs/alerts`
+  (11:30 UTC) with `CRON_SECRET`; Hobby allows daily crons only, so anything more
+  frequent waits for Vercel Pro or runs on page views. Anything that emails or writes on
+  a schedule runs only when `VERCEL_ENV` is `production` (previews share the database).
 - A weekly scheduled check ("Tuffo weekly check", Mondays) reads health, deployments,
   errors and dependency versions and writes `claude/tuffo-status.md` to the Claude project.
