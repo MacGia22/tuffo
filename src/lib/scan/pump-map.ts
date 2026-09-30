@@ -7,6 +7,8 @@ import { cellLikelyOn, type SpeedUnit } from "@/lib/pump";
 
 export interface PumpScanOutput {
   runs?: Array<{ start?: unknown; end?: unknown; speed?: unknown; speed_unit?: unknown; speed_label?: unknown }>;
+  skipped?: unknown;
+  cut_off?: unknown;
   confidence?: string;
   notes?: string;
 }
@@ -24,6 +26,8 @@ export interface PumpScanResult {
   rows: PumpRow[];
   /** The unit the schedule is set in (one per schedule). */
   unit: SpeedUnit;
+  /** The list continued past the image; another screenshot adds to it. */
+  cutOff: boolean;
   confidence: "high" | "medium" | "low";
   notes: string | null;
 }
@@ -62,6 +66,11 @@ export function mapPumpScan(output: PumpScanOutput): PumpScanResult {
     if (rows.length >= 24) break;
   }
   const confidence = output.confidence === "high" || output.confidence === "medium" ? output.confidence : "low";
-  const notes = typeof output.notes === "string" && output.notes.trim() ? output.notes.trim().slice(0, 300) : null;
-  return { rows, unit, confidence, notes };
+  const said: string[] = [];
+  const skipped = Array.isArray(output.skipped) ? output.skipped.filter((s): s is string => typeof s === "string" && s.trim() !== "") : [];
+  if (skipped.length) said.push(`Left out ${skipped.slice(0, 5).join(", ")}: not on the daily schedule.`);
+  if (output.cut_off === true) said.push("The list goes on past the screenshot: scroll and read the next screenshot too; its runs are added.");
+  if (typeof output.notes === "string" && output.notes.trim()) said.push(output.notes.trim());
+  const notes = said.length ? said.join(" ").slice(0, 400) : null;
+  return { rows, unit, confidence, notes, cutOff: output.cut_off === true };
 }

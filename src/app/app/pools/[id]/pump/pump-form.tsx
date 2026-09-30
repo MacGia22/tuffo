@@ -55,7 +55,13 @@ export function PumpForm({
       setScanNote(result.notes ?? "No runs could be read. Type them below.");
       return;
     }
-    setRows(read.map((r) => row({ start: r.start, end: r.end, speed: r.speed ? String(r.speed) : "", cell: r.cell })));
+    const scanned = read.map((r) => row({ start: r.start, end: r.end, speed: r.speed ? String(r.speed) : "", cell: r.cell }));
+    // A second screenshot (a list that went past the screen) adds its runs to the first.
+    setRows((rs) => {
+      if (source !== "screenshot") return scanned;
+      const seen = new Set(rs.map((r) => `${r.start}-${r.end}`));
+      return [...rs, ...scanned.filter((r) => !seen.has(`${r.start}-${r.end}`))].slice(0, MAX_RUNS);
+    });
     if (result.unit) setUnit(result.unit);
     setSource("screenshot");
     setScanNote(

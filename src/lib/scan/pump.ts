@@ -34,6 +34,12 @@ const TOOL = {
           required: ["start", "end"],
         },
       },
+      skipped: {
+        type: "array",
+        items: { type: "string" },
+        description: "Programs left out because they are not part of the daily schedule (timer, quick clean, manual run), by name.",
+      },
+      cut_off: { type: "boolean", description: "True when the list continues past the edge of the image." },
       confidence: { type: "string", enum: ["high", "medium", "low"] },
       notes: { type: "string", description: "One short sentence for the user, only if something needs saying." },
     },
@@ -43,8 +49,12 @@ const TOOL = {
 
 const INSTRUCTIONS = `You are reading an image for a pool-care app. It shows a pool pump's daily
 schedule: a variable-speed pump app or control panel (Pentair, Hayward, Jandy, CircuPool
-and others) or a mechanical timer. Record each run with its start and end time and its
-setting: speed in RPM, or flow in GPM when the pump is set by flow.
+and others) or a mechanical timer. Record each scheduled run with its start and end time
+and its setting: speed in RPM, or flow in GPM when the pump is set by flow.
+Only runs with a start and end time on the daily schedule count. Leave out programs that
+run for a set time when started by hand (for example "Timer: 10 hours", quick clean,
+manual or boost runs) and list their names in skipped. If a program is only partly
+visible at the edge of the image, leave it out and set cut_off to true.
 If the screen lists a duration instead of an end time, work out the end time. Never invent
 a run: if nothing readable is shown, return no runs and say so in notes. Ignore weekday
 toggles unless runs differ by day; then record the most common day and say so in notes.`;
