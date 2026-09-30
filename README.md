@@ -186,6 +186,16 @@ page view that finds it missing or older than 26 hours. The pool page shows it a
 7-day strip and as a dashed forecast on the chlorine chart. `canSeePlan()`
 (`src/lib/entitlements.ts`) gates it; everyone sees it during the beta.
 
+## Salt pools
+
+A salt pool's page asks which cell it has: a listed model (Hayward TurboCell T-15/T-9/T-5,
+Pentair IntelliChlor IC60/IC40/IC20, with their rated lb/day, `src/lib/salt-cells.ts`)
+or the rated output from the label in lb/day, g/hour or kg/day. It is stored as
+`pools.swg_cell_lb_per_day` and `swg_cell_model`, and the chlorine model and plan are
+refitted. With it, the 7-day plan suggests the lowest cell output that holds free
+chlorine all week, and the free chlorine advice card repeats that setting; without it,
+both give the ppm per day the cell has to make and ask for the rating.
+
 ## Email alerts
 
 Per pool, off by default, on the account page (`#alerts`): an algae-risk warning (the

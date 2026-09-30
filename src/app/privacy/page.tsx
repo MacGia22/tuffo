@@ -32,7 +32,7 @@ export default function PrivacyPage() {
       <h3>Your pools</h3>
       <p>
         For each pool, the name you give it, its volume, surface and sanitizer, whether it has a cover, and optional
-        numbers such as your fill water&apos;s calcium or your salt cell&apos;s output. The location is stored as a
+        numbers such as your fill water&apos;s calcium or your salt cell&apos;s model and output. The location is stored as a
         weather cell about 5 km (3 miles) across, plus the town name you picked and the time zone. Tuffo never stores a
         street address or a GPS position.
       </p>

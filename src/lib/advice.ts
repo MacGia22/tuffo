@@ -57,6 +57,16 @@ export interface LoggedDose {
   dateText: string;
 }
 
+/**
+ * Salt pools: the cell setting from the 7-day plan (lowest output that holds free
+ * chlorine this week), or null when the cell's rated output is not known.
+ */
+export interface CellSetting {
+  percent: number | null;
+  /** Chlorine the cell has to make per day, ppm. */
+  needPpm: number | null;
+}
+
 export interface Advice {
   targets: Targets;
   assumptions: string[];
@@ -90,7 +100,7 @@ function retestNote(measure: Recommendation["measure"], what: string, value: str
  * two, so they are counted: the card shows the level with the addition and never offers
  * the same dose again.
  */
-export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[] = []): Advice {
+export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[] = [], cell?: CellSetting): Advice {
   const assumptions: string[] = [];
   const cya = r.cya ?? DEFAULT_CYA;
   if (r.cya === null) assumptions.push(`No stabilizer (CYA) test yet; targets assume ${DEFAULT_CYA} ppm.`);
@@ -122,6 +132,11 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[
   const chSince = raising("ch");
   const saltSince = raising("salt");
 
+  // Salt pools: where to set the cell, when the plan knows.
+  const setting = cell?.percent !== null && cell?.percent !== undefined ? cell.percent : null;
+  const need = cell?.needPpm !== null && cell?.needPpm !== undefined ? ` (it needs to make about ${cell.needPpm.toFixed(1)} ppm a day)` : "";
+  const unknownCell = swg && cell && cell.percent === null ? " Add your cell's rated output on the pool page to get a setting in percent." : "";
+
   // Free chlorine
   if (r.fc !== null && chlorineSince.length > 0) {
     items.push(retestNote("fc", "free chlorine", `${r.fc.toFixed(1)} ppm`, chlorineSince));
@@ -134,7 +149,7 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[
         severity: "act",
         title: `Free chlorine ${r.fc.toFixed(1)} ppm is below the minimum of ${min} ppm`,
         detail: swg
-          ? `Boost now with liquid chlorine to about ${aim.toFixed(1)} ppm, then raise the chlorinator output.`
+          ? `Boost now with liquid chlorine to about ${aim.toFixed(1)} ppm, then raise the chlorinator output${setting !== null ? ` to about ${setting}%${need}` : ""}.${unknownCell}`
           : `Bring it to about ${aim.toFixed(1)} ppm now; below the minimum, algae gets a head start.`,
         dose: doseFor("liquid-chlorine-12.5", aim - r.fc, L),
       });
@@ -144,7 +159,9 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[
         severity: "act",
         title: `Free chlorine ${r.fc.toFixed(1)} ppm is under the ${targetLow}–${targetHigh} ppm target`,
         detail: swg
-          ? "Nudge the chlorinator output up a step, or top up with liquid chlorine."
+          ? setting !== null
+            ? `Set the chlorinator to about ${setting}%${need}, or top up with liquid chlorine.`
+            : `Nudge the chlorinator output up a step, or top up with liquid chlorine.${unknownCell}`
           : `Top up to about ${aim.toFixed(1)} ppm.`,
         dose: doseFor("liquid-chlorine-12.5", aim - r.fc, L),
       });
@@ -154,7 +171,7 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[
         severity: "watch",
         title: `Free chlorine ${r.fc.toFixed(1)} ppm is at shock level`,
         detail: swg
-          ? "Fine if you are clearing algae; otherwise turn the chlorinator output down and let it drift down before swimming."
+          ? `Fine if you are clearing algae; otherwise turn the chlorinator output down${setting !== null ? ` to about ${setting}%` : ""} and let it drift down before swimming.`
           : "Fine if you are clearing algae; otherwise let it drift down before swimming.",
       });
     } else if (r.fc > targetHigh) {
@@ -163,7 +180,9 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[
         severity: "ok",
         title: `Free chlorine ${r.fc.toFixed(1)} ppm is above target; nothing to add`,
         detail: swg
-          ? "Turn the chlorinator output down a step and retest in a day or two."
+          ? setting !== null
+            ? `Turn the chlorinator down to about ${setting}%${need} and retest in a day or two.`
+            : `Turn the chlorinator output down a step and retest in a day or two.${unknownCell}`
           : "Sun will bring it down. Skip the next dose and retest.",
       });
     } else {
@@ -171,7 +190,11 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[
         measure: "fc",
         severity: "ok",
         title: `Free chlorine ${r.fc.toFixed(1)} ppm is on target (${targetLow}–${targetHigh} ppm)`,
-        detail: swg ? "Keep the chlorinator where it is." : "Keep the daily dose you have been adding.",
+        detail: swg
+          ? setting !== null
+            ? `The plan suggests about ${setting}% for this week's weather${need}.`
+            : `Keep the chlorinator where it is.${unknownCell}`
+          : "Keep the daily dose you have been adding.",
       });
     }
   }

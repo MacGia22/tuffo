@@ -71,7 +71,11 @@ export function PlanStrip({ plan, units, today }: { plan: StoredPlan; units: Uni
           ) : (
             <>
               The salt cell needs to make about <strong>{summary.swgNeedPpm?.toFixed(1)} ppm</strong> of free chlorine a
-              day this week. Add the cell&apos;s rated output to the pool to get a setting in percent.
+              day this week.{" "}
+              <a href="#salt-cell" className="font-semibold text-lagoon">
+                Add the cell&apos;s rated output
+              </a>{" "}
+              to get a setting in percent.
             </>
           )}
         </p>
