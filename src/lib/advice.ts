@@ -85,8 +85,10 @@ function retestNote(measure: Recommendation["measure"], what: string, value: str
 
 /**
  * `since` holds the products logged after this test. Their effect on chlorine and pH
- * is unknown until the next test, so those cards ask for a retest instead of a dose;
- * stabilizer adds up predictably and changes slowly, so it is counted.
+ * is unknown until the next test, so those cards ask for a retest instead of a dose.
+ * Stabilizer, calcium and salt add up predictably and nothing uses them up in a day or
+ * two, so they are counted: the card shows the level with the addition and never offers
+ * the same dose again.
  */
 export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[] = []): Advice {
   const assumptions: string[] = [];
@@ -103,14 +105,22 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[
     since.filter((d) => groups.includes(catalogProduct(d.productId)?.group ?? ""));
   const chlorineSince = inGroup("Chlorine");
   const phSince = inGroup("Lower pH", "Raise pH or alkalinity");
-  const cyaOf = (d: LoggedDose) => {
+  const effectOf = (d: LoggedDose, measure: "cya" | "ch" | "salt") => {
     try {
-      return effectsOf(d.productId, d.amount, L).cya ?? 0;
+      return effectsOf(d.productId, d.amount, L)[measure] ?? 0;
     } catch {
       return 0;
     }
   };
-  const cyaSince = since.filter((d) => cyaOf(d) > 0);
+  const raising = (measure: "cya" | "ch" | "salt") => since.filter((d) => effectOf(d, measure) > 0);
+  const added = (doses: LoggedDose[], measure: "cya" | "ch" | "salt") =>
+    doses.reduce((sum, d) => sum + effectOf(d, measure), 0);
+  /** "Counts your 10 lb from Sep 27." Names the product when it is not the obvious one. */
+  const countsYour = (doses: LoggedDose[], obvious: string[]) =>
+    `Counts your ${listDoses(doses, doses.some((d) => !obvious.includes(d.productId)))}.`;
+  const cyaSince = raising("cya");
+  const chSince = raising("ch");
+  const saltSince = raising("salt");
 
   // Free chlorine
   if (r.fc !== null && chlorineSince.length > 0) {
@@ -240,8 +250,39 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[
     }
   }
 
-  // Calcium hardness
-  if (r.ch !== null) {
+  // Calcium hardness. Calcium logged since the test is counted; a card appears only when
+  // the test itself was out of range or the addition took it too high (cal-hypo adds a
+  // little calcium with every dose, which is not worth a card on its own).
+  const chNow = r.ch === null ? null : r.ch + added(chSince, "ch");
+  if (r.ch !== null && chNow !== null && chSince.length > 0 && (r.ch < targets.ch.low || chNow > targets.ch.high + 100)) {
+    const { low, high } = targets.ch;
+    const counted = countsYour(chSince, ["calcium-chloride-77", "calcium-chloride-97"]);
+    const plaster = pool.surface === "plaster";
+    items.push(
+      chNow < low
+        ? {
+            measure: "ch",
+            severity: plaster ? "watch" : "ok",
+            title: `Calcium about ${Math.round(chNow)} ppm is still low`,
+            detail: plaster
+              ? `${counted} Let it mix for a day, then retest before adding more.`
+              : `${counted} Not a problem for a vinyl or fiberglass pool.`,
+          }
+        : chNow > high + 100
+          ? {
+              measure: "ch",
+              severity: "watch",
+              title: `Calcium about ${Math.round(chNow)} ppm is high`,
+              detail: `${counted} Only water replacement lowers it. Keep pH on the low side of range to avoid scale.`,
+            }
+          : {
+              measure: "ch",
+              severity: "ok",
+              title: `Calcium about ${Math.round(chNow)} ppm is in range`,
+              detail: `${counted} Retest in a day, once it has mixed.`,
+            },
+    );
+  } else if (r.ch !== null) {
     const { low, high } = targets.ch;
     if (r.ch < low) {
       const dose = doseFor("calcium-chloride-77", low + 50 - r.ch, L);
@@ -268,8 +309,8 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[
   // Stabilizer
   if (r.cya !== null && cyaSince.length > 0) {
     const { low, high } = targets.cya;
-    const cyaNow = r.cya + cyaSince.reduce((sum, d) => sum + cyaOf(d), 0);
-    const counted = `Counts your ${listDoses(cyaSince, cyaSince.some((d) => d.productId !== "cyanuric-acid"))}.`;
+    const cyaNow = r.cya + added(cyaSince, "cya");
+    const counted = countsYour(cyaSince, ["cyanuric-acid"]);
     items.push(
       cyaNow < low
         ? {
@@ -313,8 +354,41 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[
     }
   }
 
-  // Salt (SWG only)
-  if (swg && r.salt !== null && targets.salt) {
+  // Salt (SWG only). Salt logged since the test is counted, as for calcium.
+  const saltNow = r.salt === null ? null : r.salt + added(saltSince, "salt");
+  if (
+    swg &&
+    r.salt !== null &&
+    saltNow !== null &&
+    targets.salt &&
+    saltSince.length > 0 &&
+    (r.salt < targets.salt.low || saltNow > targets.salt.high)
+  ) {
+    const { low, high } = targets.salt;
+    const counted = countsYour(saltSince, ["salt"]);
+    items.push(
+      saltNow < low
+        ? {
+            measure: "salt",
+            severity: "watch",
+            title: `Salt about ${Math.round(saltNow)} ppm is still below the chlorinator's range`,
+            detail: `${counted} Let it dissolve and circulate for a day, then retest before adding more.`,
+          }
+        : saltNow > high
+          ? {
+              measure: "salt",
+              severity: "watch",
+              title: `Salt about ${Math.round(saltNow)} ppm is above range`,
+              detail: `${counted} Rain and refills will dilute it; no action unless the cell complains.`,
+            }
+          : {
+              measure: "salt",
+              severity: "ok",
+              title: `Salt about ${Math.round(saltNow)} ppm is in range`,
+              detail: `${counted} Retest after a day of circulation.`,
+            },
+    );
+  } else if (swg && r.salt !== null && targets.salt) {
     const { low, high } = targets.salt;
     if (r.salt < low) {
       const dose = doseFor("salt", (low + high) / 2 - r.salt, L);
