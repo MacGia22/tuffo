@@ -36,8 +36,8 @@ export default function PrivacyPage() {
         the pump schedules you enter (run times, speeds, whether the cell runs) and the dates they started. If you enter the
         rain that fell at your pool on a day, that amount and date. The location is stored as a
         weather cell about 3 km (2 miles) across (5 km for pools set up before September 30, 2026, until their location is
-        picked again), plus the town name you picked and the time zone. Tuffo never stores a
-        street address or a GPS position.
+        picked again), plus the town name you picked and the time zone. If you pick the square on the map, only the
+        square is sent to Tuffo, not the point you tap. Tuffo never stores a street address or a GPS position.
       </p>
       <h3>What you log</h3>
       <p>
@@ -162,6 +162,12 @@ export default function PrivacyPage() {
           <strong>Open-Meteo</strong> provides the weather and the town search. It receives the coordinates of your
           weather cell and, when you look up a town, the text you type. It never receives your email or anything else
           that identifies you.
+        </li>
+        <li>
+          <strong>OpenStreetMap Foundation</strong> serves the map tiles when you pick your weather square on a map. Your
+          browser loads them directly, so the Foundation receives your IP address and the map area shown, stored in the
+          United Kingdom and the Netherlands under its own privacy policy. Tuffo never sends it your account or the
+          point you tap.
         </li>
         <li>
           <strong>Sentry</strong> receives the error reports described above, in the United States.

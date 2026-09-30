@@ -26,11 +26,18 @@ export default async function LocationPage({ params }: PageProps<"/app/pools/[id
   const supabase = await createSupabaseServerClient();
   const { data: pool } = await supabase
     .from("pools")
-    .select("id, name, place_label, cell_id")
+    .select("id, name, place_label, cell_id, timezone")
     .eq("id", id)
-    .maybeSingle<{ id: string; name: string; place_label: string | null; cell_id: string | null }>();
+    .maybeSingle<{ id: string; name: string; place_label: string | null; cell_id: string | null; timezone: string | null }>();
   if (!pool) notFound();
   const finer = onCurrentGrid(pool.cell_id);
+  // The pool's current square as the starting point, so the owner can pick a neighbor
+  // on the map without searching again.
+  const [cellLat, cellLon] = (pool.cell_id ?? "").split(",").map(Number);
+  const current =
+    pool.place_label && pool.timezone && Number.isFinite(cellLat) && Number.isFinite(cellLon)
+      ? { label: pool.place_label, timezone: pool.timezone, lat: cellLat, lon: cellLon, country: "" }
+      : null;
 
   return (
     <>
@@ -38,17 +45,18 @@ export default async function LocationPage({ params }: PageProps<"/app/pools/[id
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-semibold">Weather location</h1>
         <p className="text-muted">
-          Tuffo uses the weather for an area about 3 km (2 miles) across around the town or ZIP code you pick. It keeps
-          only that area and the town name, never an address.
+          Tuffo uses the weather for a square about 3 km (2 miles) across. Search your town or ZIP code, then tap the
+          square your pool is in. Tuffo keeps only that square and the town name, never an address or the point you
+          tap.
         </p>
         {pool.place_label ? (
           <p className="text-sm">
             Now: <span className="font-semibold">{pool.place_label}</span>
-            {finer ? "" : " (on the older 5 km grid; pick it again to use the finer one)"}.
+            {finer ? "" : " (on the older 5 km grid; save a square below to use the finer one)"}.
           </p>
         ) : null}
       </div>
-      <LocationForm poolId={pool.id} />
+      <LocationForm poolId={pool.id} current={current} />
     </>
   );
 }

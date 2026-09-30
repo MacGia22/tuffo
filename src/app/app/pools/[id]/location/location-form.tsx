@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { PlacePicker } from "@/components/place-picker";
+import type { Place } from "@/lib/weather/geocode";
 import { findPlaces } from "../../new/actions";
 import { saveLocation, type LocationState } from "../actions";
 
 const initial: LocationState = {};
 
-export function LocationForm({ poolId }: { poolId: string }) {
+export function LocationForm({ poolId, current }: { poolId: string; current: Place | null }) {
   const [state, action, pending] = useActionState(saveLocation, initial);
 
   if (state.saved) {
@@ -25,7 +26,7 @@ export function LocationForm({ poolId }: { poolId: string }) {
   return (
     <form action={action} className="flex max-w-xl flex-col gap-4">
       <input type="hidden" name="pool_id" value={poolId} />
-      <PlacePicker find={findPlaces} />
+      <PlacePicker find={findPlaces} initialPlace={current} />
       {state.error ? (
         <p role="alert" className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
           {state.error}
