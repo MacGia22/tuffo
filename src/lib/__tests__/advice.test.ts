@@ -155,3 +155,26 @@ describe("adviseFor", () => {
     expect(advice.items.find((i) => i.measure === "fc")?.detail).toContain("chlorinator output down");
   });
 });
+
+describe("adviseFor, salt cell setting", () => {
+  const swgPool = { ...pool, sanitizer: "swg" as const };
+  // From the plan: a 1.4 lb/day cell in 15,000 gal makes 11.2 ppm/day at 100%; this week needs 1.86 ppm/day → 20%.
+  const cell = { percent: 20, needPpm: 1.86 };
+
+  it("gives the cell setting on target", () => {
+    const fc = adviseFor(swgPool, { ...balanced, cya: 70, fc: 5 }, [], cell).items.find((i) => i.measure === "fc");
+    expect(fc?.detail).toBe("The plan suggests about 20% for this week's weather (it needs to make about 1.9 ppm a day).");
+  });
+
+  it("gives it when low and when high", () => {
+    const low = adviseFor(swgPool, { ...balanced, cya: 70, fc: 3.5 }, [], cell).items.find((i) => i.measure === "fc");
+    expect(low?.detail).toBe("Set the chlorinator to about 20% (it needs to make about 1.9 ppm a day), or top up with liquid chlorine.");
+    const high = adviseFor(swgPool, { ...balanced, cya: 70, fc: 7 }, [], cell).items.find((i) => i.measure === "fc");
+    expect(high?.detail).toContain("Turn the chlorinator down to about 20%");
+  });
+
+  it("asks for the cell's rating when it is unknown", () => {
+    const fc = adviseFor(swgPool, { ...balanced, cya: 70, fc: 5 }, [], { percent: null, needPpm: 1.86 }).items.find((i) => i.measure === "fc");
+    expect(fc?.detail).toContain("Add your cell's rated output on the pool page");
+  });
+});

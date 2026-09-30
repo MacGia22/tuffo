@@ -11,6 +11,7 @@ import { BetweenTests } from "@/components/between-tests";
 import { ChlorineUse } from "@/components/chlorine-use";
 import { ConfirmButton } from "@/components/confirm-button";
 import { planAddLabel, PlanStrip } from "@/components/plan-strip";
+import { SaltCellForm } from "@/components/salt-cell-form";
 import { canSeePlan } from "@/lib/entitlements";
 import { refreshPlanAfterResponse } from "@/lib/plan/build";
 import { parseStoredPlan, planIsStale, type StoredPlan } from "@/lib/plan/stored";
@@ -41,6 +42,8 @@ interface Pool {
   cell_id: string | null;
   place_label: string | null;
   timezone: string | null;
+  swg_cell_lb_per_day: number | null;
+  swg_cell_model: string | null;
 }
 
 interface Reading {
@@ -145,7 +148,7 @@ async function loadPoolView(id: string) {
       Promise.all([
         supabase
           .from("pools")
-          .select("id, name, volume_l, sanitizer, surface, covered, cell_id, place_label, timezone")
+          .select("*")
           .eq("id", id)
           .maybeSingle<Pool>(),
         supabase
@@ -286,6 +289,14 @@ async function loadPoolView(id: string) {
           borate: latest.borate,
         },
         dosesSinceTest,
+        // Salt pools: the plan's cell setting, or a prompt for the cell's rating.
+        pool.sanitizer === "swg"
+          ? pool.swg_cell_lb_per_day === null
+            ? { percent: null, needPpm: plan?.summary.swgNeedPpm ?? null }
+            : plan
+              ? { percent: plan.summary.swgPercent, needPpm: plan.summary.swgNeedPpm }
+              : undefined
+          : undefined,
       )
     : null;
 
@@ -439,6 +450,16 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
       )}
 
       {advice && advice.items.length > 0 ? <AdvicePanel advice={advice} units={units} poolId={pool.id} /> : null}
+
+      {pool.sanitizer === "swg" ? (
+        <SaltCellForm
+          poolId={pool.id}
+          current={{
+            model: pool.swg_cell_model ?? null,
+            lbPerDay: pool.swg_cell_lb_per_day === null ? null : Number(pool.swg_cell_lb_per_day),
+          }}
+        />
+      ) : null}
 
       {plan ? <PlanStrip plan={plan} units={units} today={today} /> : null}
 

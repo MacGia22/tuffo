@@ -36,6 +36,7 @@ History:
 | 20260930000002_client_ids.sql | by the `migrate` job |
 | 20260930000003_plans.sql | by the `migrate` job |
 | 20260930000004_alerts.sql | by the `migrate` job |
+| 20260930000005_salt_cell_model.sql | by the `migrate` job |
 
 The first two predate the job; it marks them applied (`supabase migration repair`) so
 they never run twice. New files are written so a second run is harmless anyway
