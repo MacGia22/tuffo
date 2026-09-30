@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { confidenceText, estimateStartFc, parseStoredPlan, planIsStale, type StoredPlan } from "../stored";
+import { confidenceText, estimateStartFc, parseStoredPlan, planHasFcLine, planIsStale, type StoredPlan } from "../stored";
 
 describe("estimateStartFc", () => {
   it("takes off the predicted use since the test and adds what was logged", () => {
@@ -39,6 +39,14 @@ describe("parseStoredPlan", () => {
     expect(parseStoredPlan({ ...row, summary: {} })).toBeNull();
     expect(parseStoredPlan({ ...row, days: "x" })).toBeNull();
     expect(parseStoredPlan(null)).toBeNull();
+  });
+});
+
+describe("planHasFcLine", () => {
+  it("draws the FC forecast for liquid chlorine, and for a salt pool only once the cell's output is known", () => {
+    expect(planHasFcLine({ kind: "manual", swgPercent: null })).toBe(true);
+    expect(planHasFcLine({ kind: "swg", swgPercent: 20 })).toBe(true);
+    expect(planHasFcLine({ kind: "swg", swgPercent: null })).toBe(false);
   });
 });
 

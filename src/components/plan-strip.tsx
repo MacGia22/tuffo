@@ -2,7 +2,7 @@ import { PLAN_MAX_ADDITION_PPM, PLAN_OWN_MODEL_PAIRS } from "@/engine/server";
 import { catalogProduct } from "@/lib/catalog";
 import { baseToShelf, formatShelf } from "@/lib/dose-format";
 import type { Units } from "@/lib/format";
-import { confidenceText, PLAN_TEST_AGE_DAYS, type StoredPlan, type StoredPlanDay } from "@/lib/plan/stored";
+import { confidenceText, planHasFcLine, PLAN_TEST_AGE_DAYS, type StoredPlan, type StoredPlanDay } from "@/lib/plan/stored";
 
 function weekday(date: string): { day: string; date: string } {
   const d = new Date(`${date}T12:00:00Z`);
@@ -46,6 +46,7 @@ export function PlanStrip({ plan, units, today, poolId }: { plan: StoredPlan; un
   const swg = summary.kind === "swg";
   const lowDay = summary.lowWithoutChlorine ? weekday(summary.lowWithoutChlorine) : null;
   const risky = days.filter((d) => d.algaeRisk);
+  const fcLine = planHasFcLine(summary);
 
   return (
     <section aria-labelledby="plan" className="flex flex-col gap-3">
@@ -120,7 +121,7 @@ export function PlanStrip({ plan, units, today, poolId }: { plan: StoredPlan; un
               <p className="text-xs text-muted">
                 Uses about {d.lossPpm.toFixed(1)} ppm{d.estimated ? " (no forecast; average)" : ""}
               </p>
-              <p className="text-xs text-muted">≈{d.fcEnd.toFixed(1)} ppm by evening</p>
+              {fcLine ? <p className="text-xs text-muted">≈{d.fcEnd.toFixed(1)} ppm by evening</p> : null}
               {d.rainMm >= 1 ? <p className="text-xs text-muted">Rain {rain(d.rainMm, units)}</p> : null}
               {d.algaeRisk ? (
                 <p className="text-xs font-semibold">Algae risk: below {summary.fc.min} ppm</p>
