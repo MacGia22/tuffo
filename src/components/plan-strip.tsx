@@ -38,7 +38,7 @@ function dilutionText(day: StoredPlanDay): string | null {
  * This week: what to add each day (or where to set the salt cell), the chlorine the pool
  * is expected to use, and days to watch. Advice only; no model parameters.
  */
-export function PlanStrip({ plan, units, today }: { plan: StoredPlan; units: Units; today: string }) {
+export function PlanStrip({ plan, units, today, poolId }: { plan: StoredPlan; units: Units; today: string; poolId?: string }) {
   const { summary } = plan;
   const days = plan.days.filter((d) => d.date >= today).slice(0, 7);
   if (days.length === 0) return null;
@@ -66,15 +66,33 @@ export function PlanStrip({ plan, units, today }: { plan: StoredPlan; units: Uni
           {summary.swgPercent !== null ? (
             <>
               Set the salt cell to about <strong className="font-display text-lg">{summary.swgPercent}%</strong> this
-              week. It needs to make about {summary.swgNeedPpm?.toFixed(1)} ppm of free chlorine a day.
+              week{summary.cellHours ? ` (with the cell running ${summary.cellHours} h a day)` : ""}. It needs to make
+              about {summary.swgNeedPpm?.toFixed(1)} ppm of free chlorine a day.
+              {summary.cellSetting !== summary.swgPercent && poolId ? (
+                <>
+                  {" "}
+                  <a
+                    href={`/app/pools/${poolId}/events/new?kind=cell_setting&value=${summary.swgPercent}`}
+                    className="font-semibold text-lagoon"
+                  >
+                    I set it
+                  </a>
+                </>
+              ) : null}
             </>
           ) : (
             <>
               The salt cell needs to make about <strong>{summary.swgNeedPpm?.toFixed(1)} ppm</strong> of free chlorine a
               day this week.{" "}
-              <a href="#salt-cell" className="font-semibold text-lagoon">
-                Add the cell&apos;s rated output
-              </a>{" "}
+              {summary.cellNeeds === "pump" && poolId ? (
+                <a href={`/app/pools/${poolId}/pump`} className="font-semibold text-lagoon">
+                  Add the pump schedule
+                </a>
+              ) : (
+                <a href="#salt-cell" className="font-semibold text-lagoon">
+                  Add the cell&apos;s rated output
+                </a>
+              )}{" "}
               to get a setting in percent.
             </>
           )}

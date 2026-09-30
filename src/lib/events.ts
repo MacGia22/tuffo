@@ -13,13 +13,16 @@ export type EventKind =
   | "shock"
   | "cover_on"
   | "cover_off"
-  | "other";
+  | "other"
+  | "cell_setting";
 
 export interface EventKindInfo {
   kind: EventKind;
   label: string;
   /** What the optional number means for this kind. */
-  value?: "depth" | "count";
+  value?: "depth" | "count" | "percent";
+  /** Only for salt pools. */
+  swgOnly?: boolean;
 }
 
 export const EVENT_KINDS: EventKindInfo[] = [
@@ -30,6 +33,7 @@ export const EVENT_KINDS: EventKindInfo[] = [
   { kind: "shock", label: "Started a shock (SLAM)" },
   { kind: "cover_on", label: "Put the cover on" },
   { kind: "cover_off", label: "Took the cover off" },
+  { kind: "cell_setting", label: "Changed the salt cell setting", value: "percent", swgOnly: true },
   { kind: "other", label: "Something else" },
 ];
 
@@ -56,6 +60,8 @@ export function describeEvent(kind: string, value: number | null, units: Units):
       return value ? `Topped up ${depthLabel(value, units)} of fresh water` : "Topped up with fresh water";
     case "drain_refill":
       return value ? `Drained and refilled ${depthLabel(value, units)}` : "Drained some water and refilled";
+    case "cell_setting":
+      return value === null ? "Changed the salt cell setting" : `Salt cell set to ${Math.round(value)}%`;
     case "heavy_use":
       return value ? `Busy day, about ${Math.round(value)} swimmers` : "Busy day in the pool";
     default:

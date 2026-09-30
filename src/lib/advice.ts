@@ -63,6 +63,8 @@ export interface LoggedDose {
  */
 export interface CellSetting {
   percent: number | null;
+  /** What is missing for a percent: the cell's rating or the pump schedule. */
+  missing?: "rating" | "pump";
   /** Chlorine the cell has to make per day, ppm. */
   needPpm: number | null;
 }
@@ -135,7 +137,12 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[
   // Salt pools: where to set the cell, when the plan knows.
   const setting = cell?.percent !== null && cell?.percent !== undefined ? cell.percent : null;
   const need = cell?.needPpm !== null && cell?.needPpm !== undefined ? ` (it needs to make about ${cell.needPpm.toFixed(1)} ppm a day)` : "";
-  const unknownCell = swg && cell && cell.percent === null ? " Add your cell's rated output on the pool page to get a setting in percent." : "";
+  const unknownCell =
+    swg && cell && cell.percent === null
+      ? cell.missing === "pump"
+        ? " Add your pump schedule on the pool page to get a setting in percent."
+        : " Add your cell's rated output on the pool page to get a setting in percent."
+      : "";
 
   // Free chlorine
   if (r.fc !== null && chlorineSince.length > 0) {

@@ -152,6 +152,11 @@ insert into public.scans (id, user_id, ok) values
 
 insert into public.waitlist (email) values ('c@example.com');
 
+insert into public.pump_schedules (id, pool_id, segments, cell_hours) values
+  ('00000000-0000-0000-0000-0000000000a7', '00000000-0000-0000-0000-0000000000a1', '[{"start":"08:00","end":"16:00","cell":true}]', 8),
+  ('00000000-0000-0000-0000-0000000000b7', '00000000-0000-0000-0000-0000000000b1', '[{"start":"08:00","end":"16:00","cell":true}]', 8);
+
+
 insert into public.plans (pool_id, version, summary, days) values
   ('00000000-0000-0000-0000-0000000000a1', 1, '{}', '[]'),
   ('00000000-0000-0000-0000-0000000000b1', 1, '{}', '[]');
@@ -335,6 +340,26 @@ select rls_test.denied(
 );
 select rls_test.denied('delete from public.alert_log', 'A cannot delete the alert log');
 
+-- pump schedules: A reads and adds A's only, never edits
+select rls_test.check(rls_test.rows('select 1 from public.pump_schedules') = 1, 'A sees only A''s pump schedule');
+select rls_test.check(
+  rls_test.touched('insert into public.pump_schedules (pool_id, segments, cell_hours) values (''00000000-0000-0000-0000-0000000000a1'', ''[]'', 0)') = 1,
+  'A can add a pump schedule to A''s pool'
+);
+select rls_test.denied(
+  'insert into public.pump_schedules (pool_id, segments, cell_hours) values (''00000000-0000-0000-0000-0000000000b1'', ''[]'', 0)',
+  'A cannot add a pump schedule to B''s pool'
+);
+select rls_test.denied('update public.pump_schedules set cell_hours = 24', 'A cannot edit a pump schedule');
+select rls_test.check(
+  rls_test.touched('delete from public.pump_schedules where id = ''00000000-0000-0000-0000-0000000000b7''') = 0,
+  'A cannot delete B''s pump schedule'
+);
+select rls_test.check(
+  rls_test.touched('insert into public.events (pool_id, kind, value) values (''00000000-0000-0000-0000-0000000000a1'', ''cell_setting'', 50)') = 1,
+  'A can log a cell setting'
+);
+
 -- feedback: A sends A's own, nothing else
 select rls_test.check(
   rls_test.touched('insert into public.feedback (user_id, kind, message, page) values (''00000000-0000-0000-0000-00000000000a'', ''question'', ''How?'', ''/app'')') = 1,
@@ -411,6 +436,7 @@ select rls_test.check(
   (select count(*) = 1 from public.feedback where user_id = '00000000-0000-0000-0000-00000000000b'),
   'B''s feedback is unchanged'
 );
+select rls_test.check((select cell_hours = 8 from public.pump_schedules where id = '00000000-0000-0000-0000-0000000000b7'), 'B''s pump schedule is unchanged');
 
 -- one alert email per person per day: a second claim for the same day is refused
 do $$

@@ -292,10 +292,12 @@ async function loadPoolView(id: string) {
         // Salt pools: the plan's cell setting, or a prompt for the cell's rating.
         pool.sanitizer === "swg"
           ? pool.swg_cell_lb_per_day === null
-            ? { percent: null, needPpm: plan?.summary.swgNeedPpm ?? null }
-            : plan
-              ? { percent: plan.summary.swgPercent, needPpm: plan.summary.swgNeedPpm }
-              : undefined
+            ? { percent: null, needPpm: plan?.summary.swgNeedPpm ?? null, missing: "rating" as const }
+            : plan?.summary.cellNeeds === "pump"
+              ? { percent: null, needPpm: plan.summary.swgNeedPpm, missing: "pump" as const }
+              : plan
+                ? { percent: plan.summary.swgPercent, needPpm: plan.summary.swgNeedPpm }
+                : undefined
           : undefined,
       )
     : null;
@@ -353,13 +355,40 @@ async function loadPoolView(id: string) {
     .sort((a, b) => b.at.localeCompare(a.at))
     .slice(0, 15);
 
-  return { pool, units, tz, liters, allReadings, latest, advice, between, use, trend, activity, plan, today };
+  // Salt pools: the setting and pump hours in force now.
+  let saltStatus: { setting: number | null; settingSince: string | null; cellHours: number | null } | null = null;
+  if (pool.sanitizer === "swg") {
+    const [{ data: setting }, { data: schedule }] = await Promise.all([
+      supabase
+        .from("events")
+        .select("value, occurred_at")
+        .eq("pool_id", pool.id)
+        .eq("kind", "cell_setting")
+        .order("occurred_at", { ascending: false })
+        .limit(1)
+        .maybeSingle<{ value: number | null; occurred_at: string }>(),
+      supabase
+        .from("pump_schedules")
+        .select("cell_hours")
+        .eq("pool_id", pool.id)
+        .order("effective_from", { ascending: false })
+        .limit(1)
+        .maybeSingle<{ cell_hours: number | string }>(),
+    ]);
+    saltStatus = {
+      setting: setting?.value === null || setting?.value === undefined ? null : Number(setting.value),
+      settingSince: setting?.occurred_at ? formatDay(setting.occurred_at, tz) : null,
+      cellHours: schedule ? Number(schedule.cell_hours) : null,
+    };
+  }
+
+  return { pool, units, tz, liters, allReadings, latest, advice, between, use, trend, activity, plan, today, saltStatus };
 }
 
 export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">) {
   const { id } = await params;
   if (!isUuid(id)) notFound();
-  const { pool, units, tz, liters, allReadings, latest, advice, between, use, trend, activity, plan, today } =
+  const { pool, units, tz, liters, allReadings, latest, advice, between, use, trend, activity, plan, today, saltStatus } =
     await loadPoolView(id);
 
   const secondary =
@@ -451,6 +480,31 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
 
       {advice && advice.items.length > 0 ? <AdvicePanel advice={advice} units={units} poolId={pool.id} /> : null}
 
+      {saltStatus ? (
+        <section aria-label="Salt cell" className="flex flex-col gap-1 rounded-2xl border border-border bg-surface p-4 text-sm">
+          <p>
+            Cell setting:{" "}
+            <strong>{saltStatus.setting === null ? "not logged yet" : `${saltStatus.setting}%`}</strong>
+            {saltStatus.settingSince ? ` since ${saltStatus.settingSince}` : ""} ·{" "}
+            <Link href={`/app/pools/${pool.id}/events/new?kind=cell_setting`} className="font-semibold text-lagoon">
+              Log a change
+            </Link>
+          </p>
+          <p>
+            Pump: {saltStatus.cellHours === null ? <strong>schedule not set</strong> : <>the cell runs <strong>{saltStatus.cellHours} h</strong> a day</>} ·{" "}
+            <Link href={`/app/pools/${pool.id}/pump`} className="font-semibold text-lagoon">
+              {saltStatus.cellHours === null ? "Add the schedule" : "Change"}
+            </Link>
+          </p>
+          {saltStatus.setting === null || saltStatus.cellHours === null ? (
+            <p className="text-xs text-muted">
+              Until both are known, Tuffo leaves this pool&apos;s tests out of its chlorine model rather than guess what
+              the cell made.
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
       {pool.sanitizer === "swg" ? (
         <SaltCellForm
           poolId={pool.id}
@@ -461,7 +515,7 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
         />
       ) : null}
 
-      {plan ? <PlanStrip plan={plan} units={units} today={today} /> : null}
+      {plan ? <PlanStrip plan={plan} units={units} today={today} poolId={pool.id} /> : null}
 
       {between ? <BetweenTests summary={between} units={units} swg={pool.sanitizer === "swg"} /> : null}
 

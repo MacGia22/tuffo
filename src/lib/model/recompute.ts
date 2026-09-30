@@ -15,6 +15,7 @@ import {
   observationsFrom,
   type ModelDose,
   type ModelEvent,
+  type ModelPumpSchedule,
   type ModelPool,
   type ModelReading,
   type ModelWeatherDay,
@@ -76,9 +77,10 @@ export async function loadPoolLog(admin: SupabaseClient, poolId: string, now = D
         .returns<ModelDose[]>(),
       admin
         .from("events")
-        .select("occurred_at, kind")
+        .select("occurred_at, kind, value")
         .eq("pool_id", poolId)
-        .gte("occurred_at", since)
+        // Cell settings from any time: the one in force when the window starts still counts.
+        .or(`occurred_at.gte.${since},kind.eq.cell_setting`)
         .limit(1000)
         .returns<ModelEvent[]>(),
     ]);
@@ -105,7 +107,27 @@ export async function loadPoolLog(admin: SupabaseClient, poolId: string, now = D
     swgCellLbPerDay: pool.swg_cell_lb_per_day === null ? null : Number(pool.swg_cell_lb_per_day),
     timezone: pool.timezone ?? "UTC",
   };
-  const pairs = buildTestPairs({ pool: modelPool, readings: readings ?? [], doses: doses ?? [], events: events ?? [], weather });
+  // Salt pools: every pump schedule, including the one in force before the history window.
+  let pumpSchedules: ModelPumpSchedule[] = [];
+  if (pool.sanitizer === "swg") {
+    const { data, error: pErr } = await admin
+      .from("pump_schedules")
+      .select("effective_from, cell_hours")
+      .eq("pool_id", poolId)
+      .order("effective_from")
+      .limit(500)
+      .returns<ModelPumpSchedule[]>();
+    // Before its migration lands the table is missing: salt pairs are then left out, not guessed.
+    if (!pErr) pumpSchedules = data ?? [];
+  }
+  const pairs = buildTestPairs({
+    pool: modelPool,
+    readings: readings ?? [],
+    doses: doses ?? [],
+    events: events ?? [],
+    weather,
+    pumpSchedules,
+  });
   return { pool: modelPool, pairs };
 }
 

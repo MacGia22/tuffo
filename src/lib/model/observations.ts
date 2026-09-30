@@ -1,4 +1,5 @@
 import {
+  cellPpmBetween,
   DEFAULT_CYA,
   dayDrivers,
   effectsOf,
@@ -39,6 +40,13 @@ export interface ModelDose {
 export interface ModelEvent {
   occurred_at: string;
   kind: string;
+  /** For cell_setting: the percent. */
+  value?: number | string | null;
+}
+
+export interface ModelPumpSchedule {
+  effective_from: string;
+  cell_hours: number | string;
 }
 
 export interface ModelWeatherDay {
@@ -55,7 +63,7 @@ export type SkipReason =
   | "long" // over 10 days apart: chlorine likely ran out unseen
   | "bottomed" // the second test found almost no chlorine, so the loss is a lower bound
   | "refill" // water was replaced in between
-  | "swg-unknown" // salt pool without the cell's daily output
+  | "swg-unknown" // salt pool without the cell's rated output, setting or pump hours at the first test
   | "weather"; // not enough weather for the days in between
 
 export interface TestPair {
@@ -132,7 +140,7 @@ function fcAdded(dose: ModelDose, liters: number): number {
   }
 }
 
-/** Salt-cell output in ppm of free chlorine per day, or null when it is not known. */
+/** Salt-cell rated output in ppm of free chlorine per day at 100% round the clock, or null when not known. */
 export function cellPpmPerDay(pool: ModelPool): number | null {
   if (pool.sanitizer !== "swg") return 0;
   if (!pool.swgCellLbPerDay || pool.swgCellLbPerDay <= 0) return null;
@@ -172,8 +180,14 @@ export function buildTestPairs(input: {
   doses: ModelDose[];
   events: ModelEvent[];
   weather: ModelWeatherDay[];
+  /** Salt pools: the pump schedules over time (hours a day the cell runs). */
+  pumpSchedules?: ModelPumpSchedule[];
 }): TestPair[] {
   const { pool, doses, events } = input;
+  const settings = events
+    .filter((e) => e.kind === "cell_setting" && e.value !== null && e.value !== undefined)
+    .map((e) => ({ at: e.occurred_at, value: Number(e.value) }));
+  const hours = (input.pumpSchedules ?? []).map((s) => ({ at: s.effective_from, value: Number(s.cell_hours) }));
   const withFc = input.readings
     .filter((r) => r.fc !== null)
     .sort((a, b) => Date.parse(a.taken_at) - Date.parse(b.taken_at));
@@ -193,7 +207,12 @@ export function buildTestPairs(input: {
     };
 
     const dosed = doses.filter((d) => inside(d.added_at)).reduce((sum, d) => sum + fcAdded(d, pool.volumeL), 0);
-    const addedPpm = dosed + (cell ?? 0) * Math.max(days, 0);
+    // What the salt cell made: its rated output at the settings and pump hours in force.
+    const made =
+      pool.sanitizer !== "swg" || cell === null
+        ? 0
+        : cellPpmBetween({ ratedPpmPerDay: cell, settings, hours, from: a.taken_at, to: b.taken_at });
+    const addedPpm = dosed + (made ?? 0);
     const fcStart = Number(a.fc);
     const fcEnd = Number(b.fc);
     const lossPerDay = days > 0 ? (fcStart + addedPpm - fcEnd) / days : 0;
@@ -202,7 +221,7 @@ export function buildTestPairs(input: {
     let skip: SkipReason | null = null;
     if (days < MIN_DAYS) skip = "short";
     else if (days > MAX_DAYS) skip = "long";
-    else if (cell === null) skip = "swg-unknown";
+    else if (cell === null || made === null) skip = "swg-unknown";
     else if (between.some((e) => e.kind === "refill" || e.kind === "drain_refill")) skip = "refill";
     else if (fcEnd < BOTTOMED_FC) skip = "bottomed";
 

@@ -80,8 +80,9 @@ async function store(kind: LogKind, poolId: string, entry: { id: string; clientI
     if (error.code === "23505" && /client_id/.test(`${error.message} ${error.details ?? ""}`)) return { ok: true, poolId };
     return storeError(error.message);
   }
-  // A new test forms a pair with the one before it; a dose or event counts once a later test exists.
-  if (kind === "reading") recomputeAfterResponse(poolId);
+  // A new test forms a pair with the one before it, and a cell setting changes what the
+  // cell made; other doses and events count once a later test exists.
+  if (kind === "reading" || row.kind === "cell_setting") recomputeAfterResponse(poolId);
   return { ok: true, poolId };
 }
 
@@ -187,9 +188,13 @@ export async function saveEventEntry(formData: FormData): Promise<SaveResult> {
   if (info.value) {
     const raw = optionalNumber(formData, "value");
     if (raw === "invalid") return fail("That number does not look right.");
+    if (raw === null && info.value === "percent") return fail("Enter the new setting in percent.");
     if (raw !== null) {
-      if (raw <= 0) return fail("Use a positive number, or leave it empty.");
-      if (info.value === "depth") {
+      if (raw < 0 || (raw === 0 && info.value !== "percent")) return fail("Use a positive number, or leave it empty.");
+      if (info.value === "percent") {
+        value = Math.round(raw);
+        if (value > 100) return fail("A cell setting goes up to 100%.");
+      } else if (info.value === "depth") {
         const units: Units = text(formData, "units") === "metric" ? "metric" : "us";
         value = round2(units === "us" ? raw * CM_PER_INCH : raw);
         if (value > 300) return fail("That is more water than most pools hold above the floor. Check the unit.");

@@ -12,6 +12,10 @@ export interface ScanResponse {
   confidence?: "high" | "medium" | "low";
   uncertain?: string[];
   notes?: string | null;
+  /** Pump-schedule scans: the runs read. */
+  rows?: Array<{ start: string; end: string; speed: number | null; unit: "rpm" | "gpm"; cell: boolean }>;
+  unit?: "rpm" | "gpm";
+  cutOff?: boolean;
   /** Scans left this month after this one; null when not counted. */
   remaining?: number | null;
   limit?: number;
@@ -50,10 +54,15 @@ export function ScanButton({
   onResult,
   disabled,
   allowance,
+  endpoint = "/api/scan",
+  label = "Scan a printout or strip",
 }: {
   onResult: (result: ScanResponse) => void;
   disabled?: boolean;
   allowance?: ScanAllowance | null;
+  /** Where the photo goes: test results by default, or the pump-schedule reader. */
+  endpoint?: string;
+  label?: string;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -68,7 +77,7 @@ export function ScanButton({
       const blob = await downscale(file);
       const body = new FormData();
       body.append("image", blob, "test.jpg");
-      const response = await fetch("/api/scan", { method: "POST", body });
+      const response = await fetch(endpoint, { method: "POST", body });
       const data = (await response.json()) as ScanResponse;
       if (typeof data.remaining === "number") setRemaining(data.remaining);
       if (!response.ok || !data.ok) {
@@ -107,7 +116,7 @@ export function ScanButton({
           <path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />
           <circle cx="12" cy="12.5" r="3.5" />
         </svg>
-        {busy ? "Reading the photo…" : "Scan a printout or strip"}
+        {busy ? "Reading the photo…" : label}
       </button>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       {allowance && remaining !== null && !(usedUp && error) ? (

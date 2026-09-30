@@ -149,7 +149,9 @@ describe("buildTestPairs", () => {
     );
   });
 
-  it("adds the salt cell's output when it is known", () => {
+  it("adds what the salt cell made at the setting and pump hours in force", () => {
+    // 0.25 lb/day in 10,000 gal: 0.25 × 453.6 × 1000 / 37,854 = 2.996 ppm/day at 100%, 24 h.
+    // Set to 60% with the cell running 12 h a day: 2.996 × 0.6 × 12/24 = 0.899 ppm/day.
     const salt = { ...pool, sanitizer: "swg" as const, swgCellLbPerDay: 0.25 };
     const [pair] = buildTestPairs({
       pool: salt,
@@ -158,12 +160,32 @@ describe("buildTestPairs", () => {
         { taken_at: "2026-09-03T08:00:00Z", fc: 4, cya: null },
       ],
       doses: [],
-      events: [],
+      events: [{ occurred_at: "2026-08-30T08:00:00Z", kind: "cell_setting", value: 60 }],
       weather,
+      pumpSchedules: [{ effective_from: "2026-08-01T00:00:00Z", cell_hours: 12 }],
     });
-    // FC held at 4 while the cell made about 3 ppm a day: the pool used about 3 a day.
+    // FC held at 4, so the pool used what the cell made: about 0.9 ppm a day.
     expect(pair.skip).toBeNull();
-    expect(pair.lossPerDay).toBeCloseTo(2.996, 2);
+    expect(pair.addedPpm).toBeCloseTo(1.797, 2);
+    expect(pair.lossPerDay).toBeCloseTo(0.899, 2);
+  });
+
+  it("leaves a salt pair out until the cell setting and pump hours are known", () => {
+    const salt = { ...pool, sanitizer: "swg" as const, swgCellLbPerDay: 0.25 };
+    const input = {
+      pool: salt,
+      readings: [
+        { taken_at: "2026-09-01T08:00:00Z", fc: 4, cya: 70 },
+        { taken_at: "2026-09-03T08:00:00Z", fc: 4, cya: null },
+      ],
+      doses: [],
+      weather,
+    };
+    expect(buildTestPairs({ ...input, events: [] })[0].skip).toBe("swg-unknown");
+    // A setting but no pump schedule: still unknown.
+    expect(
+      buildTestPairs({ ...input, events: [{ occurred_at: "2026-08-30T08:00:00Z", kind: "cell_setting", value: 60 }] })[0].skip,
+    ).toBe("swg-unknown");
   });
 
   it("orders tests by time whatever order they arrive in", () => {

@@ -26,6 +26,11 @@ export interface StoredPlanSummary {
   /** Days between the last free chlorine test and when the plan was made. */
   daysSinceTest: number;
   product: string;
+  /** Salt pools: hours a day the cell runs (latest pump schedule), and the last logged setting. */
+  cellHours?: number | null;
+  cellSetting?: number | null;
+  /** Salt pools: what is missing for a setting in percent. */
+  cellNeeds?: "rating" | "pump" | null;
 }
 
 export interface StoredPlan {

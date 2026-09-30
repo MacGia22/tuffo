@@ -99,6 +99,34 @@ export async function buildPlan(admin: SupabaseClient, poolId: string, now = Dat
   const latest = (key: "cya" | "ch" | "salt") => n((readings ?? []).find((r) => r[key] !== null)?.[key]);
 
   const today = localDate(now, timeZone);
+  const swg = pool.sanitizer === "swg";
+  // Salt pools: hours a day the cell runs now, and the last setting logged. Missing tables
+  // (before their migration) read as unknown.
+  let cellHours: number | null = null;
+  let cellSetting: number | null = null;
+  if (swg) {
+    const [{ data: schedule }, { data: setting }] = await Promise.all([
+      admin
+        .from("pump_schedules")
+        .select("cell_hours")
+        .eq("pool_id", poolId)
+        .lte("effective_from", new Date(now).toISOString())
+        .order("effective_from", { ascending: false })
+        .limit(1)
+        .maybeSingle<{ cell_hours: number | string }>(),
+      admin
+        .from("events")
+        .select("value")
+        .eq("pool_id", poolId)
+        .eq("kind", "cell_setting")
+        .order("occurred_at", { ascending: false })
+        .limit(1)
+        .maybeSingle<{ value: number | string | null }>(),
+    ]);
+    cellHours = n(schedule?.cell_hours);
+    cellSetting = n(setting?.value);
+  }
+
   const [{ data: forecast, error: fErr }, { data: doses, error: dErr }, { data: model, error: mErr }] = await Promise.all([
     admin
       .from("weather_forecast")
@@ -133,7 +161,6 @@ export async function buildPlan(admin: SupabaseClient, poolId: string, now = Dat
     coefficients = (await loadPopulationPrior(admin, poolId)).mean;
   }
 
-  const swg = pool.sanitizer === "swg";
   const cya = latest("cya");
   const addedPpm = (doses ?? []).reduce((sum, d) => {
     try {
@@ -163,7 +190,8 @@ export async function buildPlan(admin: SupabaseClient, poolId: string, now = Dat
       swg,
       covered: pool.covered,
       surface: pool.surface,
-      cellPpmPerDay: swg && lb && lb > 0 ? (lb * GRAMS_PER_POUND * 1000) / volumeL : null,
+      // What the cell makes a day at 100% with the pump hours it runs now.
+      cellPpmPerDay: swg && lb && lb > 0 && cellHours ? ((lb * GRAMS_PER_POUND * 1000) / volumeL) * (cellHours / 24) : null,
     },
     water: { fc: fcStart, cya, ch: latest("ch"), salt: latest("salt") },
     days,
@@ -184,6 +212,9 @@ export async function buildPlan(admin: SupabaseClient, poolId: string, now = Dat
     lastTestAt: latestFc.taken_at,
     daysSinceTest: Math.round(daysSince * 10) / 10,
     product: PRODUCT,
+    cellHours,
+    cellSetting,
+    cellNeeds: !swg ? null : !(lb && lb > 0) ? "rating" : !cellHours ? "pump" : null,
   };
   const storedDays: StoredPlanDay[] = plan.days.map((d) => ({
     ...d,

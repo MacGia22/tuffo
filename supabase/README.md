@@ -37,6 +37,7 @@ History:
 | 20260930000003_plans.sql | by the `migrate` job |
 | 20260930000004_alerts.sql | by the `migrate` job |
 | 20260930000005_salt_cell_model.sql | by the `migrate` job |
+| 20260930000006_cell_settings_pump.sql | by the `migrate` job |
 
 The first two predate the job; it marks them applied (`supabase migration repair`) so
 they never run twice. New files are written so a second run is harmless anyway
@@ -69,6 +70,7 @@ What `rls.sql` proves, with two users A and B who own one pool each:
   readings, doses and events in place, and an unfiltered update touches only those;
 - a device id (`client_id`) can be stored only once;
 - A reads only A's 7-day plan and cannot write plans; plans go with the account;
+- A reads and adds only A's pump schedules, never edits them, and can log a cell setting;
 - A reads and changes only A's alert settings, sees only A's alert log, cannot write the
   log, and a second alert email for the same person and day is refused;
 - A can send feedback as A only, cannot set its status, edit or delete it, and the 11th
@@ -100,6 +102,10 @@ migration must survive a second run.
 - `readings`, `doses` and `events` have a unique `client_id` (a UUID made on the device
   for offline logging); a second insert with the same id fails with 23505, which the
   app treats as "already saved". Null for older rows.
+- `pump_schedules`: one row per schedule a salt pool has run (segments as JSON, the hours
+  a day the cell runs, from when); owner reads, inserts and deletes, never updates, so the
+  history the chlorine model reads stays true. Cell settings are `events` of kind
+  `cell_setting` with the percent in `value`.
 - `plans` (the 7-day plan per pool) is written only by the server (nightly job, after a
   test, on a stale page view) and read by the pool's owner. It holds advice per day, never
   model coefficients.
