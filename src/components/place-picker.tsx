@@ -1,15 +1,19 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { CellMap } from "@/components/cell-map";
+import { CELL_DEGREES, cellFor, cellNear, type WeatherCell } from "@/lib/weather/cells";
 import type { Place } from "@/lib/weather/geocode";
 
 const input =
   "h-11 w-full rounded-xl border border-border bg-surface px-3 text-base text-foreground outline-none placeholder:text-muted/70 focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
 
 /**
- * Town or ZIP search for a pool's weather. Adds hidden lat, lon, timezone, place_label
- * and query fields to the surrounding form once a place is picked; the server keeps
- * only the weather cell, the label and the time zone.
+ * Town or ZIP search for a pool's weather, then a map of the weather squares around the
+ * town to pick the one the pool is in (the town's own square by default). Adds hidden
+ * lat and lon (the square's center, never the point tapped), timezone, place_label and
+ * query fields to the surrounding form; the server keeps only the square, the label and
+ * the time zone.
  */
 export function PlacePicker({
   find,
@@ -23,8 +27,21 @@ export function PlacePicker({
   const [query, setQuery] = useState(initialQuery);
   const [places, setPlaces] = useState<Place[]>([]);
   const [searchError, setSearchError] = useState<string>();
-  const [place, setPlace] = useState<Place | null>(initialPlace);
+  const [place, setPlaceState] = useState<Place | null>(initialPlace);
+  const [cell, setCell] = useState<WeatherCell | null>(initialPlace ? cellFor(initialPlace.lat, initialPlace.lon) : null);
   const [searching, startSearch] = useTransition();
+
+  function setPlace(p: Place) {
+    setPlaceState(p);
+    setCell(cellFor(p.lat, p.lon));
+  }
+
+  /** Keyboard alternative to tapping: move the picked square one step. */
+  function nudge(dLat: number, dLon: number) {
+    if (!place || !cell) return;
+    const next = cellFor(cell.lat + dLat * CELL_DEGREES, cell.lon + dLon * CELL_DEGREES);
+    if (cellNear(next, place)) setCell(next);
+  }
 
   function search() {
     const q = query.trim();
@@ -42,10 +59,10 @@ export function PlacePicker({
   return (
     <>
       <input type="hidden" name="query" value={query} />
-      {place ? (
+      {place && cell ? (
         <>
-          <input type="hidden" name="lat" value={place.lat} />
-          <input type="hidden" name="lon" value={place.lon} />
+          <input type="hidden" name="lat" value={cell.lat} />
+          <input type="hidden" name="lon" value={cell.lon} />
           <input type="hidden" name="timezone" value={place.timezone} />
           <input type="hidden" name="place_label" value={place.label} />
         </>
@@ -94,10 +111,34 @@ export function PlacePicker({
           })}
         </ul>
       ) : null}
-      {place ? (
-        <p className="text-sm">
-          Using weather for <span className="font-semibold">{place.label}</span> ({place.timezone}).
-        </p>
+      {place && cell ? (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm">
+            Using weather for <span className="font-semibold">{place.label}</span> ({place.timezone}). The shaded square
+            is the area Tuffo uses; tap the square your pool is in if it is another one.
+          </p>
+          <CellMap key={`${place.lat},${place.lon}`} center={place} cell={cell} onPick={setCell} />
+          <div className="flex flex-wrap items-center gap-1 text-xs text-muted">
+            <span className="mr-1">Move the square:</span>
+            {(
+              [
+                ["North", 1, 0],
+                ["South", -1, 0],
+                ["West", 0, -1],
+                ["East", 0, 1],
+              ] as const
+            ).map(([label, dLat, dLon]) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => nudge(dLat, dLon)}
+                className="rounded-lg border border-border px-2 py-1 font-semibold text-foreground hover:border-lagoon"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
       ) : null}
     </>
   );

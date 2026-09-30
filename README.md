@@ -307,7 +307,11 @@ after the page is sent. `/api/health` reports the newest and oldest fetch times 
 Cells are 0.03° (about 3 km, 2 miles), close to the 3 km HRRR model Open-Meteo uses in the
 US; the pool's position is already a town or ZIP centroid, so nothing finer would help.
 Pools created before September 30, 2026 are on the older 0.05° grid until the owner uses
-"Change location" (`/app/pools/[id]/location`). Moving a pool fetches the new cell with
+"Change location" (`/app/pools/[id]/location`). After a town search, a Leaflet map (OpenStreetMap
+tiles, loaded by the browser; named in `/privacy`) shows the grid around the town and the owner
+taps the square the pool is in, within 0.3° of the town; only the square's center is sent
+(`src/components/cell-map.tsx`, `src/components/place-picker.tsx`). North/South/West/East
+buttons move the square for keyboard users. Moving a pool fetches the new cell with
 92 days of history (`backfill`), refits the model and plan, and stops refreshing the old
 cell if no pool uses it.
 
