@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { savePumpSchedule, type PumpState } from "../actions";
 import { ScanButton, type ScanAllowance, type ScanResponse } from "@/components/scan-button";
-import { cellHoursPerDay, MAX_RUNS, type PumpSegment } from "@/lib/pump";
+import { cellHoursPerDay, LOW_GPM, LOW_RPM, MAX_RUNS, type PumpSegment, type SpeedUnit } from "@/lib/pump";
 
 const initial: PumpState = {};
 const field = "h-10 rounded-xl border border-border bg-surface px-2 text-sm";
@@ -12,12 +12,12 @@ interface Row {
   key: number;
   start: string;
   end: string;
-  rpm: string;
+  speed: string;
   cell: boolean;
 }
 
 let nextKey = 1;
-const row = (r: Partial<Row> = {}): Row => ({ key: nextKey++, start: "", end: "", rpm: "", cell: true, ...r });
+const row = (r: Partial<Row> = {}): Row => ({ key: nextKey++, start: "", end: "", speed: "", cell: true, ...r });
 
 /**
  * The runs in a day, typed or read from a screenshot of the pump's app or panel. Each run
@@ -39,10 +39,11 @@ export function PumpForm({
   const [state, action, pending] = useActionState(savePumpSchedule, initial);
   const [rows, setRows] = useState<Row[]>(() =>
     current && current.length
-      ? current.map((s) => row({ start: s.start, end: s.end, rpm: s.rpm ? String(s.rpm) : "", cell: s.cell }))
+      ? current.map((s) => row({ start: s.start, end: s.end, speed: s.speed ? String(s.speed) : "", cell: s.cell }))
       : [row({ start: "08:00", end: "16:00" })],
   );
   const [source, setSource] = useState<"manual" | "screenshot">("manual");
+  const [unit, setUnit] = useState<SpeedUnit>(current?.find((s) => s.unit)?.unit ?? "rpm");
   const [scanNote, setScanNote] = useState<string | null>(null);
 
   const hours = cellHoursPerDay(rows.filter((r) => r.start && r.end).map((r) => ({ start: r.start, end: r.end, cell: r.cell })));
@@ -54,12 +55,13 @@ export function PumpForm({
       setScanNote(result.notes ?? "No runs could be read. Type them below.");
       return;
     }
-    setRows(read.map((r) => row({ start: r.start, end: r.end, rpm: r.rpm ? String(r.rpm) : "", cell: r.cell })));
+    setRows(read.map((r) => row({ start: r.start, end: r.end, speed: r.speed ? String(r.speed) : "", cell: r.cell })));
+    if (result.unit) setUnit(result.unit);
     setSource("screenshot");
     setScanNote(
       `${result.confidence === "low" ? "Read with low confidence: check every time." : "Read from your screenshot: check the times."}${
         result.notes ? ` ${result.notes}` : ""
-      } Runs under 1,500 RPM are marked without the cell; change that if your cell runs at low speed.`,
+      } Runs under ${(result.unit ?? unit) === "gpm" ? `${LOW_GPM} GPM` : `${LOW_RPM.toLocaleString("en-US")} RPM`} are marked without the cell; check your cell's minimum flow and change that if it runs lower.`,
     );
   }
 
@@ -92,8 +94,18 @@ export function PumpForm({
         </div>
       ) : null}
 
+      <input type="hidden" name="speed_unit" value={unit} />
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-1 text-sm font-semibold">Runs in a day</legend>
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-muted">The pump is set by</span>
+          {(["rpm", "gpm"] as const).map((u) => (
+            <label key={u} className="flex items-center gap-1.5">
+              <input type="radio" name="unit_choice" checked={unit === u} onChange={() => setUnit(u)} className="accent-lagoon" />
+              {u === "rpm" ? "speed (RPM)" : "flow (GPM)"}
+            </label>
+          ))}
+        </div>
         {rows.map((r, i) => (
           <div key={r.key} className="flex flex-wrap items-end gap-2">
             <label className="flex flex-col gap-1 text-xs text-muted">
@@ -105,13 +117,13 @@ export function PumpForm({
               <input type="time" name={`end_${i}`} value={r.end} onChange={(e) => set(r.key, { end: e.target.value })} className={field} />
             </label>
             <label className="flex flex-col gap-1 text-xs text-muted">
-              Speed (RPM, optional)
+              {unit === "rpm" ? "Speed (RPM, optional)" : "Flow (GPM, optional)"}
               <input
-                name={`rpm_${i}`}
-                inputMode="numeric"
-                value={r.rpm}
-                onChange={(e) => set(r.key, { rpm: e.target.value.replace(/[^0-9]/g, "") })}
-                placeholder="2400"
+                name={`speed_${i}`}
+                inputMode="decimal"
+                value={r.speed}
+                onChange={(e) => set(r.key, { speed: e.target.value.replace(unit === "rpm" ? /[^0-9]/g : /[^0-9.]/g, "") })}
+                placeholder={unit === "rpm" ? "2400" : "35"}
                 className={`${field} w-24`}
               />
             </label>

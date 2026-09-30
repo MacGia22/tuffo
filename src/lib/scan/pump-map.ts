@@ -3,8 +3,10 @@
  * Pure, so it is unit-tested without the API.
  */
 
+import { cellLikelyOn, type SpeedUnit } from "@/lib/pump";
+
 export interface PumpScanOutput {
-  runs?: Array<{ start?: unknown; end?: unknown; rpm?: unknown; speed_label?: unknown }>;
+  runs?: Array<{ start?: unknown; end?: unknown; speed?: unknown; speed_unit?: unknown; speed_label?: unknown }>;
   confidence?: string;
   notes?: string;
 }
@@ -12,19 +14,19 @@ export interface PumpScanOutput {
 export interface PumpRow {
   start: string;
   end: string;
-  rpm: number | null;
-  /** Guess: the cell runs unless the speed is too low for its flow switch (under 1,500 RPM). */
+  speed: number | null;
+  unit: SpeedUnit;
+  /** Guess: the cell runs unless speed or flow is too low for its flow switch. */
   cell: boolean;
 }
 
 export interface PumpScanResult {
   rows: PumpRow[];
+  /** The unit the schedule is set in (one per schedule). */
+  unit: SpeedUnit;
   confidence: "high" | "medium" | "low";
   notes: string | null;
 }
-
-/** Below this speed many salt cells see too little flow and stay off. */
-export const LOW_SPEED_RPM = 1500;
 
 /** "8:00", "08:00", "8:00 PM", "20:00" → "HH:MM" (24 h), or null. */
 export function normalizeTime(value: unknown): string | null {
@@ -45,16 +47,21 @@ export function normalizeTime(value: unknown): string | null {
 }
 
 export function mapPumpScan(output: PumpScanOutput): PumpScanResult {
+  const runs = output.runs ?? [];
+  // One unit per schedule: flow if any run is in GPM, else speed.
+  const unit: SpeedUnit = runs.some((r) => r.speed_unit === "gpm") ? "gpm" : "rpm";
   const rows: PumpRow[] = [];
-  for (const run of output.runs ?? []) {
+  for (const run of runs) {
     const start = normalizeTime(run.start);
     const end = normalizeTime(run.end);
     if (!start || !end) continue;
-    const rpm = typeof run.rpm === "number" && Number.isFinite(run.rpm) && run.rpm > 0 ? Math.round(run.rpm) : null;
-    rows.push({ start, end, rpm, cell: rpm === null || rpm >= LOW_SPEED_RPM });
+    const sameUnit = (run.speed_unit ?? unit) === unit;
+    const raw = typeof run.speed === "number" && Number.isFinite(run.speed) && run.speed > 0 && sameUnit ? run.speed : null;
+    const speed = raw === null ? null : unit === "rpm" ? Math.round(raw) : Math.round(raw * 10) / 10;
+    rows.push({ start, end, speed, unit, cell: cellLikelyOn(speed, unit) });
     if (rows.length >= 24) break;
   }
   const confidence = output.confidence === "high" || output.confidence === "medium" ? output.confidence : "low";
   const notes = typeof output.notes === "string" && output.notes.trim() ? output.notes.trim().slice(0, 300) : null;
-  return { rows, confidence, notes };
+  return { rows, unit, confidence, notes };
 }

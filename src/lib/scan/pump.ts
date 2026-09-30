@@ -27,7 +27,8 @@ const TOOL = {
           properties: {
             start: { type: "string", description: "Start time as shown, e.g. 08:00 or 8:00 AM." },
             end: { type: "string", description: "End time as shown." },
-            rpm: { type: ["number", "null"], description: "Speed in RPM if shown, else null." },
+            speed: { type: ["number", "null"], description: "The run's speed or flow setting as a number, if shown." },
+            speed_unit: { type: ["string", "null"], enum: ["rpm", "gpm", null], description: "rpm for speed, gpm for a flow setting in gallons per minute." },
             speed_label: { type: ["string", "null"], description: "Speed name if shown instead (Low, High, Speed 2)." },
           },
           required: ["start", "end"],
@@ -42,7 +43,8 @@ const TOOL = {
 
 const INSTRUCTIONS = `You are reading an image for a pool-care app. It shows a pool pump's daily
 schedule: a variable-speed pump app or control panel (Pentair, Hayward, Jandy, CircuPool
-and others) or a mechanical timer. Record each run with its start and end time and speed.
+and others) or a mechanical timer. Record each run with its start and end time and its
+setting: speed in RPM, or flow in GPM when the pump is set by flow.
 If the screen lists a duration instead of an end time, work out the end time. Never invent
 a run: if nothing readable is shown, return no runs and say so in notes. Ignore weekday
 toggles unless runs differ by day; then record the most common day and say so in notes.`;

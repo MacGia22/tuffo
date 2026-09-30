@@ -13,7 +13,8 @@ export interface ScanResponse {
   uncertain?: string[];
   notes?: string | null;
   /** Pump-schedule scans: the runs read. */
-  rows?: Array<{ start: string; end: string; rpm: number | null; cell: boolean }>;
+  rows?: Array<{ start: string; end: string; speed: number | null; unit: "rpm" | "gpm"; cell: boolean }>;
+  unit?: "rpm" | "gpm";
   /** Scans left this month after this one; null when not counted. */
   remaining?: number | null;
   limit?: number;

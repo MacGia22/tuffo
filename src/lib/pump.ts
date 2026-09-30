@@ -9,8 +9,21 @@ export interface PumpSegment {
   end: string;
   /** Whether the cell makes chlorine in this run (off at speeds too low for its flow switch). */
   cell: boolean;
-  /** Pump speed, for the person's reference only. */
-  rpm?: number | null;
+  /** Pump speed or flow as the pump is set, for the person's reference only. */
+  speed?: number | null;
+  unit?: SpeedUnit;
+}
+
+/** Variable-speed pumps are set by speed (RPM) or by flow (gallons per minute). */
+export type SpeedUnit = "rpm" | "gpm";
+
+/** Below these, many salt cells see too little flow and stay off; only a first guess. */
+export const LOW_RPM = 1500;
+export const LOW_GPM = 20;
+
+export function cellLikelyOn(speed: number | null, unit: SpeedUnit): boolean {
+  if (speed === null) return true;
+  return unit === "gpm" ? speed >= LOW_GPM : speed >= LOW_RPM;
 }
 
 function minutes(hhmm: string): number | null {
@@ -44,18 +57,28 @@ export const MAX_RUNS = 24;
 
 export type ScheduleResult = { ok: true; segments: PumpSegment[]; cellHours: number } | { ok: false; error: string };
 
-/** Rows from the schedule form: start_i, end_i, rpm_i, cell_i for i = 0…23. Empty rows are skipped. */
+/**
+ * Rows from the schedule form: speed_unit, then start_i, end_i, speed_i, cell_i for
+ * i = 0…23. Empty rows are skipped.
+ */
 export function scheduleFromForm(get: (name: string) => string | null): ScheduleResult {
+  const unit: SpeedUnit = get("speed_unit") === "gpm" ? "gpm" : "rpm";
   const segments: PumpSegment[] = [];
   for (let i = 0; i < MAX_RUNS; i += 1) {
     const start = (get(`start_${i}`) ?? "").trim();
     const end = (get(`end_${i}`) ?? "").trim();
     if (!start && !end) continue;
     if (!start || !end) return { ok: false, error: `Run ${i + 1} needs a start and an end time.` };
-    const rpmText = (get(`rpm_${i}`) ?? "").trim();
-    const rpm = rpmText ? Number(rpmText) : null;
-    if (rpm !== null && (!Number.isInteger(rpm) || rpm < 0 || rpm > 5000)) return { ok: false, error: `Run ${i + 1}: speed is 0 to 5,000 RPM.` };
-    segments.push({ start, end, cell: get(`cell_${i}`) === "on", rpm });
+    const speedText = (get(`speed_${i}`) ?? "").trim().replace(",", ".");
+    const speed = speedText ? Number(speedText) : null;
+    if (speed !== null) {
+      const ok =
+        unit === "rpm"
+          ? Number.isInteger(speed) && speed >= 0 && speed <= 5000
+          : Number.isFinite(speed) && speed >= 0 && speed <= 200;
+      if (!ok) return { ok: false, error: `Run ${i + 1}: ${unit === "rpm" ? "speed is 0 to 5,000 RPM" : "flow is 0 to 200 GPM"}.` };
+    }
+    segments.push({ start, end, cell: get(`cell_${i}`) === "on", speed: speed === null ? null : Math.round(speed * 10) / 10, unit });
   }
   if (segments.length === 0) return { ok: false, error: "Add at least one run." };
   const cellHours = cellHoursPerDay(segments);

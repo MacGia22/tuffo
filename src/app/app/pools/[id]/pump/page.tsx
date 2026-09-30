@@ -72,7 +72,9 @@ export default async function PumpPage({ params }: PageProps<"/app/pools/[id]/pu
             {history.map((s) => (
               <li key={s.id}>
                 From {formatDay(s.effective_from, tz)}: cell {Number(s.cell_hours)} h a day (
-                {s.segments.map((seg) => `${seg.start}–${seg.end}${seg.rpm ? ` at ${seg.rpm} RPM` : ""}${seg.cell ? "" : ", cell off"}`).join("; ")})
+                {s.segments
+                  .map((seg) => `${seg.start}–${seg.end}${seg.speed ? ` at ${seg.speed} ${seg.unit === "gpm" ? "GPM" : "RPM"}` : ""}${seg.cell ? "" : ", cell off"}`)
+                  .join("; ")})
               </li>
             ))}
           </ul>

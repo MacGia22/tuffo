@@ -16,22 +16,38 @@ describe("mapPumpScan", () => {
   it("keeps readable runs and guesses the cell is off at low speed", () => {
     const result = mapPumpScan({
       runs: [
-        { start: "8:00 AM", end: "12:00 PM", rpm: 2400 },
-        { start: "12:00 PM", end: "8:00 PM", rpm: 1200 },
-        { start: "later", end: "9:00 PM", rpm: 3000 },
+        { start: "8:00 AM", end: "12:00 PM", speed: 2400, speed_unit: "rpm" },
+        { start: "12:00 PM", end: "8:00 PM", speed: 1200, speed_unit: "rpm" },
+        { start: "later", end: "9:00 PM", speed: 3000 },
         { start: "22:00", end: "23:00", speed_label: "High" },
       ],
       confidence: "high",
     });
+    expect(result.unit).toBe("rpm");
     expect(result.rows).toEqual([
-      { start: "08:00", end: "12:00", rpm: 2400, cell: true },
-      { start: "12:00", end: "20:00", rpm: 1200, cell: false },
-      { start: "22:00", end: "23:00", rpm: null, cell: true },
+      { start: "08:00", end: "12:00", speed: 2400, unit: "rpm", cell: true },
+      { start: "12:00", end: "20:00", speed: 1200, unit: "rpm", cell: false },
+      { start: "22:00", end: "23:00", speed: null, unit: "rpm", cell: true },
     ]);
     expect(result.confidence).toBe("high");
   });
 
+  it("reads a schedule set by flow", () => {
+    const result = mapPumpScan({
+      runs: [
+        { start: "7:00", end: "19:00", speed: 35, speed_unit: "gpm" },
+        { start: "19:00", end: "7:00", speed: 15, speed_unit: "gpm" },
+      ],
+      confidence: "medium",
+    });
+    expect(result.unit).toBe("gpm");
+    expect(result.rows).toEqual([
+      { start: "07:00", end: "19:00", speed: 35, unit: "gpm", cell: true },
+      { start: "19:00", end: "07:00", speed: 15, unit: "gpm", cell: false },
+    ]);
+  });
+
   it("falls back to low confidence and no rows", () => {
-    expect(mapPumpScan({})).toEqual({ rows: [], confidence: "low", notes: null });
+    expect(mapPumpScan({})).toEqual({ rows: [], unit: "rpm", confidence: "low", notes: null });
   });
 });

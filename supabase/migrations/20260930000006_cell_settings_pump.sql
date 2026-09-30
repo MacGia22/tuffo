@@ -12,7 +12,7 @@ create table if not exists public.pump_schedules (
   id uuid primary key default gen_random_uuid(),
   pool_id uuid not null references public.pools (id) on delete cascade,
   effective_from timestamptz not null default now(),
-  -- [{ "start": "08:00", "end": "18:00", "cell": true, "rpm": 2400 }], local time
+  -- [{ "start": "08:00", "end": "18:00", "cell": true, "speed": 2400, "unit": "rpm" }], local time; unit "rpm" or "gpm"
   segments jsonb not null check (jsonb_typeof(segments) = 'array' and jsonb_array_length(segments) <= 24),
   cell_hours numeric(4, 2) not null check (cell_hours between 0 and 24),
   source text not null default 'manual' check (source in ('manual', 'screenshot')),
