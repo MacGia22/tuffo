@@ -12,10 +12,24 @@ const initial: LogState = {};
 const input =
   "h-11 w-full rounded-xl border border-border bg-surface px-3 text-base text-foreground outline-none placeholder:text-muted/70 focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
 
-export function EventForm({ poolId, units, edit }: { poolId: string; units: Units; edit?: EditTarget }) {
+export function EventForm({
+  poolId,
+  units,
+  edit,
+  swg = false,
+  prefill,
+}: {
+  poolId: string;
+  units: Units;
+  edit?: EditTarget;
+  /** Salt pools also log cell settings. */
+  swg?: boolean;
+  /** From a link such as the plan's "I set it": kind and value. */
+  prefill?: { kind?: string; value?: string };
+}) {
   const offline = useOfflineLog("event", Boolean(edit), saveEvent);
   const [state, action, pending] = useActionState(offline.submit, initial);
-  const f = state.fields ?? edit?.values ?? {};
+  const f: Record<string, string | undefined> = state.fields ?? edit?.values ?? prefill ?? {};
   const [kind, setKind] = useState<EventKind>((f.kind as EventKind) || "refill");
   const info = eventKindInfo(kind);
 
@@ -30,7 +44,7 @@ export function EventForm({ poolId, units, edit }: { poolId: string; units: Unit
 
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-1 text-sm font-semibold">What happened?</legend>
-        {EVENT_KINDS.map((e) => (
+        {EVENT_KINDS.filter((e) => swg || !e.swgOnly || f.kind === e.kind).map((e) => (
           <label
             key={e.kind}
             className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-sm ${
@@ -71,6 +85,31 @@ export function EventForm({ poolId, units, edit }: { poolId: string; units: Unit
             {kind === "drain_refill"
               ? "How far you lowered the level before refilling. Tuffo uses it to estimate how much stabilizer and salt were diluted."
               : "How far the level rose. Fresh water dilutes stabilizer and salt a little and brings in its own calcium."}
+          </p>
+        </div>
+      ) : null}
+
+      {info?.value === "percent" ? (
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="value" className="text-sm font-semibold">
+            New setting <span className="font-normal text-muted">(%)</span>
+          </label>
+          <input
+            id="value"
+            name="value"
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={100}
+            step={5}
+            required
+            defaultValue={f.value ?? ""}
+            placeholder="50"
+            className={input}
+          />
+          <p className="text-xs text-muted">
+            The output percent on the cell&apos;s control. Tuffo uses it, with the pump schedule, to count what the cell
+            made between tests.
           </p>
         </div>
       ) : null}

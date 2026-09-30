@@ -173,6 +173,11 @@ describe("adviseFor, salt cell setting", () => {
     expect(high?.detail).toContain("Turn the chlorinator down to about 20%");
   });
 
+  it("asks for the pump schedule when only that is missing", () => {
+    const fc = adviseFor(swgPool, { ...balanced, cya: 70, fc: 5 }, [], { percent: null, needPpm: 1.86, missing: "pump" }).items.find((i) => i.measure === "fc");
+    expect(fc?.detail).toContain("Add your pump schedule on the pool page");
+  });
+
   it("asks for the cell's rating when it is unknown", () => {
     const fc = adviseFor(swgPool, { ...balanced, cya: 70, fc: 5 }, [], { percent: null, needPpm: 1.86 }).items.find((i) => i.measure === "fc");
     expect(fc?.detail).toContain("Add your cell's rated output on the pool page");

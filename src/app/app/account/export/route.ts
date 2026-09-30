@@ -9,7 +9,7 @@ export async function GET() {
   if (!user) return new Response("Sign in first.", { status: 401 });
 
   const supabase = await createSupabaseServerClient();
-  const [profile, pools, readings, doses, events, scans, feedback, plans, alertSettings, alertLog] = await Promise.all([
+  const [profile, pools, readings, doses, events, scans, feedback, plans, alertSettings, alertLog, pumpSchedules] = await Promise.all([
     supabase.from("profiles").select("display_name, locale, units, consent_marketing_at, created_at").maybeSingle(),
     supabase.from("pools").select("*").order("created_at"),
     supabase.from("readings").select("*").order("taken_at"),
@@ -25,6 +25,7 @@ export async function GET() {
     supabase.from("plans").select("pool_id, computed_at, summary, days"),
     supabase.from("alert_settings").select("pool_id, algae, test_reminder, test_after_days, weekly, updated_at"),
     supabase.from("alert_log").select("pool_id, kind, sent_on").order("sent_on"),
+    supabase.from("pump_schedules").select("pool_id, effective_from, segments, cell_hours, source").order("effective_from"),
   ]);
 
   const body = {
@@ -46,6 +47,7 @@ export async function GET() {
     plans: plans.data ?? [],
     alert_settings: alertSettings.data ?? [],
     alerts_sent: alertLog.data ?? [],
+    pump_schedules: pumpSchedules.data ?? [],
     units_note: "Volumes in liters, temperatures in °C, doses in grams or milliliters; locations are 0.05° weather cells.",
   };
 

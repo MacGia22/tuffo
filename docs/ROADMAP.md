@@ -127,7 +127,7 @@ The public launch (end of milestone 3) happens when all of these hold:
   weekly summary; per-pool opt-in, one-click unsubscribe, quiet hours.
 - Web push later; email first.
 
-### 3.3 Salt pools — done 2026-09-30 (#20)
+### 3.3 Salt pools — done 2026-09-30 (#20; cell setting and pump schedule history #22)
 - Suggest the cell's output % from chlorine demand and `swg_cell_lb_per_day`; ask for the
   cell model to fill it.
 

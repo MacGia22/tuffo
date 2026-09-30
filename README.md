@@ -197,6 +197,16 @@ refitted. With it, the 7-day plan suggests the lowest cell output that holds fre
 chlorine all week, and the free chlorine advice card repeats that setting; without it,
 both give the ppm per day the cell has to make and ask for the rating.
 
+What the cell makes depends on its setting and on how long water flows through it, so
+both are recorded over time: a cell setting is an event ("Salt cell set to 50%", with an
+"I set it" link next to the plan's suggestion), and the pump schedule
+(`/app/pools/[id]/pump`) is a list of runs with times, optional RPM and whether the cell
+runs during each, typed or read from a screenshot of the pump's app or panel
+(`POST /api/scan/pump`, one scan of the allowance). Between two tests the model counts
+rated output × setting × cell hours ÷ 24 for the settings and schedules in force
+(`src/engine/swg.ts`); a salt pair with no setting or schedule known at its first test is
+left out instead of guessed. The plan suggests the setting for the current pump hours.
+
 ## Email alerts
 
 Per pool, off by default, on the account page (`#alerts`): an algae-risk warning (the

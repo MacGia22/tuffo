@@ -32,14 +32,15 @@ export default function PrivacyPage() {
       <h3>Your pools</h3>
       <p>
         For each pool, the name you give it, its volume, surface and sanitizer, whether it has a cover, and optional
-        numbers such as your fill water&apos;s calcium or your salt cell&apos;s model and output. The location is stored as a
+        numbers such as your fill water&apos;s calcium or your salt cell&apos;s model and output. For a salt pool, also
+        the pump schedules you enter (run times, speeds, whether the cell runs) and the dates they started. The location is stored as a
         weather cell about 5 km (3 miles) across, plus the town name you picked and the time zone. Tuffo never stores a
         street address or a GPS position.
       </p>
       <h3>What you log</h3>
       <p>
         Water tests (the numbers, when and how you tested, and any note), the chemicals you added, and events such as
-        topping up, backwashing or covering the pool.
+        topping up, backwashing, covering the pool or changing the salt cell setting.
       </p>
       <h3>What Tuffo works out</h3>
       <p>
@@ -50,8 +51,8 @@ export default function PrivacyPage() {
       </p>
       <h3>Photo scans</h3>
       <p>
-        When you scan a printout, a test strip or a tester screen, the photo goes to Anthropic&apos;s AI model, which
-        reads the numbers and sends them back into the form for you to check. Tuffo does not store the photo. It keeps
+        When you scan a printout, a test strip, a tester screen or a screenshot of your pump&apos;s schedule, the image
+        goes to Anthropic&apos;s AI model, which reads the numbers and sends them back into the form for you to check. Tuffo does not store the photo. It keeps
         one log line per scan: the time, whether it worked, the kind of test, how sure the model was and how much
         processing it used. That log is what counts your monthly scans.
       </p>
