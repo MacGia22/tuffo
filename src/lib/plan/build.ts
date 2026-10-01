@@ -217,6 +217,7 @@ export async function buildPlan(admin: SupabaseClient, poolId: string, now = Dat
     fc: plan.fc,
     floor: plan.floor,
     swgPercent: plan.swgPercent,
+    swgStart: plan.swgStart,
     swgNeedPpm: plan.swgNeedPpm,
     capped: plan.capped,
     lowWithoutChlorine: plan.lowWithoutChlorine,

@@ -15,7 +15,7 @@ import { SaltCellForm } from "@/components/salt-cell-form";
 import { cellLevels, cellRatedHours, levelsText } from "@/lib/salt-cells";
 import { canSeePlan } from "@/lib/entitlements";
 import { refreshPlanAfterResponse } from "@/lib/plan/build";
-import { parseStoredPlan, planHasFcLine, planIsStale, type StoredPlan } from "@/lib/plan/stored";
+import { cellPercentOn, parseStoredPlan, planHasFcLine, planIsStale, type StoredPlan } from "@/lib/plan/stored";
 import { PoolCrumbs } from "@/components/pool-crumbs";
 import { TrendCharts } from "@/components/trend-charts";
 import { adviseFor } from "@/lib/advice";
@@ -319,7 +319,7 @@ async function loadPoolView(id: string, range: TrendRange) {
             : plan?.summary.cellNeeds === "pump"
               ? { percent: null, needPpm: plan.summary.swgNeedPpm, missing: "pump" as const }
               : plan
-                ? { percent: plan.summary.swgPercent, needPpm: plan.summary.swgNeedPpm }
+                ? { percent: cellPercentOn(plan.summary, today), needPpm: plan.summary.swgNeedPpm }
                 : undefined
           : undefined,
       )

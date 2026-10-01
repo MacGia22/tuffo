@@ -232,7 +232,11 @@ left out instead of guessed. The plan suggests the setting for the current pump 
 lowest setting that holds free chlorine all week, picked among the settings the cell's own
 control offers (`levels` in `src/lib/salt-cells.ts`: CircuPool CORE 25/50/75/100%, EDGE
 12.5% steps, Pentair IntelliChlor power center 20% steps), or in 5% steps for dial cells
-(Hayward AquaRite, CircuPool RJ Plus) and cells entered by rating.
+(Hayward AquaRite, CircuPool RJ Plus) and cells entered by rating. When free chlorine starts
+above the target, the plan first runs a lower setting (or the cell off) for as many days as
+the floor allows, picking the start that leaves least chlorine above the band, then the weekly
+setting (`swgStart` in the plan; the Today line, the note, the setting box, cards, alerts and
+the pools list all follow it).
 
 ## Navigation and forms
 

@@ -139,6 +139,27 @@ describe("planWeek, salt pool", () => {
     expect(off.swgPercent).toBe(0);
   });
 
+  it("starts lower while FC is above the band, then switches to the weekly setting", () => {
+    // CORE35 (25/50/75/100%), FC 10 against a 4–6 target, sunny week (1.86 ppm/day used).
+    // Off all week: 10 − 7 × 1.86 = −3.0, below the 4.5 floor; 25% (2.80/day, +0.94 net) is the
+    // weekly setting. At 25% from today FC climbs 10.94 → 16.58: 54.3 ppm-days above 6.
+    // Off for 2 days then 25%: 8.14, 6.28, then 7.22 … 10.98: 17.9 above 6, floor held.
+    // Off for 3 days would end day 3 at 4.42, below the floor.
+    const high = planWeek({
+      ...salt,
+      water: { ...salt.water, fc: 10 },
+      pool: { ...salt.pool, cellLevels: [25, 50, 75, 100] },
+    })!;
+    expect(high.swgPercent).toBe(25);
+    expect(high.swgStart).toEqual({ percent: 0, until: "2026-10-03" });
+    expect(high.days[0].fcEnd).toBeCloseTo(8.14, 2);
+    expect(high.days[1].fcEnd).toBeCloseTo(6.28, 2);
+    expect(high.days[2].fcEnd).toBeCloseTo(7.22, 1);
+    expect(high.days.every((d) => d.fcEnd >= 4.5)).toBe(true);
+    // Starting inside the band, one setting serves the week.
+    expect(planWeek({ ...salt, pool: { ...salt.pool, cellLevels: [25, 50, 75, 100] } })!.swgStart).toBeNull();
+  });
+
   it("runs a cell with set levels at its top setting when it cannot keep up", () => {
     const small = planWeek({ ...salt, pool: { ...salt.pool, cellPpmPerDay: 1, cellLevels: [20, 40, 60, 80, 100] } })!;
     expect(small.swgPercent).toBe(100);

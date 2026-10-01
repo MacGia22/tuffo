@@ -54,6 +54,14 @@ export function bandAdvice(plan: Pick<StoredPlan, "summary" | "days">, today: st
   // Salt pool: the first day the cell pushes it above the band.
   const percent = summary.swgPercent;
   if (percent === null) return null;
+  // Starting above the band, the plan already runs the cell lower first: say when to go back up.
+  const start = summary.swgStart;
+  if (start && today < start.until) {
+    return {
+      direction: "high",
+      text: `Free chlorine is above the ${targetHigh} ppm target: ${start.percent === 0 ? "switch the cell off" : `run the cell at ${start.percent}%`} until ${weekday(start.until)}, then ${percent}%. Test before you turn it back up.`,
+    };
+  }
   const high = days.find((d) => d.fcEnd > targetHigh);
   if (!high) return null;
   const steps = levels && levels.length ? [0, ...levels] : Array.from({ length: 21 }, (_, i) => i * 5);
