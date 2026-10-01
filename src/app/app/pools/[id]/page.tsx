@@ -40,7 +40,7 @@ import { StatusTiles } from "@/components/status-tiles";
 import { testAge, tilesFor } from "@/lib/tiles";
 import { MenuButton } from "@/components/log-menu";
 import { logLinks } from "@/lib/log-links";
-import { dueTasks, dueText, healthItems } from "@/lib/maintenance";
+import { dueParts, dueTasks, healthItems } from "@/lib/maintenance";
 import { HealthRow } from "@/components/maintenance-visuals";
 import { SetupChecklist } from "@/components/setup-checklist";
 import { setupSteps } from "@/lib/setup";
@@ -713,7 +713,7 @@ export default async function PoolPage({ params, searchParams }: PageProps<"/app
                 <span>
                   <span className="font-semibold">{s.task.label}</span>{" "}
                   <span className={s.state === "overdue" ? "text-red-700 dark:text-red-300" : "text-muted"}>
-                    · {dueText(s)}
+                    · {dueParts(s, upkeep?.today ?? today).relative}
                   </span>
                 </span>
                 <DoneForm poolId={pool.id} task={s.task.id} taskLabel={s.task.label} />
