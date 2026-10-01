@@ -445,3 +445,117 @@ export function hoursLife(hours: number, ratedHours: number): LifeUsed | null {
   const percent = Math.round((hours / ratedHours) * 100);
   return { percent, state: percent > 100 ? "past" : percent >= 80 ? "late" : "fine" };
 }
+
+export type Tone = "good" | "warning" | "critical";
+
+/**
+ * How much of a task's interval has gone by, 0 to 1 (above 1 when overdue), and its
+ * tone: under 80% good, 80–100% warning, overdue critical. Null before it is logged.
+ */
+export function intervalProgress(s: Pick<TaskStatus, "daysLeft" | "intervalDays" | "pressureHigh" | "state">): {
+  share: number;
+  tone: Tone;
+} | null {
+  if (s.daysLeft === null) return s.pressureHigh ? { share: 1, tone: "warning" } : null;
+  const share = (s.intervalDays - s.daysLeft) / s.intervalDays;
+  const tone: Tone = s.state === "overdue" ? "critical" : share >= 0.8 || s.pressureHigh ? "warning" : "good";
+  return { share: Math.max(0, share), tone };
+}
+
+export interface DueDay {
+  date: string;
+  /** Tasks due that day; overdue ones are listed on today. */
+  tasks: { label: string; overdue: boolean }[];
+}
+
+/** The next `days` days from today, with the tasks falling due on each. */
+export function dueCalendar(statuses: TaskStatus[], today: string, days = 30): DueDay[] {
+  const out: DueDay[] = Array.from({ length: days }, (_, i) => ({ date: addDays(today, i), tasks: [] }));
+  for (const s of statuses) {
+    if (s.nextDue === null) {
+      if (s.pressureHigh) out[0].tasks.push({ label: s.task.label, overdue: false });
+      continue;
+    }
+    const offset = daysBetween(today, s.nextDue);
+    if (offset < 0) out[0].tasks.push({ label: s.task.label, overdue: true });
+    else if (offset < days) out[offset].tasks.push({ label: s.task.label, overdue: false });
+  }
+  return out;
+}
+
+export interface LifeSpan {
+  ageYears: number;
+  /** Typical life, years: the replacement window runs from low to high. */
+  low: number;
+  high: number;
+  /** Age as a share of the high end, capped at 1.2 for drawing. */
+  share: number;
+  state: LifeState;
+  /** "about 4 years left", "replacement window now", "past a typical life". */
+  left: string;
+}
+
+/** An item's age against its typical life, for the lifespan bar. */
+export function lifeSpan(installedOn: string, today: string, life: [number, number]): LifeSpan {
+  const age = ageYears(installedOn, today);
+  const state = lifeState(age, life);
+  const mid = (life[0] + life[1]) / 2;
+  const leftYears = mid - age;
+  const left =
+    state === "past"
+      ? "past a typical life"
+      : state === "late"
+        ? "in the usual replacement window"
+        : leftYears >= 1.5
+          ? `about ${Math.round(leftYears)} years left`
+          : `about ${Math.max(1, Math.round(leftYears * 12))} months left`;
+  return { ageYears: age, low: life[0], high: life[1], share: Math.min(1.2, age / life[1]), state, left };
+}
+
+/**
+ * When the cell's rated hours run out at today's pace (pump hours a day times the
+ * setting): "Mar 2029". Null without a rating, a pace, or with the rating used up.
+ */
+export function cellReplacementMonth(input: {
+  hoursUsed: number;
+  ratedHours: number | null;
+  hoursPerDay: number | null;
+  today: string;
+}): string | null {
+  const { hoursUsed, ratedHours, hoursPerDay } = input;
+  if (!ratedHours || !hoursPerDay || hoursPerDay <= 0 || hoursUsed >= ratedHours) return null;
+  const days = Math.round((ratedHours - hoursUsed) / hoursPerDay);
+  if (days > 365 * 30) return null;
+  return new Date(`${addDays(input.today, days)}T12:00:00Z`).toLocaleDateString("en-US", {
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/** The life-used items for the pool page's health row. */
+export function healthItems(input: {
+  today: string;
+  cell: { installedOn: string | null; hoursUsed: number | null; ratedHours: number | null } | null;
+  equipment: { kind: string; type: string | null; installedOn: string; label: string }[];
+}): { label: string; share: number; tone: Tone; text: string }[] {
+  const out: { label: string; share: number; tone: Tone; text: string }[] = [];
+  const toneOf = (state: LifeState): Tone => (state === "fine" ? "good" : state === "late" ? "warning" : "critical");
+  const c = input.cell;
+  if (c?.installedOn) {
+    if (c.hoursUsed !== null && c.ratedHours) {
+      const used = hoursLife(c.hoursUsed, c.ratedHours);
+      if (used) out.push({ label: "Salt cell", share: used.percent / 100, tone: toneOf(used.state), text: `${used.percent}% of rated hours` });
+    } else {
+      const span = lifeSpan(c.installedOn, input.today, TYPICAL_LIFE_YEARS.cell);
+      out.push({ label: "Salt cell", share: span.ageYears / span.high, tone: toneOf(span.state), text: span.left });
+    }
+  }
+  for (const e of input.equipment) {
+    const life = TYPICAL_LIFE_YEARS[e.kind === "heater" ? `heater_${e.type ?? "gas"}` : e.kind];
+    if (!life) continue;
+    const span = lifeSpan(e.installedOn, input.today, life);
+    out.push({ label: e.label, share: span.ageYears / span.high, tone: toneOf(span.state), text: span.left });
+  }
+  return out;
+}

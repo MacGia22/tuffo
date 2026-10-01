@@ -290,6 +290,16 @@ typical life. Tasks due within days show on the pool page with a Done button and
 settings cards. "Maintenance reminders" in the email alerts (`alert_settings.maintenance`)
 adds the tasks due or overdue, at most once a week per pool.
 
+The maintenance page draws: a 30-day strip with a dot on each day a task falls due
+(overdue tasks on today), a bar per task for the share of its interval gone by (good
+under 80%, warning to 100%, critical overdue, always with an icon and a word), the
+filter pressure over time with the clean pressure and the clean + 8 psi line, and a
+lifespan bar per item (install to the end of its typical life, the replacement window
+shaded, today marked). With a rated cell it shows hours used against the rating and the
+month they run out at today's pump hours and setting. The pool page has a compact
+"Equipment health" row of the same bars. Status colours are `--status-*` in
+`globals.css`; each picture has a list or table view.
+
 ## Rain at the pool
 
 The weather cell's rain is a model estimate for a few kilometers around; storms vary a

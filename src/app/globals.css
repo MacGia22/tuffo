@@ -18,6 +18,10 @@
   --chart-rain: #4a3aa7;
   --chart-grid: #e3ebf0;
   --chart-axis: #c5d3dd;
+  /* Status (dataviz reference steps, same in both modes); always with an icon and a label. */
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-critical: #d03b3b;
 }
 
 @theme inline {
@@ -36,6 +40,9 @@
   --color-chart-rain: var(--chart-rain);
   --color-chart-grid: var(--chart-grid);
   --color-chart-axis: var(--chart-axis);
+  --color-status-good: var(--status-good);
+  --color-status-warning: var(--status-warning);
+  --color-status-critical: var(--status-critical);
   --font-sans: var(--font-manrope);
   --font-display: var(--font-sora);
 }
