@@ -113,5 +113,6 @@ export async function createPool(_prev: CreatePoolState, formData: FormData): Pr
   // so the pool page has it without waiting for the nightly job.
   after(() => refreshCellIfStale(admin, cell.id));
 
-  redirect(`/app/pools/${pool.id}`);
+  // Straight on to the pool's equipment; every step there can be skipped and changed later.
+  redirect(`/app/pools/${pool.id}/settings?new=1`);
 }
