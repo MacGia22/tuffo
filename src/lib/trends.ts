@@ -115,9 +115,50 @@ function whenLabel(iso: string, timeZone: string): string {
   });
 }
 
-/** The window: at least two weeks, at most a month, ending today and reaching back to the first test. */
-export function trendWindow(firstTestIso: string | null, now: number, timeZone: string): { start: string; end: string } {
+/** The ranges the chart offers: days back from today, or this season. */
+export const TREND_RANGES = [
+  { value: "14", label: "14 days" },
+  { value: "30", label: "30 days" },
+  { value: "90", label: "90 days" },
+  { value: "season", label: "This season" },
+] as const;
+export type TrendRange = (typeof TREND_RANGES)[number]["value"];
+export const DEFAULT_RANGE: TrendRange = "30";
+/** The longest window the chart draws, days (a season is capped to this). */
+export const LONGEST_DAYS = 366;
+
+export function parseRange(value: unknown): TrendRange {
+  return TREND_RANGES.find((r) => r.value === value)?.value ?? DEFAULT_RANGE;
+}
+
+/**
+ * The first local date a range covers. "This season" runs from the first test of this
+ * calendar year (pools opened in spring start there; year-round pools get the year), or
+ * January 1 without one.
+ */
+export function rangeStart(range: TrendRange, now: number, timeZone: string, firstTestThisYear: string | null): string {
   const end = localParts(now, timeZone).date;
+  if (range !== "season") return addDays(end, -(Number(range) - 1));
+  const jan1 = `${end.slice(0, 4)}-01-01`;
+  const first = firstTestThisYear ? localParts(firstTestThisYear, timeZone).date : null;
+  const start = first && first >= jan1 && first <= end ? first : jan1;
+  // Very early in the year a season would be a few days: show at least two weeks.
+  const twoWeeks = addDays(end, -(MIN_DAYS - 1));
+  return start > twoWeeks ? twoWeeks : start;
+}
+
+/** The window: at least two weeks, at most a month, ending today and reaching back to the first test. */
+export function trendWindow(
+  firstTestIso: string | null,
+  now: number,
+  timeZone: string,
+  fixedStart?: string,
+): { start: string; end: string } {
+  const end = localParts(now, timeZone).date;
+  if (fixedStart) {
+    const earliest = addDays(end, -(LONGEST_DAYS - 1));
+    return { start: fixedStart < earliest ? earliest : fixedStart > end ? end : fixedStart, end };
+  }
   const minStart = addDays(end, -(MAX_DAYS - 1));
   const defaultStart = addDays(end, -(MIN_DAYS - 1));
   if (!firstTestIso) return { start: defaultStart, end };
@@ -134,6 +175,8 @@ export function xFor(iso: string, start: string, timeZone: string): number {
 
 export interface BuildTrendInput {
   timeZone: string;
+  /** A chosen range's first date (see rangeStart); without it, the automatic 2–4 weeks. */
+  start?: string;
   now: number;
   units: Units;
   readings: Array<{ taken_at: string; fc: number | null; ph: number | null }>;
@@ -163,7 +206,7 @@ export interface BuildTrendInput {
 export function buildTrend(input: BuildTrendInput): TrendData {
   const { timeZone } = input;
   const sortedReadings = [...input.readings].sort((a, b) => a.taken_at.localeCompare(b.taken_at));
-  const { start, end } = trendWindow(sortedReadings[0]?.taken_at ?? null, input.now, timeZone);
+  const { start, end } = trendWindow(sortedReadings[0]?.taken_at ?? null, input.now, timeZone, input.start);
   const count = daysBetween(start, end) + 1;
 
   const weatherByDate = new Map(input.weather.map((w) => [w.date, w]));
