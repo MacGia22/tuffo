@@ -7,7 +7,7 @@ import { describeEquipment, EQUIPMENT_KINDS, KIND_LABELS, type EquipmentKind } f
 import { litersToDisplayVolume, type Units } from "@/lib/format";
 import { isUuid } from "@/lib/form-data";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { BasicsForm, EquipmentCard } from "./settings-forms";
+import { BasicsForm, DeletePoolForm, EquipmentCard } from "./settings-forms";
 
 export const metadata: Metadata = { title: "Pool settings" };
 
@@ -32,8 +32,10 @@ export interface EquipmentRow {
   removed_on: string | null;
 }
 
-export default async function PoolSettingsPage({ params }: PageProps<"/app/pools/[id]/settings">) {
+export default async function PoolSettingsPage({ params, searchParams }: PageProps<"/app/pools/[id]/settings">) {
   const { id } = await params;
+  // Just created: the page opens as the pool's set-up step.
+  const isNew = (await searchParams).new === "1";
   if (!isUuid(id)) notFound();
 
   const supabase = await createSupabaseServerClient();
@@ -69,8 +71,29 @@ export default async function PoolSettingsPage({ params }: PageProps<"/app/pools
   return (
     <>
       <PoolCrumbs poolId={pool.id} poolName={pool.name} here="Settings" />
+      {isNew ? (
+        <section
+          aria-label="Set up your pool"
+          className="flex flex-col gap-3 rounded-2xl border border-lagoon/40 bg-lagoon/5 p-4"
+        >
+          <p className="font-semibold">{pool.name} is saved.</p>
+          <p className="text-sm">
+            Add the equipment you have so Tuffo can count what it does:{" "}
+            {pool.sanitizer === "swg"
+              ? "the salt cell, the pump and its schedule"
+              : "the pump, and a chlorine feeder if you use one"}
+            . Skip anything you don&apos;t know; you can add or change it later from the pool&apos;s Settings.
+          </p>
+          <Link
+            href={`/app/pools/${pool.id}`}
+            className="self-start rounded-xl bg-lagoon px-4 py-2.5 text-sm font-semibold text-white hover:bg-lagoon-deep"
+          >
+            Done, go to the pool
+          </Link>
+        </section>
+      ) : null}
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-semibold">Pool settings</h1>
+        <h1 className="text-3xl font-semibold">{isNew ? "Set up your pool" : "Pool settings"}</h1>
         <p className="text-muted">
           The pool and its equipment. When you replace a piece of equipment, Tuffo keeps the old one in the history with
           its dates, so it knows what was running between your tests.
@@ -162,6 +185,15 @@ export default async function PoolSettingsPage({ params }: PageProps<"/app/pools
         })}
       </section>
 
+      {isNew ? (
+        <Link
+          href={`/app/pools/${pool.id}`}
+          className="self-start rounded-xl bg-lagoon px-4 py-2.5 text-sm font-semibold text-white hover:bg-lagoon-deep"
+        >
+          Done, go to the pool
+        </Link>
+      ) : null}
+
       {earlier.length > 0 ? (
         <section aria-labelledby="history" className="flex flex-col gap-2">
           <h2 id="history" className="text-xl font-semibold">
@@ -177,6 +209,13 @@ export default async function PoolSettingsPage({ params }: PageProps<"/app/pools
           </ul>
         </section>
       ) : null}
+
+      <section aria-labelledby="delete" className="flex flex-col gap-2">
+        <h2 id="delete" className="text-xl font-semibold">
+          Delete this pool
+        </h2>
+        <DeletePoolForm poolId={pool.id} name={pool.name} />
+      </section>
     </>
   );
 }

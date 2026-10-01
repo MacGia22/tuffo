@@ -13,7 +13,14 @@ import {
   type EquipmentKind,
 } from "@/lib/equipment";
 import type { Units } from "@/lib/format";
-import { removeEquipment, saveEquipment, savePoolBasics, type SettingsState } from "../actions";
+import {
+  deletePool,
+  removeEquipment,
+  saveEquipment,
+  savePoolBasics,
+  type DeleteState,
+  type SettingsState,
+} from "../actions";
 
 const initial: SettingsState = {};
 const field = "h-10 rounded-xl border border-border bg-background px-3 text-sm";
@@ -298,5 +305,47 @@ export function EquipmentCard({
         </div>
       )}
     </div>
+  );
+}
+
+/** Deleting a pool: the owner types its name to confirm. */
+export function DeletePoolForm({ poolId, name }: { poolId: string; name: string }) {
+  const [state, action, pending] = useActionState(deletePool, {} as DeleteState);
+  const [typed, setTyped] = useState("");
+  const matches = typed.trim() === name.trim();
+  return (
+    <form action={action} className="flex flex-col gap-3 rounded-2xl border border-red-200 bg-red-50/40 p-4">
+      <input type="hidden" name="pool_id" value={poolId} />
+      <p className="text-sm">
+        Deletes <strong>{name}</strong> and everything logged for it: tests, doses, events, the plan, equipment and
+        alerts. This cannot be undone. To keep a copy first, use{" "}
+        <Link href="/app/account" className="font-semibold text-lagoon underline-offset-2 hover:underline">
+          Download my data
+        </Link>{" "}
+        on the account page.
+      </p>
+      <label className={label}>
+        Type the pool&apos;s name to confirm
+        <input
+          name="confirm_name"
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          autoComplete="off"
+          className={`${field} w-56`}
+        />
+      </label>
+      <button
+        type="submit"
+        disabled={pending || !matches}
+        className="h-10 self-start rounded-xl bg-red-700 px-4 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-50"
+      >
+        {pending ? "Deleting…" : "Delete this pool"}
+      </button>
+      {state.error ? (
+        <p role="alert" className="text-sm text-red-600">
+          {state.error}
+        </p>
+      ) : null}
+    </form>
   );
 }
