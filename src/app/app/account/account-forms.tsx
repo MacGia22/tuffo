@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { ResetButton } from "@/components/form-cancel";
 import type { Units } from "@/lib/format";
 import { deleteAccount, updateUnits, type AccountState } from "./actions";
 
@@ -28,6 +29,7 @@ export function UnitsForm({ units }: { units: Units }) {
         >
           {pending ? "Saving…" : "Save"}
         </button>
+        <ResetButton />
         {state.message ? <span className="text-sm text-muted">{state.message}</span> : null}
         {state.error ? <span className="text-sm text-red-600">{state.error}</span> : null}
       </div>
@@ -57,6 +59,7 @@ export function DeleteForm() {
         >
           {pending ? "Deleting…" : "Delete my account"}
         </button>
+        <ResetButton className="h-11 px-2 text-sm text-muted underline-offset-2 hover:underline" />
       </div>
       {state.error ? <p className="text-sm text-red-600">{state.error}</p> : null}
     </form>

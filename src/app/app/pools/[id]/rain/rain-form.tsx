@@ -1,5 +1,7 @@
 "use client";
 
+import { CancelLink, ReturnTo } from "@/components/form-cancel";
+
 import { useActionState } from "react";
 import type { Units } from "@/lib/format";
 import { clearRain, saveRain, type RainState } from "../actions";
@@ -14,7 +16,10 @@ export function RainForm({
   date,
   units,
   current,
+  returnTo,
 }: {
+  /** Where Save and Cancel go back to. */
+  returnTo: string;
   poolId: string;
   date: string;
   units: Units;
@@ -28,6 +33,7 @@ export function RainForm({
     <div className="flex max-w-xl flex-col gap-4">
       <form action={action} className="flex flex-col gap-4">
         <input type="hidden" name="pool_id" value={poolId} />
+          <ReturnTo value={returnTo} />
         <input type="hidden" name="date" value={date} />
         <input type="hidden" name="units" value={units} />
         <label className="flex flex-col gap-1.5">
@@ -56,17 +62,21 @@ export function RainForm({
             {state.error}
           </p>
         ) : null}
-        <button
-          type="submit"
-          disabled={pending}
-          className="h-12 self-start rounded-xl bg-lagoon px-6 text-base font-semibold text-white hover:bg-lagoon-deep disabled:opacity-60"
-        >
-          {pending ? "Saving…" : "Save"}
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="submit"
+            disabled={pending}
+            className="h-12 self-start rounded-xl bg-lagoon px-6 text-base font-semibold text-white hover:bg-lagoon-deep disabled:opacity-60"
+          >
+            {pending ? "Saving…" : "Save"}
+          </button>
+          <CancelLink href={returnTo} />
+        </div>
       </form>
       {current !== null ? (
         <form action={clearRain}>
           <input type="hidden" name="pool_id" value={poolId} />
+          <ReturnTo value={returnTo} />
           <input type="hidden" name="date" value={date} />
           <button type="submit" className="text-sm font-semibold text-lagoon underline-offset-2 hover:underline">
             Use the area figure again

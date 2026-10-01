@@ -1,9 +1,12 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
+import { ResetButton } from "@/components/form-cancel";
 import { INTERVAL_UNITS, splitInterval } from "@/lib/maintenance";
 import { pressureUnitLabel, type Units } from "@/lib/format";
 import {
+  deleteMaintenance,
+  deletePressure,
   logMaintenance,
   logPressure,
   saveCellInstalled,
@@ -17,7 +20,21 @@ const label = "flex flex-col gap-1 text-xs text-muted";
 const primary =
   "h-10 rounded-xl bg-lagoon px-4 text-sm font-semibold text-white hover:bg-lagoon-deep disabled:opacity-60";
 
-function Status({ state, saved = "Saved." }: { state: MaintenanceState; saved?: string }) {
+function Status({
+  state,
+  saved = "Saved.",
+  poolId,
+  undo,
+}: {
+  state: MaintenanceState;
+  saved?: string;
+  poolId?: string;
+  /** Removes the row just added. */
+  undo?: (formData: FormData) => Promise<void>;
+}) {
+  const [pending, start] = useTransition();
+  const [undone, setUndone] = useState<string | null>(null);
+  // A new save has a new id, so it shows its own Undo again.
   if (state.error) {
     return (
       <p role="alert" className="text-sm text-red-600">
@@ -25,11 +42,41 @@ function Status({ state, saved = "Saved." }: { state: MaintenanceState; saved?: 
       </p>
     );
   }
-  return state.saved ? (
-    <p role="status" className="text-sm text-muted">
-      {saved}
+  if (!state.saved) return null;
+  if (undone && undone === state.undoId) {
+    return (
+      <p role="status" className="text-sm text-muted">
+        Removed.
+      </p>
+    );
+  }
+  const canUndo = Boolean(undo && poolId && state.undoId);
+  return (
+    <p role="status" className="flex items-center gap-2 text-sm text-muted">
+      {saved.replace(/\.$/, "")}
+      {canUndo ? (
+        <>
+          <span aria-hidden="true">·</span>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() =>
+              start(async () => {
+                const data = new FormData();
+                data.set("pool_id", poolId as string);
+                data.set("id", state.undoId as string);
+                await (undo as (f: FormData) => Promise<void>)(data);
+                setUndone(state.undoId ?? null);
+              })
+            }
+            className="font-semibold text-lagoon underline-offset-2 hover:underline disabled:opacity-60"
+          >
+            {pending ? "Undoing…" : "Undo"}
+          </button>
+        </>
+      ) : null}
     </p>
-  ) : null;
+  );
 }
 
 /**
@@ -76,7 +123,16 @@ export function DoneForm({
           Another day
         </button>
       ) : null}
-      <Status state={state} saved="Logged." />
+      {withDate && otherDay ? (
+        <button
+          type="button"
+          onClick={() => setOtherDay(false)}
+          className="h-9 text-sm text-muted underline-offset-2 hover:underline"
+        >
+          Cancel
+        </button>
+      ) : null}
+      <Status state={state} saved="Logged." poolId={poolId} undo={deleteMaintenance} />
     </form>
   );
 }
@@ -105,6 +161,7 @@ export function PressureForm({ poolId, units }: { poolId: string; units: Units }
         <button type="submit" disabled={pending} className={primary}>
           {pending ? "Saving…" : "Log pressure"}
         </button>
+        <ResetButton className="h-10 text-sm text-muted underline-offset-2 hover:underline" />
       </div>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" name="clean" className="h-4 w-4 accent-lagoon" />
@@ -113,7 +170,7 @@ export function PressureForm({ poolId, units }: { poolId: string; units: Units }
       <p className="text-xs text-muted">
         Read it with the pump running at its usual speed; the same speed each time keeps readings comparable.
       </p>
-      <Status state={state} />
+      <Status state={state} poolId={poolId} undo={deletePressure} />
     </form>
   );
 }
@@ -159,6 +216,13 @@ export function IntervalForm({
         <button type="submit" disabled={pending} className={primary}>
           Save
         </button>
+        <button
+          type="reset"
+          onClick={(e) => e.currentTarget.closest("details")?.removeAttribute("open")}
+          className="h-10 text-sm text-muted underline-offset-2 hover:underline"
+        >
+          Cancel
+        </button>
         {days !== defaultDays ? (
           <button
             type="submit"
@@ -188,6 +252,7 @@ export function CellInstalledForm({ poolId, installedOn }: { poolId: string; ins
       <button type="submit" disabled={pending} className={primary}>
         {pending ? "Saving…" : "Save"}
       </button>
+      <ResetButton className="h-10 text-sm text-muted underline-offset-2 hover:underline" />
       <Status state={state} />
     </form>
   );

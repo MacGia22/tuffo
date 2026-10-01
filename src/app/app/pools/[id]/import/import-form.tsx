@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { CancelLink } from "@/components/form-cancel";
 import { useMemo, useState } from "react";
 import type { ImportSummary } from "@/app/api/pools/[id]/import/route";
 import { parseCsv, type CsvTable } from "@/lib/import/csv";
@@ -243,14 +244,17 @@ export function ImportForm({ poolId, units, timeZone }: { poolId: string; units:
             </div>
           ) : null}
 
-          <button
-            type="button"
-            disabled={busy || !summary || summary.ready === 0}
-            onClick={() => void send({ csv: loaded.csv, mapping, dateOrder, tempUnit }, false)}
-            className="h-12 self-start rounded-xl bg-lagoon px-6 text-base font-semibold text-white hover:bg-lagoon-deep disabled:opacity-60"
-          >
-            {busy ? "Working…" : summary && summary.ready > 0 ? `Import ${summary.ready.toLocaleString("en-US")} tests` : "Nothing to import"}
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              disabled={busy || !summary || summary.ready === 0}
+              onClick={() => void send({ csv: loaded.csv, mapping, dateOrder, tempUnit }, false)}
+              className="h-12 self-start rounded-xl bg-lagoon px-6 text-base font-semibold text-white hover:bg-lagoon-deep disabled:opacity-60"
+            >
+              {busy ? "Working…" : summary && summary.ready > 0 ? `Import ${summary.ready.toLocaleString("en-US")} tests` : "Nothing to import"}
+            </button>
+            <CancelLink href={`/app/pools/${poolId}`} />
+          </div>
         </>
       ) : null}
 

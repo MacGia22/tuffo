@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { safeReturnTo } from "@/lib/return-to";
 import { notFound } from "next/navigation";
 import { PoolCrumbs } from "@/components/pool-crumbs";
 import { catalogProduct } from "@/lib/catalog";
@@ -30,6 +31,7 @@ function prefillFrom(params: Record<string, string | string[] | undefined>): Dos
 
 export default async function NewDosePage({ params, searchParams }: PageProps<"/app/pools/[id]/doses/new">) {
   const { id } = await params;
+  const { from } = await searchParams;
   if (!isUuid(id)) notFound();
 
   const supabase = await createSupabaseServerClient();
@@ -49,7 +51,9 @@ export default async function NewDosePage({ params, searchParams }: PageProps<"/
           What went into the water and how much. Tuffo counts it when it works out how much chlorine your pool uses.
         </p>
       </div>
-      <DoseForm poolId={pool.id} units={profile?.units ?? "us"} prefill={prefill} />
+      <DoseForm
+        returnTo={safeReturnTo(from, `/app/pools/${id}`)}
+        poolId={pool.id} units={profile?.units ?? "us"} prefill={prefill} />
     </>
   );
 }

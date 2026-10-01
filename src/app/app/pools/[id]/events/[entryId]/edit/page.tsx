@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { safeReturnTo } from "@/lib/return-to";
 import { notFound } from "next/navigation";
 import { PoolCrumbs } from "@/components/pool-crumbs";
 import { eventEditValues } from "@/lib/edit-values";
@@ -9,8 +10,9 @@ import { EventForm } from "../../new/event-form";
 
 export const metadata: Metadata = { title: "Edit an event" };
 
-export default async function EditEventPage({ params }: PageProps<"/app/pools/[id]/events/[entryId]/edit">) {
+export default async function EditEventPage({ params, searchParams }: PageProps<"/app/pools/[id]/events/[entryId]/edit">) {
   const { id, entryId } = await params;
+  const { from } = await searchParams;
   if (!isUuid(id) || !isUuid(entryId)) notFound();
 
   const supabase = await createSupabaseServerClient();
@@ -39,7 +41,9 @@ export default async function EditEventPage({ params }: PageProps<"/app/pools/[i
         <h1 className="text-3xl font-semibold">Edit an event</h1>
         <p className="text-muted">Fix what happened or when.</p>
       </div>
-      <EventForm poolId={pool.id} units={units} edit={{ id: event.id, timeZone, values: eventEditValues(event, units, timeZone) }} />
+      <EventForm
+        returnTo={safeReturnTo(from, `/app/pools/${id}`)}
+        poolId={pool.id} units={units} edit={{ id: event.id, timeZone, values: eventEditValues(event, units, timeZone) }} />
     </>
   );
 }

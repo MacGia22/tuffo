@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { safeReturnTo } from "@/lib/return-to";
 import { notFound } from "next/navigation";
 import { PoolCrumbs } from "@/components/pool-crumbs";
 import type { Units } from "@/lib/format";
@@ -11,6 +12,7 @@ export const metadata: Metadata = { title: "Log an event" };
 
 export default async function NewEventPage({ params, searchParams }: PageProps<"/app/pools/[id]/events/new">) {
   const { id } = await params;
+  const { from } = await searchParams;
   const query = await searchParams;
   const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
   const kind = eventKindInfo(one(query.kind) ?? "")?.kind;
@@ -39,7 +41,9 @@ export default async function NewEventPage({ params, searchParams }: PageProps<"
           from everything else.
         </p>
       </div>
-      <EventForm poolId={pool.id} units={profile?.units ?? "us"} swg={pool.sanitizer === "swg"} prefill={prefill} />
+      <EventForm
+        returnTo={safeReturnTo(from, `/app/pools/${id}`)}
+        poolId={pool.id} units={profile?.units ?? "us"} swg={pool.sanitizer === "swg"} prefill={prefill} />
     </>
   );
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { CancelLink, ReturnTo } from "@/components/form-cancel";
+
 import { useActionState, useState } from "react";
 import { savePumpSchedule, type PumpState } from "../actions";
 import { ScanButton, type ScanAllowance, type ScanResponse } from "@/components/scan-button";
@@ -29,8 +31,11 @@ export function PumpForm({
   current,
   scanEnabled,
   allowance,
+  returnTo,
   defaultUnit = "rpm",
 }: {
+  /** Where Save and Cancel go back to. */
+  returnTo: string;
   poolId: string;
   timeZone: string;
   current: PumpSegment[] | null;
@@ -87,6 +92,7 @@ export function PumpForm({
       <input type="hidden" name="pool_id" value={poolId} />
       <input type="hidden" name="time_zone" value={timeZone} />
       <input type="hidden" name="source" value={source} />
+      <ReturnTo value={returnTo} />
 
       {scanEnabled ? (
         <div className="flex flex-col gap-2 rounded-2xl border border-dashed border-border p-4">
@@ -169,13 +175,16 @@ export function PumpForm({
           {state.error}
         </p>
       ) : null}
-      <button
-        type="submit"
-        disabled={pending}
-        className="h-12 self-start rounded-xl bg-lagoon px-6 text-base font-semibold text-white hover:bg-lagoon-deep disabled:opacity-60"
-      >
-        {pending ? "Saving…" : "Save schedule"}
-      </button>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="submit"
+          disabled={pending}
+          className="h-12 self-start rounded-xl bg-lagoon px-6 text-base font-semibold text-white hover:bg-lagoon-deep disabled:opacity-60"
+        >
+          {pending ? "Saving…" : "Save schedule"}
+        </button>
+        <CancelLink href={returnTo} />
+      </div>
     </form>
   );
 }

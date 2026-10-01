@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { safeReturnTo } from "@/lib/return-to";
 import { notFound } from "next/navigation";
 import { PoolCrumbs } from "@/components/pool-crumbs";
 import { readingEditValues, type EditableReading } from "@/lib/edit-values";
@@ -9,8 +10,9 @@ import { ReadingForm } from "../../new/reading-form";
 
 export const metadata: Metadata = { title: "Edit a test" };
 
-export default async function EditReadingPage({ params }: PageProps<"/app/pools/[id]/readings/[entryId]/edit">) {
+export default async function EditReadingPage({ params, searchParams }: PageProps<"/app/pools/[id]/readings/[entryId]/edit">) {
   const { id, entryId } = await params;
+  const { from } = await searchParams;
   if (!isUuid(id) || !isUuid(entryId)) notFound();
 
   const supabase = await createSupabaseServerClient();
@@ -41,6 +43,7 @@ export default async function EditReadingPage({ params }: PageProps<"/app/pools/
         <p className="text-muted">Change what was measured or when; clear a field to remove that result.</p>
       </div>
       <ReadingForm
+        returnTo={safeReturnTo(from, `/app/pools/${id}`)}
         poolId={pool.id}
         units={units}
         swg={pool.sanitizer === "swg"}

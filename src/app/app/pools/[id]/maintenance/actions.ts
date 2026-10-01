@@ -16,6 +16,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 export interface MaintenanceState {
   error?: string;
   saved?: boolean;
+  /** The row just added, for Undo. */
+  undoId?: string;
 }
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -57,10 +59,14 @@ export async function logMaintenance(_prev: MaintenanceState, formData: FormData
   if (!doneOn) return { error: "Pick the day you did it, up to today." };
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.from("pool_maintenance").insert({ pool_id: poolId, task: task.id, done_on: doneOn });
+  const { data, error } = await supabase
+    .from("pool_maintenance")
+    .insert({ pool_id: poolId, task: task.id, done_on: doneOn })
+    .select("id")
+    .returns<{ id: string }[]>();
   if (error) return { error: unavailable(error.message) };
   refresh(poolId);
-  return { saved: true };
+  return { saved: true, undoId: data?.[0]?.id };
 }
 
 /** Removes one logged completion (a mistake). */
@@ -91,12 +97,14 @@ export async function logPressure(_prev: MaintenanceState, formData: FormData): 
   if (!readOn) return { error: "Pick the day, up to today." };
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("pool_pressure")
-    .insert({ pool_id: poolId, read_on: readOn, kpa, clean: formData.get("clean") === "on" });
+    .insert({ pool_id: poolId, read_on: readOn, kpa, clean: formData.get("clean") === "on" })
+    .select("id")
+    .returns<{ id: string }[]>();
   if (error) return { error: unavailable(error.message) };
   refresh(poolId);
-  return { saved: true };
+  return { saved: true, undoId: data?.[0]?.id };
 }
 
 export async function deletePressure(formData: FormData): Promise<void> {

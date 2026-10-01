@@ -1,5 +1,7 @@
 "use client";
 
+import { CancelLink, ReturnTo } from "@/components/form-cancel";
+
 import { useActionState, useState } from "react";
 import { QueuedNotice, useOfflineLog } from "@/components/offline-log";
 import { CATALOG, CATALOG_GROUPS, catalogProduct } from "@/lib/catalog";
@@ -30,7 +32,10 @@ export function DoseForm({
   units,
   prefill,
   edit,
+  returnTo,
 }: {
+  /** Where Save and Cancel go back to. */
+  returnTo: string;
   poolId: string;
   units: Units;
   prefill: DosePrefill;
@@ -55,6 +60,7 @@ export function DoseForm({
     <form action={action} onSubmit={offline.onSubmit} className="flex max-w-xl flex-col gap-6">
       <input type="hidden" name="pool_id" value={poolId} />
       {offline.hidden}
+      <ReturnTo value={returnTo} />
       <EditFields edit={edit} whenField="added_at" />
 
       <div className="flex flex-col gap-1.5">
@@ -139,13 +145,16 @@ export function DoseForm({
         </p>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="h-12 self-start rounded-xl bg-lagoon px-6 text-base font-semibold text-white transition hover:bg-lagoon-deep disabled:opacity-60"
-      >
-        {pending ? "Saving…" : edit ? "Save changes" : "Save"}
-      </button>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="submit"
+          disabled={pending}
+          className="h-12 self-start rounded-xl bg-lagoon px-6 text-base font-semibold text-white transition hover:bg-lagoon-deep disabled:opacity-60"
+        >
+          {pending ? "Saving…" : edit ? "Save changes" : "Save"}
+        </button>
+        <CancelLink href={returnTo} />
+      </div>
     </form>
   );
 }

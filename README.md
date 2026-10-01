@@ -228,6 +228,22 @@ control offers (`levels` in `src/lib/salt-cells.ts`: CircuPool CORE 25/50/75/100
 12.5% steps, Pentair IntelliChlor power center 20% steps), or in 5% steps for dial cells
 (Hayward AquaRite, CircuPool RJ Plus) and cells entered by rating.
 
+## Navigation and forms
+
+The header has Pools (a switcher when there is more than one pool) and Account; Sign out
+is on the account page. Every app page starts with breadcrumbs, and the pool name has a
+gear linking to Settings. On phones (below 768 px) a pool's pages have a bottom bar
+(`src/components/pool-bottom-bar.tsx`): Today, Plan, Log (test, dose, event, scan),
+Maintenance, Settings.
+
+Links into a form carry `?from=<page>`; the form keeps it in a hidden `return_to` field,
+and Save and Cancel go back there (`src/lib/return-to.ts` accepts only paths under
+`/app`). A save adds `?saved=1`, or `?saved=<kind>.<id>` for a new test, dose, event or
+pump schedule, which the layout shows as "Saved · Undo" (`src/components/saved-notice.tsx`;
+Undo deletes that row with the person's own session). Logging maintenance or a filter
+pressure shows the same Undo in place. Forms that stay open on their page have a Cancel
+that puts them back as they were.
+
 ## Pool settings and equipment
 
 Creating a pool lands on its settings page with `?new=1` ("Set up your pool": add the

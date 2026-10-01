@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { safeReturnTo } from "@/lib/return-to";
 import { notFound } from "next/navigation";
 import { PoolCrumbs } from "@/components/pool-crumbs";
 import { isUuid } from "@/lib/form-data";
@@ -19,8 +20,9 @@ function onCurrentGrid(cellId: string | null): boolean {
   }
 }
 
-export default async function LocationPage({ params }: PageProps<"/app/pools/[id]/location">) {
+export default async function LocationPage({ params, searchParams }: PageProps<"/app/pools/[id]/location">) {
   const { id } = await params;
+  const returnTo = safeReturnTo((await searchParams).from, `/app/pools/${id}`);
   if (!isUuid(id)) notFound();
 
   const supabase = await createSupabaseServerClient();
@@ -56,7 +58,7 @@ export default async function LocationPage({ params }: PageProps<"/app/pools/[id
           </p>
         ) : null}
       </div>
-      <LocationForm poolId={pool.id} current={current} />
+      <LocationForm returnTo={returnTo} poolId={pool.id} current={current} />
     </>
   );
 }

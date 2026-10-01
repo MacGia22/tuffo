@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { safeReturnTo } from "@/lib/return-to";
 import { notFound } from "next/navigation";
 import { serverEnv } from "@/lib/env";
 import { monthlyUsed, resetLabel, scanLimits } from "@/lib/scan/quota";
@@ -20,8 +21,9 @@ async function loadAllowance(supabase: Awaited<ReturnType<typeof createSupabaseS
   return { remaining: Math.max(0, monthly - used), limit: monthly, resetsOn: resetLabel(now) };
 }
 
-export default async function NewReadingPage({ params }: PageProps<"/app/pools/[id]/readings/new">) {
+export default async function NewReadingPage({ params, searchParams }: PageProps<"/app/pools/[id]/readings/new">) {
   const { id } = await params;
+  const { from } = await searchParams;
   if (!UUID.test(id)) notFound();
 
   const supabase = await createSupabaseServerClient();
@@ -46,6 +48,7 @@ export default async function NewReadingPage({ params }: PageProps<"/app/pools/[
         <p className="text-muted">Fill in what you measured; leave the rest blank.</p>
       </div>
       <ReadingForm
+        returnTo={safeReturnTo(from, `/app/pools/${id}`)}
         poolId={pool.id}
         units={profile?.units ?? "us"}
         swg={pool.sanitizer === "swg"}

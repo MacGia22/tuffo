@@ -1,5 +1,7 @@
 "use client";
 
+import { BackButton } from "@/components/back-button";
+
 import { useActionState, useState } from "react";
 import { FEEDBACK_KINDS, FEEDBACK_MAX_CHARS, KIND_LABELS, messageLength } from "@/lib/feedback";
 import { sendFeedback, type FeedbackState } from "./actions";
@@ -102,6 +104,7 @@ function Fields({
         >
           {pending ? "Sending…" : "Send"}
         </button>
+        <BackButton fallback="/app" />
         {state.error ? (
           <p role="alert" className="text-sm text-red-600">
             {state.error}
