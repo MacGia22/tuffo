@@ -42,6 +42,8 @@ import { MenuButton } from "@/components/log-menu";
 import { logLinks } from "@/lib/log-links";
 import { dueTasks, dueText, healthItems } from "@/lib/maintenance";
 import { HealthRow } from "@/components/maintenance-visuals";
+import { SetupChecklist } from "@/components/setup-checklist";
+import { setupSteps } from "@/lib/setup";
 import { KIND_LABELS } from "@/lib/equipment";
 import { loadPoolMaintenance } from "@/lib/maintenance-data";
 
@@ -152,18 +154,13 @@ function fcAddedBy(dose: Dose, liters: number): number {
 
 /** Everything the pool page shows, loaded and shaped per request. */
 async function loadPoolView(id: string) {
-
   const now = Date.now();
   const since = new Date(now - (MAX_DAYS + 15) * DAY_MS).toISOString();
   const supabase = await createSupabaseServerClient();
   const [{ data: pool }, { data: readings }, { data: doses }, { data: events }, { data: profile }] =
     await retryAllOnClockSkew(() =>
       Promise.all([
-        supabase
-          .from("pools")
-          .select("*")
-          .eq("id", id)
-          .maybeSingle<Pool>(),
+        supabase.from("pools").select("*").eq("id", id).maybeSingle<Pool>(),
         supabase
           .from("readings")
           .select("id, taken_at, fc, cc, ph, ta, ch, cya, salt, water_temp_c, borate, method")
@@ -244,7 +241,11 @@ async function loadPoolView(id: string) {
         .order("date")
         .limit(7)
         .returns<WeatherRow[]>(),
-      supabase.from("weather_cells").select("last_actuals_at").eq("id", pool.cell_id).maybeSingle<{ last_actuals_at: string | null }>(),
+      supabase
+        .from("weather_cells")
+        .select("last_actuals_at")
+        .eq("id", pool.cell_id)
+        .maybeSingle<{ last_actuals_at: string | null }>(),
       loadOwnRain(supabase, pool.id, windowStart),
     ]);
     forecastDays = forecast ?? [];
@@ -275,7 +276,10 @@ async function loadPoolView(id: string) {
       .filter((e) => Date.parse(e.occurred_at) > t0 && Date.parse(e.occurred_at) <= t1)
       .filter((e) => e.kind === "refill" || e.kind === "drain_refill" || e.kind === "heavy_use")
       .reverse()
-      .map((e) => `${describeEvent(e.kind, e.value === null ? null : Number(e.value), units)}, ${formatDateTime(e.occurred_at, tz)}`);
+      .map(
+        (e) =>
+          `${describeEvent(e.kind, e.value === null ? null : Number(e.value), units)}, ${formatDateTime(e.occurred_at, tz)}`,
+      );
     between = summarizeBetween(previous, latest, inRange, { fcAddedPpm, notes });
   }
 
@@ -343,23 +347,24 @@ async function loadPoolView(id: string) {
             : { low: 3, high: 5 },
           phBand: { low: 7.2, high: 7.8 },
           // A salt pool's plan without the cell's output has no meaningful FC line.
-          plan: plan && planHasFcLine(plan.summary)
-            ? {
-                continuous: plan.summary.kind === "swg",
-                days: plan.days.map((d) => {
-                  const add = planAddLabel(d, units);
-                  const w = forecastDays.find((f) => f.date === d.date);
-                  return {
-                    date: d.date,
-                    fcAfterAdd: d.fcAfterAdd,
-                    fcEnd: d.fcEnd,
-                    add: add ? `${add} of liquid chlorine` : null,
-                    uv_index_max: w?.uv_index_max ?? null,
-                    precipitation_mm: w?.precipitation_mm ?? d.rainMm,
-                  };
-                }),
-              }
-            : null,
+          plan:
+            plan && planHasFcLine(plan.summary)
+              ? {
+                  continuous: plan.summary.kind === "swg",
+                  days: plan.days.map((d) => {
+                    const add = planAddLabel(d, units);
+                    const w = forecastDays.find((f) => f.date === d.date);
+                    return {
+                      date: d.date,
+                      fcAfterAdd: d.fcAfterAdd,
+                      fcEnd: d.fcEnd,
+                      add: add ? `${add} of liquid chlorine` : null,
+                      uv_index_max: w?.uv_index_max ?? null,
+                      precipitation_mm: w?.precipitation_mm ?? d.rainMm,
+                    };
+                  }),
+                }
+              : null,
         })
       : null;
 
@@ -412,7 +417,24 @@ async function loadPoolView(id: string) {
   }
 
   const estimateMiss = estimate?.miss ?? null;
-  return { pool, units, tz, liters, allReadings, latest, advice, between, use, trend, activity, plan, today, saltStatus, estimateMiss, now };
+  return {
+    pool,
+    units,
+    tz,
+    liters,
+    allReadings,
+    latest,
+    advice,
+    between,
+    use,
+    trend,
+    activity,
+    plan,
+    today,
+    saltStatus,
+    estimateMiss,
+    now,
+  };
 }
 
 export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">) {
@@ -439,6 +461,33 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
   // Upkeep due now or within days; fails open (nothing shown).
   const upkeep = await loadPoolMaintenance(await createSupabaseServerClient(), pool.id, { cellHours: true });
   const upkeepDue = upkeep ? dueTasks(upkeep.statuses) : [];
+  // The sticky bar's anchors: only sections on the page.
+  const sections = [
+    { id: "today", label: "Today", show: Boolean(latest) },
+    { id: "plan", label: "Plan", show: Boolean(plan) },
+    { id: "trends", label: "Trends", show: Boolean(trend) },
+    { id: "maintenance", label: "Maintenance", show: upkeepDue.length > 0 },
+    { id: "history", label: "History", show: allReadings.length > 0 },
+  ].filter((s) => s.show);
+  const { data: alertRow } = await (await createSupabaseServerClient())
+    .from("alert_settings")
+    .select("*")
+    .eq("pool_id", pool.id)
+    .maybeSingle<Record<string, unknown>>();
+  const setup = setupSteps({
+    poolId: pool.id,
+    swg: pool.sanitizer === "swg",
+    hasLocation: Boolean(pool.cell_id),
+    hasTest: allReadings.length > 0,
+    hasEquipment: (upkeep?.equipment.length ?? 0) > 0,
+    hasFilter: Boolean(upkeep?.equipment.some((e) => e.kind === "filter")),
+    cellInstalled: Boolean(upkeep?.cell?.installedOn),
+    hasCleanPressure: Boolean(upkeep?.pressure?.clean),
+    hasPumpSchedule: saltStatus?.cellHours !== null && saltStatus?.cellHours !== undefined,
+    alertsOn: Boolean(
+      alertRow && ["algae", "test_reminder", "weekly", "maintenance"].some((k) => alertRow[k] === true),
+    ),
+  });
   const health = upkeep
     ? healthItems({
         today: upkeep.today,
@@ -449,7 +498,12 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
               ratedHours: cellRatedHours(upkeep.cell.model),
             }
           : null,
-        equipment: upkeep.equipment.map((e) => ({ kind: e.kind, type: e.type, installedOn: e.installedOn, label: KIND_LABELS[e.kind] })),
+        equipment: upkeep.equipment.map((e) => ({
+          kind: e.kind,
+          type: e.type,
+          installedOn: e.installedOn,
+          label: KIND_LABELS[e.kind],
+        })),
       })
     : [];
   // The tiles' targets: the pool's (from the advice), or typical ones before a full test.
@@ -469,7 +523,6 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
       <WarmOffline
         urls={["/app", ...["readings", "doses", "events"].map((kind) => `/app/pools/${pool.id}/${kind}/new`)]}
       />
-
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -520,20 +573,13 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
         </div>
       </div>
 
-      <nav
-        aria-label="On this page"
-        className="sticky top-0 z-20 -mx-5 -my-4 border-b border-border bg-background/90 px-5 py-2 backdrop-blur"
-      >
-        <ul className="flex gap-1 overflow-x-auto text-sm">
-          {[
-            { id: "today", label: "Today", show: Boolean(latest) },
-            { id: "plan", label: "Plan", show: Boolean(plan) },
-            { id: "trends", label: "Trends", show: Boolean(trend) },
-            { id: "maintenance", label: "Maintenance", show: upkeepDue.length > 0 },
-            { id: "history", label: "History", show: allReadings.length > 0 },
-          ]
-            .filter((s) => s.show)
-            .map((s) => (
+      {sections.length > 0 ? (
+        <nav
+          aria-label="On this page"
+          className="sticky top-0 z-20 -mx-5 -my-4 border-b border-border bg-background/90 px-5 py-2 backdrop-blur"
+        >
+          <ul className="flex gap-1 overflow-x-auto text-sm">
+            {sections.map((s) => (
               <li key={s.id}>
                 <a
                   href={`#${s.id}`}
@@ -543,13 +589,18 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
                 </a>
               </li>
             ))}
-        </ul>
-      </nav>
+          </ul>
+        </nav>
+      ) : null}
+
+      <SetupChecklist poolId={pool.id} steps={setup} />
 
       {latest ? (
         <StatusTiles
           tiles={tilesFor(latest, tileTargets, { swg: pool.sanitizer === "swg" })}
-          extra={[["Water", latest.water_temp_c === null ? "—" : formatTemperature(Number(latest.water_temp_c), units)]]}
+          extra={[
+            ["Water", latest.water_temp_c === null ? "—" : formatTemperature(Number(latest.water_temp_c), units)],
+          ]}
           age={testAge(latest.taken_at, now)}
           testedAt={formatDateTime(latest.taken_at, tz)}
           method={methodLabel(latest.method)}
@@ -559,8 +610,8 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
         <section className="flex flex-col items-start gap-3 rounded-2xl border border-dashed border-border p-8">
           <h2 className="text-xl font-semibold">No tests logged yet</h2>
           <p className="max-w-lg text-muted">
-            Log your first water test. From the second one on, Tuffo can show what the weather did in between and
-            what to add next.
+            Log your first water test. From the second one on, Tuffo can show what the weather did in between and what
+            to add next.
           </p>
           <Link
             href={`/app/pools/${pool.id}/readings/new`}
@@ -577,17 +628,27 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
       {advice && advice.items.length > 0 ? <AdvicePanel advice={advice} units={units} poolId={pool.id} /> : null}
 
       {saltStatus ? (
-        <section aria-label="Salt cell" className="flex flex-col gap-1 rounded-2xl border border-border bg-surface p-4 text-sm">
+        <section
+          aria-label="Salt cell"
+          className="flex flex-col gap-1 rounded-2xl border border-border bg-surface p-4 text-sm"
+        >
           <p>
-            Cell setting:{" "}
-            <strong>{saltStatus.setting === null ? "not logged yet" : `${saltStatus.setting}%`}</strong>
+            Cell setting: <strong>{saltStatus.setting === null ? "not logged yet" : `${saltStatus.setting}%`}</strong>
             {saltStatus.settingSince ? ` since ${saltStatus.settingSince}` : ""} ·{" "}
             <Link href={`/app/pools/${pool.id}/events/new?kind=cell_setting`} className="font-semibold text-lagoon">
               Log a change
             </Link>
           </p>
           <p>
-            Pump: {saltStatus.cellHours === null ? <strong>schedule not set</strong> : <>the cell runs <strong>{saltStatus.cellHours} h</strong> a day</>} ·{" "}
+            Pump:{" "}
+            {saltStatus.cellHours === null ? (
+              <strong>schedule not set</strong>
+            ) : (
+              <>
+                the cell runs <strong>{saltStatus.cellHours} h</strong> a day
+              </>
+            )}{" "}
+            ·{" "}
             <Link href={`/app/pools/${pool.id}/pump`} className="font-semibold text-lagoon">
               {saltStatus.cellHours === null ? "Add the schedule" : "Change"}
             </Link>
@@ -623,7 +684,11 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
       ) : null}
 
       {upkeepDue.length > 0 ? (
-        <section id="maintenance" aria-labelledby="upkeep" className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4">
+        <section
+          id="maintenance"
+          aria-labelledby="upkeep"
+          className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4"
+        >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 id="upkeep" className="text-xl font-semibold">
               Maintenance due
@@ -637,7 +702,9 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
               <li key={s.task.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
                 <span>
                   <span className="font-semibold">{s.task.label}</span>{" "}
-                  <span className={s.state === "overdue" ? "text-red-700 dark:text-red-300" : "text-muted"}>· {dueText(s)}</span>
+                  <span className={s.state === "overdue" ? "text-red-700 dark:text-red-300" : "text-muted"}>
+                    · {dueText(s)}
+                  </span>
                 </span>
                 <DoneForm poolId={pool.id} task={s.task.id} taskLabel={s.task.label} />
               </li>
@@ -649,7 +716,10 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
       <HealthRow items={health} href={`/app/pools/${pool.id}/maintenance#life`} />
 
       {trend ? (
-        <section aria-labelledby="trends" className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4 sm:p-5">
+        <section
+          aria-labelledby="trends"
+          className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4 sm:p-5"
+        >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 id="trends" className="text-xl font-semibold">
               Last {trend.days.length} days
@@ -722,7 +792,10 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
                           <input type="hidden" name="pool_id" value={pool.id} />
                           <input type="hidden" name="kind" value="reading" />
                           <input type="hidden" name="id" value={r.id} />
-                          <ConfirmButton question={`Remove the test from ${formatDateTime(r.taken_at, tz)}?`} label="Remove" />
+                          <ConfirmButton
+                            question={`Remove the test from ${formatDateTime(r.taken_at, tz)}?`}
+                            label="Remove"
+                          />
                         </form>
                       </div>
                     </td>
