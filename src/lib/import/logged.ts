@@ -75,11 +75,16 @@ export function splitAgainstLogged(
 }
 
 /**
- * The maintenance task an upkeep column stands for, given the pool's filter: a cleaned
- * cartridge is a rinse, cleaned DE grids are the grids task. A sand filter is cleaned by
- * backwashing (its own column), and Tuffo has no vacuuming task, so those give null.
+ * The maintenance task an upkeep column stands for, given the pool's filter: a backwash
+ * is the sand or DE backwash task, a cleaned cartridge is a rinse, cleaned DE grids are
+ * the grids task. A cartridge has no backwash, a sand filter is cleaned by backwashing
+ * (its own column), and Tuffo has no vacuuming task, so those give null.
  */
-export function upkeepTask(kind: Exclude<UpkeepKind, "backwash">, filterType: FilterType | null): TaskId | null {
+export function upkeepTask(kind: UpkeepKind, filterType: FilterType | null): TaskId | null {
+  if (kind === "backwash") {
+    if (filterType === "sand") return "sand_backwash";
+    if (filterType === "de") return "de_backwash";
+  }
   if (kind === "filter_clean") {
     if (filterType === "cartridge") return "cartridge_rinse";
     if (filterType === "de") return "de_grids";
@@ -88,13 +93,14 @@ export function upkeepTask(kind: Exclude<UpkeepKind, "backwash">, filterType: Fi
 }
 
 export interface UpkeepPlan {
-  /** Backwash events to add, one per day at the time of that day's first row. */
+  /** Backwash events to add, one per day at the time of that day's first row (and the
+   * filter's backwash task in `maintenance`, for sand and DE). */
   events: { occurred_at: string }[];
   /** Maintenance days to add. */
   maintenance: { task: TaskId; done_on: string }[];
   /** Days the file marks, per kind (after merging rows on the same day). */
   days: Record<UpkeepKind, number>;
-  /** Of those, days already logged in Tuffo. */
+  /** Entries (events or maintenance days) already logged in Tuffo. */
   alreadyLogged: number;
   /** Days with no matching task for this pool (vacuuming; filter cleaning without one). */
   notTracked: number;
@@ -123,11 +129,11 @@ export function planUpkeep(
       if (kind === "backwash") {
         if (options.backwashDays.has(day)) plan.alreadyLogged += 1;
         else plan.events.push({ occurred_at: row.taken_at });
-        continue;
       }
       const task = upkeepTask(kind, options.filterType);
-      if (!task) plan.notTracked += 1;
-      else if (options.doneDays.has(`${task}|${day}`)) plan.alreadyLogged += 1;
+      if (!task) {
+        if (kind !== "backwash") plan.notTracked += 1; // a backwash still has its event
+      } else if (options.doneDays.has(`${task}|${day}`)) plan.alreadyLogged += 1;
       else plan.maintenance.push({ task, done_on: day });
     }
   }

@@ -399,7 +399,8 @@ chlorine model once. Limits: 1 MB and 5,000 rows per file.
 Pool Math's export (`src/lib/import/__tests__/fixtures/poolmath-export.csv`) has `Date`
 as `2026-09-26 09:47:03 AM`, `FC`, `pH`, `TA`, `CH`, `CYA`, `Salt`, `Temp`, `CSI` (left
 out), `Notes`, and `Backwashed`, `Cleaned Filter`, `Vacuumed` as `True`/`False`. Those
-three are offered, off by default, as upkeep to log too: one backwash event per day,
+three are offered, off by default, as upkeep to log too: one backwash event per day
+(and, for a sand or DE filter, its backwash task done that day),
 "Cleaned Filter" as the filter's cleaning task done that day (cartridge rinse or DE
 grids; skipped for sand or no filter), and vacuuming skipped (no task). Days already
 logged are skipped; a failed upkeep insert is logged and reported, never undoing the

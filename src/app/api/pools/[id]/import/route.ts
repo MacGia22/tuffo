@@ -40,6 +40,8 @@ export interface ImportSummary {
     notTracked: number;
     /** The maintenance task "Cleaned filter" counts as, for this pool's filter. */
     filterTask: string | null;
+    /** The maintenance task a backwash also counts as (sand and DE filters). */
+    backwashTask: string | null;
   };
   upkeepLogged: number;
   upkeepError: string | null;
@@ -239,6 +241,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       alreadyLogged: upkeep.alreadyLogged,
       notTracked: upkeep.notTracked,
       filterTask: taskById(upkeepTask("filter_clean", filterType) ?? "")?.label ?? null,
+      backwashTask: taskById(upkeepTask("backwash", filterType) ?? "")?.label ?? null,
     },
     upkeepLogged,
     upkeepError,

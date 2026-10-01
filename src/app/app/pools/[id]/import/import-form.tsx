@@ -48,7 +48,7 @@ function upkeepLines(u: ImportSummary["upkeep"]): string[] {
   ].filter(Boolean);
   const lines = [`The file marks ${marked.join(", ")} (days).`];
   if (u.toLog) {
-    const as = [u.backwash ? "backwashes as events" : null, u.filterClean && u.filterTask ? `filter cleanings as "${u.filterTask}" done` : null]
+    const as = [u.backwash ? `backwashes as events${u.backwashTask ? ` and "${u.backwashTask}" done` : ""}` : null, u.filterClean && u.filterTask ? `filter cleanings as "${u.filterTask}" done` : null]
       .filter(Boolean)
       .join(", ");
     lines.push(`${plural(u.toLog, "entry", "entries")} to log (${as}).`);

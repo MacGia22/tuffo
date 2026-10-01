@@ -58,6 +58,9 @@ describe("upkeepTask", () => {
     expect(upkeepTask("filter_clean", "sand")).toBeNull();
     expect(upkeepTask("filter_clean", null)).toBeNull();
     expect(upkeepTask("vacuum", "cartridge")).toBeNull();
+    expect(upkeepTask("backwash", "sand")).toBe("sand_backwash");
+    expect(upkeepTask("backwash", "de")).toBe("de_backwash");
+    expect(upkeepTask("backwash", "cartridge")).toBeNull();
   });
 });
 
@@ -81,6 +84,22 @@ describe("planUpkeep", () => {
     expect(plan.maintenance).toEqual([{ task: "cartridge_rinse", done_on: "2026-09-20" }]);
     expect(plan.alreadyLogged).toBe(2);
     expect(plan.notTracked).toBe(1); // vacuuming
+  });
+
+  it("also marks the backwash task done for a sand filter", () => {
+    const plan = planUpkeep(rows, {
+      timeZone: tz,
+      filterType: "sand",
+      backwashDays: new Set(["2026-09-20"]),
+      doneDays: new Set(),
+    });
+    expect(plan.events).toEqual([{ occurred_at: "2026-09-26T13:47:00.000Z" }]);
+    expect(plan.maintenance).toEqual([
+      { task: "sand_backwash", done_on: "2026-09-20" }, // the event was there, the task was not
+      { task: "sand_backwash", done_on: "2026-09-26" },
+    ]);
+    expect(plan.alreadyLogged).toBe(1);
+    expect(plan.notTracked).toBe(3); // two filter cleanings on sand, one vacuuming
   });
 
   it("skips filter cleaning without a cartridge or DE filter", () => {
