@@ -36,6 +36,8 @@ import { localDateRange, summarizeBetween, type WeatherDay } from "@/lib/weather
 import { deleteEntry } from "./actions";
 import { DoneForm } from "./maintenance/maintenance-forms";
 import { ChevronDownIcon, GearIcon, PlusIcon } from "@/components/icons";
+import { StatusTiles } from "@/components/status-tiles";
+import { testAge, tilesFor } from "@/lib/tiles";
 import { MenuButton } from "@/components/log-menu";
 import { logLinks } from "@/lib/log-links";
 import { dueTasks, dueText } from "@/lib/maintenance";
@@ -408,7 +410,7 @@ async function loadPoolView(id: string) {
   }
 
   const estimateMiss = estimate?.miss ?? null;
-  return { pool, units, tz, liters, allReadings, latest, advice, between, use, trend, activity, plan, today, saltStatus, estimateMiss };
+  return { pool, units, tz, liters, allReadings, latest, advice, between, use, trend, activity, plan, today, saltStatus, estimateMiss, now };
 }
 
 export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">) {
@@ -430,10 +432,21 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
     today,
     saltStatus,
     estimateMiss,
+    now,
   } = await loadPoolView(id);
   // Upkeep due now or within days; fails open (nothing shown).
   const upkeep = await loadPoolMaintenance(await createSupabaseServerClient(), pool.id);
   const upkeepDue = upkeep ? dueTasks(upkeep.statuses) : [];
+  // The tiles' targets: the pool's (from the advice), or typical ones before a full test.
+  const t = advice?.targets;
+  const tileTargets = {
+    fc: t ? { low: t.fc.targetLow, high: t.fc.targetHigh } : { low: 3, high: 5 },
+    ph: t ? { low: t.ph.low, high: t.ph.high } : { low: 7.2, high: 7.8 },
+    ta: t?.ta ?? { low: 60, high: 90 },
+    ch: t?.ch ?? { low: 250, high: 450 },
+    cya: t?.cya ?? { low: 30, high: 50 },
+    salt: t?.salt,
+  };
 
   return (
     <>
@@ -519,31 +532,14 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
       </nav>
 
       {latest ? (
-        <section id="today" aria-labelledby="latest" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          <h2 id="latest" className="sr-only">
-            Latest test
-          </h2>
-          {(
-            [
-              ["Free chlorine", cell(latest.fc), "ppm"],
-              ["pH", phText(latest.ph), ""],
-              ["Alkalinity", cell(latest.ta, 0), "ppm"],
-              ["Calcium", cell(latest.ch, 0), "ppm"],
-              ["Stabilizer", cell(latest.cya, 0), "ppm"],
-              ["Water", latest.water_temp_c === null ? "—" : formatTemperature(Number(latest.water_temp_c), units), ""],
-            ] as const
-          ).map(([name, value, unit]) => (
-            <div key={name} className="rounded-2xl border border-border bg-surface p-4">
-              <div className="text-xs font-semibold uppercase tracking-wider text-muted">{name}</div>
-              <div className="mt-1 text-2xl font-semibold">
-                {value} <span className="text-sm font-normal text-muted">{unit}</span>
-              </div>
-            </div>
-          ))}
-          <p className="col-span-2 text-sm text-muted sm:col-span-3 lg:col-span-6">
-            Tested {formatDateTime(latest.taken_at, tz)} · {methodLabel(latest.method)}
-          </p>
-        </section>
+        <StatusTiles
+          tiles={tilesFor(latest, tileTargets, { swg: pool.sanitizer === "swg" })}
+          extra={[["Water", latest.water_temp_c === null ? "—" : formatTemperature(Number(latest.water_temp_c), units)]]}
+          age={testAge(latest.taken_at, now)}
+          testedAt={formatDateTime(latest.taken_at, tz)}
+          method={methodLabel(latest.method)}
+          logHref={`/app/pools/${pool.id}/readings/new`}
+        />
       ) : (
         <section className="flex flex-col items-start gap-3 rounded-2xl border border-dashed border-border p-8">
           <h2 className="text-xl font-semibold">No tests logged yet</h2>

@@ -236,6 +236,10 @@ gear linking to Settings. On phones (below 768 px) a pool's pages have a bottom 
 (`src/components/pool-bottom-bar.tsx`): Today, Plan, Log (test, dose, event, scan),
 Maintenance, Settings.
 
+Status tiles show each measure of the latest test against the pool's target as Low / OK /
+High (icon and word) with the target range, plus Salt for salt pools and combined chlorine
+when logged (`src/lib/tiles.ts`); a test over 7 days old gets a "Log a test" prompt.
+
 The pool page runs: status tiles, What to do now, the plan (a "Today:" line and the 7-day
 strip with today outlined), Maintenance due, trends, between tests and chlorine use,
 doses and events, test history. A sticky bar links to its sections (Today, Plan, Trends,
