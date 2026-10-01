@@ -18,9 +18,15 @@ export function CancelLink({ href, className = cancel }: { href: string; classNa
 }
 
 /** Puts an always-open form back as it was. */
-export function ResetButton({ className = "text-sm text-muted underline-offset-2 hover:underline" }: { className?: string }) {
+export function ResetButton({
+  className = "text-sm text-muted underline-offset-2 hover:underline",
+  onClick,
+}: {
+  className?: string;
+  onClick?: () => void;
+}) {
   return (
-    <button type="reset" className={className}>
+    <button type="reset" onClick={onClick} className={className}>
       Cancel
     </button>
   );
