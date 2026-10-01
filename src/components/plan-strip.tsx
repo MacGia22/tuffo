@@ -2,6 +2,8 @@ import { PLAN_MAX_ADDITION_PPM, PLAN_OWN_MODEL_PAIRS } from "@/engine/server";
 import { catalogProduct } from "@/lib/catalog";
 import { baseToShelf, formatShelf } from "@/lib/dose-format";
 import type { Units } from "@/lib/format";
+import Link from "next/link";
+import { bandAdvice } from "@/lib/plan/band";
 import { confidenceText, planHasFcLine, PLAN_TEST_AGE_DAYS, type StoredPlan, type StoredPlanDay } from "@/lib/plan/stored";
 
 function weekday(date: string): { day: string; date: string } {
@@ -44,7 +46,7 @@ export function PlanStrip({
   today,
   poolId,
   cellLevels = null,
-  cellLowest = null,
+  levels = null,
 }: {
   plan: StoredPlan;
   units: Units;
@@ -52,8 +54,8 @@ export function PlanStrip({
   poolId?: string;
   /** The settings the cell's control offers, as words: "25%, 50%, 75% or 100%". */
   cellLevels?: string | null;
-  /** The cell's lowest setting, percent, when it has fixed ones. */
-  cellLowest?: number | null;
+  /** The settings the cell's control offers, percent ascending; null for any 5% step. */
+  levels?: number[] | null;
 }) {
   const { summary } = plan;
   const days = plan.days.filter((d) => d.date >= today).slice(0, 7);
@@ -61,9 +63,8 @@ export function PlanStrip({
   const product = catalogProduct(summary.product);
   const swg = summary.kind === "swg";
   const lowDay = summary.lowWithoutChlorine ? weekday(summary.lowWithoutChlorine) : null;
-  const risky = days.filter((d) => d.algaeRisk);
   const fcLine = planHasFcLine(summary);
-  const peak = Math.max(0, ...days.map((d) => d.fcEnd));
+  const advice = bandAdvice(plan, today, levels);
   // One line for today, above the week.
   const first = days[0].date === today ? days[0] : null;
   const firstAdd = first ? planAddLabel(first, units) : null;
@@ -97,6 +98,38 @@ export function PlanStrip({
         </p>
       ) : null}
 
+      {advice ? (
+        <p
+          role="status"
+          className={`flex items-start gap-2 rounded-2xl border p-4 text-sm ${
+            advice.direction === "low" ? "border-status-critical/50 bg-status-critical/10" : "border-sun/70 bg-sun/10"
+          }`}
+        >
+          <span aria-hidden="true" className="font-semibold">
+            {advice.direction === "low" ? "⚠" : "↑"}
+          </span>
+          <span>
+            <span className="sr-only">{advice.direction === "low" ? "Low: " : "High: "}</span>
+            {advice.text}
+          </span>
+        </p>
+      ) : null}
+
+      {summary.daysSinceTest > PLAN_TEST_AGE_DAYS && poolId ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-4 text-sm">
+          <p>
+            Your last free chlorine test was {Math.round(summary.daysSinceTest)} days ago, so the plan starts from an
+            estimate.
+          </p>
+          <Link
+            href={`/app/pools/${poolId}/readings/new?from=${encodeURIComponent(`/app/pools/${poolId}#plan`)}`}
+            className="rounded-xl bg-lagoon px-4 py-2 font-semibold text-white hover:bg-lagoon-deep"
+          >
+            Log a test
+          </Link>
+        </div>
+      ) : null}
+
       {swg ? (
         <p className="rounded-2xl border border-border bg-surface p-4">
           {summary.swgPercent !== null ? (
@@ -104,15 +137,9 @@ export function PlanStrip({
               Set the salt cell to {cellLevels ? "" : "about "}
               <strong className="font-display text-lg">{summary.swgPercent}%</strong> this week{summary.cellHours ? ` (with the cell running ${summary.cellHours} h a day)` : ""}. It needs to make
               about {summary.swgNeedPpm?.toFixed(1)} ppm of free chlorine a day.
-              {cellLevels ? ` Your cell sets ${cellLevels}; this is the lowest that keeps chlorine up all week.` : ""}
-              {cellLowest !== null && summary.swgPercent === cellLowest && peak > summary.fc.targetHigh ? (
-                <>
-                  {" "}
-                  Even at {cellLowest}% the cell makes more than this week should use, so free chlorine climbs to about{" "}
-                  {peak.toFixed(0)} ppm. If a test shows it above {summary.fc.targetHigh} ppm, you can switch the cell off
-                  for a day. If your tests keep coming in lower than Tuffo expected, it will learn that your pool uses more.
-                </>
-              ) : null}
+              {cellLevels
+                ? ` Your cell sets ${cellLevels}${advice?.direction === "high" ? "." : "; this is the lowest that keeps chlorine up all week."}`
+                : ""}
               {summary.cellSetting !== summary.swgPercent && poolId ? (
                 <>
                   {" "}
@@ -178,23 +205,11 @@ export function PlanStrip({
       </ol>
 
       <ul className="flex flex-col gap-1 text-xs text-muted">
-        <li>{confidenceText(summary, PLAN_OWN_MODEL_PAIRS)}</li>
-        <li>
-          Keeps free chlorine at {summary.floor.toFixed(1)} ppm or more at the end of each day (target{" "}
-          {summary.fc.targetLow}–{summary.fc.targetHigh}, never below {summary.fc.min}).
-          {!swg && product ? ` Amounts are ${product.name.toLowerCase()}.` : ""}
-        </li>
-        {summary.daysSinceTest > PLAN_TEST_AGE_DAYS ? (
-          <li className="font-semibold text-foreground">
-            Your last free chlorine test was {Math.round(summary.daysSinceTest)} days ago, so the plan starts from an
-            estimate. Test to sharpen it.
-          </li>
-        ) : null}
-        {summary.capped || risky.length > 0 ? (
+        {summary.capped && !advice ? (
           <li className="font-semibold text-foreground">
             {swg
-              ? "Even at 100% the cell may not keep up this week; top up with liquid chlorine on the flagged days."
-              : `The plan stops at ${PLAN_MAX_ADDITION_PPM} ppm in one addition; on the flagged days, test and add more if free chlorine is low.`}
+              ? "Even at 100% the cell may not keep up this week; top up with liquid chlorine if a test is low."
+              : `The plan stops at ${PLAN_MAX_ADDITION_PPM} ppm in one addition; test and add more if free chlorine is low.`}
           </li>
         ) : null}
         {!swg && lowDay ? (
@@ -206,6 +221,19 @@ export function PlanStrip({
           <li>Add chlorine in the evening with the pump running, away from the skimmer, and never mix it with other products.</li>
         ) : null}
       </ul>
+      <details className="text-xs text-muted">
+        <summary className="cursor-pointer font-semibold text-lagoon">
+          <span aria-hidden="true">ⓘ</span> How this plan works
+        </summary>
+        <ul className="mt-1 flex flex-col gap-1">
+          <li>{confidenceText(summary, PLAN_OWN_MODEL_PAIRS)}</li>
+          <li>
+            It keeps free chlorine at {summary.floor.toFixed(1)} ppm or more at the end of each day (target{" "}
+            {summary.fc.targetLow}–{summary.fc.targetHigh}, never below {summary.fc.min}).
+            {!swg && product ? ` Amounts are ${product.name.toLowerCase()}.` : ""}
+          </li>
+        </ul>
+      </details>
     </section>
   );
 }

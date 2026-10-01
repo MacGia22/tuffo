@@ -203,6 +203,12 @@ page view that finds it missing or older than 26 hours. The pool page shows it a
 7-day strip and as a dashed forecast on the chlorine chart. `canSeePlan()`
 (`src/lib/entitlements.ts`) gates it; everyone sees it during the beta.
 
+When the forecast free chlorine leaves the target band, the plan says what to change
+(`src/lib/plan/band.ts`): "skip chlorine until Thursday" while it is above, "lower the cell
+to 25% from Friday, then test" (the next setting down; off for a day at the lowest), or
+which day it may fall below the minimum. An old test turns into a "Log a test" button;
+the typical-pools and floor notes sit under "ⓘ How this plan works".
+
 ## Salt pools
 
 A salt pool's page asks which cell it has: a listed model (Hayward TurboCell T-15/T-9/T-5,

@@ -689,7 +689,7 @@ export default async function PoolPage({ params, searchParams }: PageProps<"/app
           today={today}
           poolId={pool.id}
           cellLevels={pool.sanitizer === "swg" ? levelsText(cellLevels(pool.swg_cell_model)) : null}
-          cellLowest={pool.sanitizer === "swg" ? (cellLevels(pool.swg_cell_model)?.[0] ?? null) : null}
+          levels={pool.sanitizer === "swg" ? cellLevels(pool.swg_cell_model) : null}
         />
       ) : null}
 
