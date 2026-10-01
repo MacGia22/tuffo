@@ -97,3 +97,23 @@ h3 {
 main [id] {
   scroll-margin-top: 4rem;
 }
+
+/*
+ * iOS Safari gives date and time inputs a native minimum width that ignores w-full, so
+ * they spill past the screen edge. Drop the native look, let them shrink, keep the value
+ * left-aligned and the field its normal height when empty.
+ */
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+  max-width: 100%;
+}
+input[type="date"]::-webkit-date-and-time-value,
+input[type="datetime-local"]::-webkit-date-and-time-value,
+input[type="time"]::-webkit-date-and-time-value {
+  text-align: left;
+  min-height: 1.5em;
+}

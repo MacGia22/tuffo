@@ -1,5 +1,6 @@
 "use client";
 
+import { WhenField } from "@/components/when-field";
 import { CancelLink, ReturnTo } from "@/components/form-cancel";
 
 import { useActionState, useState } from "react";
@@ -125,12 +126,7 @@ export function DoseForm({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="added_at" className="text-sm font-semibold">
-            When <span className="font-normal text-muted">{edit ? "(time at the pool)" : "(empty = now)"}</span>
-          </label>
-          <input id="added_at" name="added_at" type="datetime-local" defaultValue={f.added_at ?? ""} className={input} />
-        </div>
+        <WhenField id="added_at" name="added_at" edit={Boolean(edit)} defaultValue={f.added_at ?? ""} />
         <div className="flex flex-col gap-1.5">
           <label htmlFor="notes" className="text-sm font-semibold">
             Notes <span className="font-normal text-muted">(optional)</span>

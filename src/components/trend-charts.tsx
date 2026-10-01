@@ -691,7 +691,7 @@ export function TrendCharts({
         <summary className="cursor-pointer font-semibold text-lagoon">Show as a table</summary>
         <div className="mt-2 overflow-x-auto rounded-xl border border-border">
           <table className="w-full min-w-[520px] text-sm">
-            <thead className="bg-surface text-left text-xs uppercase tracking-wider text-muted">
+            <thead className="bg-surface text-left text-xs font-semibold text-muted">
               <tr>
                 <th className="px-3 py-2">Day</th>
                 <th className="px-3 py-2 text-right">Free chlorine</th>

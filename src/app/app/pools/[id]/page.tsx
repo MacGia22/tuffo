@@ -780,7 +780,7 @@ export default async function PoolPage({ params, searchParams }: PageProps<"/app
           </h2>
           <div className="overflow-x-auto rounded-2xl border border-border">
             <table className="w-full min-w-[700px] text-sm">
-              <thead className="bg-surface text-left text-xs uppercase tracking-wider text-muted">
+              <thead className="bg-surface text-left text-xs font-semibold text-muted">
                 <tr>
                   <th className="px-4 py-3">When</th>
                   <th className="px-3 py-3 text-right">FC</th>
