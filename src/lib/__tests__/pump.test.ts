@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cellHoursPerDay, cellLikelyOn, scheduleFromForm } from "../pump";
+import { cellHoursPerDay, cellLikelyOn, pumpHoursPerDay, scheduleFromForm } from "../pump";
 
 describe("cellHoursPerDay", () => {
   it("adds the runs with the cell on, once each", () => {
@@ -74,5 +74,18 @@ describe("scheduleFromForm", () => {
     expect(scheduleFromForm(form({}))).toEqual({ ok: false, error: "Add at least one run." });
     expect(scheduleFromForm(form({ start_0: "08:00" }))).toEqual({ ok: false, error: "Run 1 needs a start and an end time." });
     expect(scheduleFromForm(form({ start_0: "8am", end_0: "5pm" }))).toEqual({ ok: false, error: "Times look like 08:00 or 18:30." });
+  });
+});
+
+describe("pumpHoursPerDay", () => {
+  it("counts every run, cell on or off, overlaps once", () => {
+    expect(
+      pumpHoursPerDay([
+        { start: "08:00", end: "12:00", cell: true },
+        { start: "11:00", end: "14:00", cell: false },
+        { start: "22:00", end: "02:00", cell: false },
+      ]),
+    ).toBe(10);
+    expect(pumpHoursPerDay([{ start: "8", end: "12:00", cell: true }])).toBeNull();
   });
 });

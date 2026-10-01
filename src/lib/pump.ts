@@ -40,12 +40,21 @@ function minutes(hhmm: string): number | null {
  * count once; a run past midnight ("22:00"–"02:00") wraps. Null when a time is malformed.
  */
 export function cellHoursPerDay(segments: PumpSegment[]): number | null {
+  return coveredHours(segments, true);
+}
+
+/** Hours a day the pump runs, whatever the cell does: the union of all runs. */
+export function pumpHoursPerDay(segments: PumpSegment[]): number | null {
+  return coveredHours(segments, false);
+}
+
+function coveredHours(segments: PumpSegment[], cellOnly: boolean): number | null {
   const covered = new Array<boolean>(1440).fill(false);
   for (const s of segments) {
     const a = minutes(s.start);
     const b = minutes(s.end);
     if (a === null || b === null) return null;
-    if (!s.cell) continue;
+    if (cellOnly && !s.cell) continue;
     const end = b <= a ? b + 1440 : b; // equal start and end: the whole day
     for (let t = a; t < end; t += 1) covered[t % 1440] = true;
   }

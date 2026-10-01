@@ -30,7 +30,7 @@ import { loadPoolMaintenance } from "@/lib/maintenance-data";
 import { cellRatedHours } from "@/lib/salt-cells";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { deleteMaintenance, deletePressure } from "./actions";
-import { CellInstalledForm, DoneForm, IntervalForm, PressureForm, StartDateForm } from "./maintenance-forms";
+import { DoneForm, IntervalForm, PressureForm, StartDateForm } from "./maintenance-forms";
 import { DueStrip, HoursBar, IntervalBar, LifeBar, PressureChart, TonePill } from "@/components/maintenance-visuals";
 
 export const metadata: Metadata = { title: "Maintenance" };
@@ -240,7 +240,12 @@ export default async function MaintenancePage({ params }: PageProps<"/app/pools/
             <li className="flex flex-col gap-2 rounded-2xl border border-border bg-surface p-4 text-sm">
               <h3 className="font-semibold">Salt cell{m.cell.model && m.cell.model !== "Other" ? `: ${m.cell.model}` : ""}</h3>
               {!m.cell.installedOn ? (
-                <p>Add the day the cell was installed to see how much of its life it has used.</p>
+                <p>
+                  <Link href={`${settingsHref}#equip-cell`} className={link}>
+                    Add the day the cell was installed
+                  </Link>{" "}
+                  to see how much of its life it has used.
+                </p>
               ) : m.cell.hours ? (
                 <>
                   <p>
@@ -299,7 +304,15 @@ export default async function MaintenancePage({ params }: PageProps<"/app/pools/
                   {LIFE_TEXT[lifeState(ageYears(m.cell.installedOn, m.today), TYPICAL_LIFE_YEARS.cell)]}.
                 </p>
               ) : null}
-              <CellInstalledForm poolId={pool.id} installedOn={m.cell.installedOn} />
+              {m.cell.installedOn ? (
+                <p className="text-xs text-muted">
+                  Wrong date?{" "}
+                  <Link href={`${settingsHref}#equip-cell`} className={link}>
+                    Edit the cell in Settings
+                  </Link>
+                  .
+                </p>
+              ) : null}
             </li>
           ) : null}
           {m.equipment.map((e) => {
@@ -321,10 +334,26 @@ export default async function MaintenancePage({ params }: PageProps<"/app/pools/
                     "."
                   )}
                 </p>
+                {e.kind === "pump" ? (
+                  m.pumpHours ? (
+                    <p>
+                      About <strong>{m.pumpHours.hours.toLocaleString("en-US")} hours</strong> of running since{" "}
+                      {day(e.installedOn)}, counted from your pump schedules
+                      {m.pumpHours.extrapolated ? " (before the first one, Tuffo assumes it)" : ""}.
+                    </p>
+                  ) : (
+                    <p>
+                      <Link href={`/app/pools/${pool.id}/pump?${fromParam(`/app/pools/${pool.id}/maintenance`)}`} className={link}>
+                        Add the pump schedule
+                      </Link>{" "}
+                      to count its running hours.
+                    </p>
+                  )
+                ) : null}
                 <p className="text-xs text-muted">
                   Wrong date?{" "}
-                  <Link href={settingsHref} className={link}>
-                    Change it in Settings
+                  <Link href={`${settingsHref}#equip-${e.kind}`} className={link}>
+                    Edit the {KIND_LABELS[e.kind].toLowerCase()} in Settings
                   </Link>
                   .
                 </p>

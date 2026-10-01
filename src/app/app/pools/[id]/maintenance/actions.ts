@@ -144,26 +144,3 @@ export async function saveInterval(_prev: MaintenanceState, formData: FormData):
   return { saved: true };
 }
 
-/** When the salt cell now in use was installed (empty clears it). */
-export async function saveCellInstalled(_prev: MaintenanceState, formData: FormData): Promise<MaintenanceState> {
-  const poolId = text(formData, "pool_id");
-  if (!isUuid(poolId)) return { error: "Unknown pool." };
-  await requireUser(`/app/pools/${poolId}/maintenance`);
-  const today = await poolToday(poolId);
-  if (!today) return { error: "Unknown pool." };
-  const raw = text(formData, "installed_on");
-  const installedOn = raw ? dateField(formData, "installed_on", today) : null;
-  if (raw && !installedOn) return { error: "Pick the day it was installed, up to today." };
-
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("pools")
-    .update({ swg_cell_installed_on: installedOn })
-    .eq("id", poolId)
-    .eq("sanitizer", "swg")
-    .select("id");
-  if (error) return { error: unavailable(error.message) };
-  if (!data || data.length === 0) return { error: "Only salt pools have a cell." };
-  refresh(poolId);
-  return { saved: true };
-}

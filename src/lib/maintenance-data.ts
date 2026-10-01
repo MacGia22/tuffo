@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { FeederType, FilterType, HeaterType } from "@/lib/equipment";
+import { isEquipmentKind, type FeederType, type FilterType, type HeaterType } from "@/lib/equipment";
 import {
   cellHoursUsed,
   maintenanceStatus,
@@ -11,11 +11,12 @@ import {
   type PressureStatus,
   type TaskStatus,
 } from "@/lib/maintenance";
+import { pumpHoursPerDay, type PumpSegment } from "@/lib/pump";
 import { localDateRange } from "@/lib/weather/summary";
 
 /**
  * Loads what the maintenance views need for one pool: its equipment, the upkeep log,
- * filter pressure and (on request) the salt cell's hours. Works with the signed-in
+ * filter pressure and (on request) the salt cell's and the pump's hours. Works with the signed-in
  * client (row-level security) or the service key (the alert job). Fails open: before the
  * migration lands, or on any error, it gives null and the page shows no maintenance.
  */
@@ -35,6 +36,8 @@ export interface PoolMaintenance {
   statuses: TaskStatus[];
   pressure: PressureStatus | null;
   equipment: EquipmentNow[];
+  /** The pump's running hours since it was installed, from the pump schedules (on request). */
+  pumpHours: CellHours | null;
   cell: {
     model: string | null;
     installedOn: string | null;
@@ -44,6 +47,8 @@ export interface PoolMaintenance {
   } | null;
   /** Recent completions, newest first. */
   history: { id: string; task: string; doneOn: string }[];
+  /** Every completion loaded (up to 1000), newest first: for checks against install dates. */
+  log: { task: string; doneOn: string }[];
   /** Recent pressure readings, newest first. */
   readings: { id: string; readOn: string; kpa: number; clean: boolean }[];
 }
@@ -97,7 +102,8 @@ export async function loadPoolMaintenance(
       ]);
     if (error || doneError || !pool) return null;
     const today = poolLocalDate(pool.timezone, options.now);
-    const items: EquipmentNow[] = (equipment ?? []).map((e) => ({
+    // Only current pump, feeder, filter and heater rows (earlier salt cells are history only).
+    const items: EquipmentNow[] = (equipment ?? []).filter((e) => isEquipmentKind(e.kind)).map((e) => ({
       kind: e.kind,
       model: e.model,
       type: typeof e.details?.type === "string" ? e.details.type : null,
@@ -126,27 +132,41 @@ export async function loadPoolMaintenance(
     const overrides = pool.maintenance_intervals ?? {};
     const statuses = maintenanceStatus({ pool: maintenancePool, overrides, done: history, pressure: pressureNow, today });
 
+    // Pump schedules, for the cell's chlorine hours and the pump's running hours.
+    const pumpItem = items.find((e) => e.kind === "pump") ?? null;
+    const wantCell = pool.sanitizer === "swg" && Boolean(pool.swg_cell_installed_on);
+    let schedules: { effective_from: string; cell_hours: number | string; segments: PumpSegment[] | null }[] = [];
+    if (options.cellHours && (wantCell || pumpItem)) {
+      const { data } = await client
+        .from("pump_schedules")
+        .select("effective_from, cell_hours, segments")
+        .eq("pool_id", poolId)
+        .limit(1000)
+        .returns<{ effective_from: string; cell_hours: number | string; segments: PumpSegment[] | null }[]>();
+      schedules = data ?? [];
+    }
+
+    let pumpHours: CellHours | null = null;
+    if (options.cellHours && pumpItem && schedules.length > 0) {
+      const spans = schedules
+        .map((s) => ({ from: s.effective_from, hours: Array.isArray(s.segments) ? pumpHoursPerDay(s.segments) : null }))
+        .filter((s): s is { from: string; hours: number } => s.hours !== null);
+      pumpHours = cellHoursUsed({ installedOn: pumpItem.installedOn, today, schedules: spans, settings: [] });
+    }
+
     let cell: PoolMaintenance["cell"] = null;
     if (pool.sanitizer === "swg") {
       let hours: CellHours | null = null;
       let hoursPerDay: number | null = null;
       if (options.cellHours && pool.swg_cell_installed_on) {
-        const [{ data: schedules }, { data: settings }] = await Promise.all([
-          client
-            .from("pump_schedules")
-            .select("effective_from, cell_hours")
-            .eq("pool_id", poolId)
-            .limit(1000)
-            .returns<{ effective_from: string; cell_hours: number | string }[]>(),
-          client
-            .from("events")
-            .select("occurred_at, value")
-            .eq("pool_id", poolId)
-            .eq("kind", "cell_setting")
-            .limit(2000)
-            .returns<{ occurred_at: string; value: number | string | null }[]>(),
-        ]);
-        const spans = (schedules ?? []).map((s) => ({ from: s.effective_from, hours: Number(s.cell_hours) }));
+        const { data: settings } = await client
+          .from("events")
+          .select("occurred_at, value")
+          .eq("pool_id", poolId)
+          .eq("kind", "cell_setting")
+          .limit(2000)
+          .returns<{ occurred_at: string; value: number | string | null }[]>();
+        const spans = schedules.map((s) => ({ from: s.effective_from, hours: Number(s.cell_hours) }));
         const changes = (settings ?? [])
           .filter((s) => s.value !== null)
           .map((s) => ({ at: s.occurred_at, percent: Number(s.value) }));
@@ -165,6 +185,7 @@ export async function loadPoolMaintenance(
 
     return {
       today,
+      pumpHours,
       pool: maintenancePool,
       overrides,
       statuses,
@@ -172,6 +193,7 @@ export async function loadPoolMaintenance(
       equipment: items,
       cell,
       history: history.slice(0, 50),
+      log: history.map((h) => ({ task: h.task, doneOn: h.doneOn })),
       readings: readings.slice(0, 20),
     };
   } catch (err) {

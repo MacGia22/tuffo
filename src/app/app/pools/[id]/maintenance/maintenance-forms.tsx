@@ -9,7 +9,6 @@ import {
   deletePressure,
   logMaintenance,
   logPressure,
-  saveCellInstalled,
   saveInterval,
   type MaintenanceState,
 } from "./actions";
@@ -264,24 +263,6 @@ export function IntervalForm({
         <Status state={state} />
       </form>
     </details>
-  );
-}
-
-export function CellInstalledForm({ poolId, installedOn }: { poolId: string; installedOn: string | null }) {
-  const [state, action, pending] = useActionState(saveCellInstalled, initial);
-  return (
-    <form action={action} className="flex flex-wrap items-end gap-2">
-      <input type="hidden" name="pool_id" value={poolId} />
-      <label className={label}>
-        Cell installed on
-        <input type="date" name="installed_on" defaultValue={installedOn ?? ""} className={`${field} w-44`} />
-      </label>
-      <button type="submit" disabled={pending} className={primary}>
-        {pending ? "Saving…" : "Save"}
-      </button>
-      <ResetButton className="h-10 text-sm text-muted underline-offset-2 hover:underline" />
-      <Status state={state} />
-    </form>
   );
 }
 
