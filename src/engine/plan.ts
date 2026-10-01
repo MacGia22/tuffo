@@ -11,7 +11,7 @@ import { targetsFor, type FcRange } from "./targets";
  * loss comes off. FC at the end of the day is what the floor is checked against.
  */
 
-export const PLAN_VERSION = 1;
+export const PLAN_VERSION = 2;
 
 /** Below this many test pairs the pool's model is still mostly the typical pool's. */
 export const PLAN_OWN_MODEL_PAIRS = 4;
@@ -101,6 +101,11 @@ export interface Plan {
   days: PlanDay[];
   /** Salt pools: suggested cell output, percent; null when the cell's output is unknown or it cannot keep up. */
   swgPercent: number | null;
+  /**
+   * Salt pools starting above the target: a lower setting (0 = off) to run first, until
+   * the date the cell goes to `swgPercent`. Null when one setting serves the whole week.
+   */
+  swgStart: { percent: number; until: string } | null;
   /** Salt pools: chlorine the cell has to make per day on average, ppm. */
   swgNeedPpm: number | null;
   /** The plan hit a limit (largest addition, or the cell at 100%) and FC may still run low. */
@@ -191,6 +196,7 @@ export function planWeek(input: PlanInput): Plan | null {
 
   let capped = false;
   let swgPercent: number | null = null;
+  let swgStart: Plan["swgStart"] = null;
   let swgNeedPpm: number | null = null;
   const adds: number[] = [];
 
@@ -236,7 +242,31 @@ export function planWeek(input: PlanInput): Plan | null {
         capped = true;
       }
       swgPercent = chosen;
-      for (let i = 0; i < days; i += 1) adds.push(round((cell * chosen) / 100, 2));
+      // Starting above the band, one setting all week overshoots: run a lower setting (or
+      // off) for the first days, as long as FC stays at the floor, then the weekly one.
+      // Of the lower settings and switch days that hold the floor, keep the one that leaves
+      // the least FC above the band over the week (ties: the higher, gentler setting).
+      const over = (ends: number[]) => ends.reduce((sum, v) => sum + Math.max(0, v - fc.targetHigh), 0);
+      const schedule = (start: number, k: number) => {
+        let level = water.fc;
+        return losses.map((loss, i) => (level = Math.max(0, level + (cell * (i < k ? start : chosen)) / 100 - loss)));
+      };
+      let best = { excess: over(ends(chosen)), start: chosen, k: 0 };
+      if (!capped && water.fc > fc.targetHigh) {
+        for (const start of candidates.filter((p) => p < chosen)) {
+          for (let k = 1; k < days; k += 1) {
+            const path = schedule(start, k);
+            if (!path.every((v) => v >= floor)) break;
+            const excess = over(path);
+            if (excess < best.excess - 1e-9 || (Math.abs(excess - best.excess) < 1e-9 && start > best.start && best.k > 0)) {
+              best = { excess, start, k };
+            }
+          }
+        }
+      }
+      const startDays = best.k;
+      if (startDays > 0) swgStart = { percent: best.start, until: input.days[startDays].date };
+      for (let i = 0; i < days; i += 1) adds.push(round((cell * (i < startDays ? best.start : chosen)) / 100, 2));
     } else {
       // Unknown cell: show the week's use only.
       for (let i = 0; i < days; i += 1) adds.push(0);
@@ -269,6 +299,7 @@ export function planWeek(input: PlanInput): Plan | null {
     floor: round(floor, 2),
     days: planDays,
     swgPercent,
+    swgStart,
     swgNeedPpm,
     capped,
     lowWithoutChlorine,

@@ -15,6 +15,8 @@ export interface StoredPlanSummary {
   fc: Plan["fc"];
   floor: number;
   swgPercent: number | null;
+  /** Salt pools starting above the target: a lower setting (0 = off) before `until`. Absent on older plans. */
+  swgStart?: { percent: number; until: string } | null;
   swgNeedPpm: number | null;
   capped: boolean;
   lowWithoutChlorine: string | null;
@@ -82,6 +84,12 @@ export function estimateStartFc(input: {
  * salt pool only once the cell's output is known (rating and pump schedule), otherwise
  * the simulation leaves the cell out and FC would seem to drain to zero.
  */
+/** The cell setting the plan gives for a day: the starting one before `until`, then the weekly one. */
+export function cellPercentOn(summary: Pick<StoredPlanSummary, "swgPercent" | "swgStart">, date: string): number | null {
+  if (summary.swgPercent === null) return null;
+  return summary.swgStart && date < summary.swgStart.until ? summary.swgStart.percent : summary.swgPercent;
+}
+
 export function planHasFcLine(summary: Pick<StoredPlanSummary, "kind" | "swgPercent">): boolean {
   return summary.kind === "manual" || summary.swgPercent !== null;
 }

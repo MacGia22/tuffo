@@ -34,6 +34,9 @@ describe("cardFacts", () => {
     expect(cardFacts({ ...base, plan: plan("manual", null, 0) }).action).toBe("Nothing to add");
     expect(cardFacts({ ...base, plan: plan("swg", 50, 0) }).action).toBe("Cell 50%");
     expect(cardFacts({ ...base, plan: plan("swg", null, 0) }).action).toBeNull();
+    const starting = plan("swg", 50, 0);
+    starting.summary.swgStart = { percent: 0, until: "2026-10-03" };
+    expect(cardFacts({ ...base, plan: starting }).action).toBe("Cell off");
   });
 
   it("counts maintenance due and overdue", () => {

@@ -43,3 +43,18 @@ describe("bandAdvice", () => {
     });
   });
 });
+
+describe("bandAdvice with a starting cell setting", () => {
+  it("says when to turn the cell back up, instead of a second setting", () => {
+    // The plan runs the cell off until Sunday Oct 4, then 50%; FC is above 7 today.
+    const p = plan("swg", 9, 50, [day("2026-10-01", 9.5), day("2026-10-02", 8.4), day("2026-10-03", 7.6), day("2026-10-04", 9.9)]);
+    p.summary.swgStart = { percent: 0, until: "2026-10-04" };
+    expect(bandAdvice(p, "2026-10-01", [25, 50, 75, 100])?.text).toBe(
+      "Free chlorine is above the 7 ppm target: switch the cell off until Sunday, then 50%. Test before you turn it back up.",
+    );
+    p.summary.swgStart = { percent: 25, until: "2026-10-04" };
+    expect(bandAdvice(p, "2026-10-01", [25, 50, 75, 100])?.text).toContain("run the cell at 25% until Sunday, then 50%");
+    // From the switch day on, the usual advice applies.
+    expect(bandAdvice(p, "2026-10-04", [25, 50, 75, 100])?.text).toContain("At 50% free chlorine climbs above 7 ppm");
+  });
+});

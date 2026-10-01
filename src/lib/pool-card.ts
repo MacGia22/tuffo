@@ -6,7 +6,7 @@
 
 import { baseToShelf, formatShelf } from "@/lib/dose-format";
 import type { Units } from "@/lib/format";
-import type { StoredPlan } from "@/lib/plan/stored";
+import { cellPercentOn, type StoredPlan } from "@/lib/plan/stored";
 import { levelOf, testAge, type Level } from "@/lib/tiles";
 
 export interface CardInput {
@@ -44,7 +44,8 @@ export function cardFacts(input: CardInput): CardFacts {
   const day = input.plan?.days.find((d) => d.date === input.today);
   if (input.plan && day) {
     if (input.plan.summary.kind === "swg") {
-      action = input.plan.summary.swgPercent !== null ? `Cell ${input.plan.summary.swgPercent}%` : null;
+      const percent = cellPercentOn(input.plan.summary, input.today);
+      action = percent === null ? null : percent === 0 ? "Cell off" : `Cell ${percent}%`;
     } else if (day.addMl > 0) {
       const shelf = baseToShelf(day.addMl, "mL", input.units);
       action = shelf.value > 0 ? `Add ${formatShelf(shelf.value, shelf.unit)}` : "Nothing to add";

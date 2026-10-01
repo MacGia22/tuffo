@@ -4,7 +4,7 @@ import { baseToShelf, formatShelf } from "@/lib/dose-format";
 import type { Units } from "@/lib/format";
 import Link from "next/link";
 import { bandAdvice } from "@/lib/plan/band";
-import { confidenceText, planHasFcLine, PLAN_TEST_AGE_DAYS, type StoredPlan, type StoredPlanDay } from "@/lib/plan/stored";
+import { cellPercentOn, confidenceText, planHasFcLine, PLAN_TEST_AGE_DAYS, type StoredPlan, type StoredPlanDay } from "@/lib/plan/stored";
 
 function weekday(date: string): { day: string; date: string } {
   const d = new Date(`${date}T12:00:00Z`);
@@ -68,11 +68,17 @@ export function PlanStrip({
   // One line for today, above the week.
   const first = days[0].date === today ? days[0] : null;
   const firstAdd = first ? planAddLabel(first, units) : null;
+  // Salt pools starting above the target run lower (or off) first, then the weekly setting.
+  const start = summary.swgStart && today < summary.swgStart.until ? summary.swgStart : null;
+  const cellNow = cellPercentOn(summary, today);
+  const cellWord = (percent: number) => (percent === 0 ? "off" : `at ${percent}%`);
   const todayLine = !first
     ? null
     : swg
-      ? summary.swgPercent !== null
-        ? `salt cell at ${summary.swgPercent}%${first.algaeRisk ? "; test, free chlorine may run low" : ""}.`
+      ? cellNow !== null
+        ? start
+          ? `salt cell ${cellWord(start.percent)}, then ${summary.swgPercent}% from ${weekday(start.until).day}.`
+          : `salt cell at ${cellNow}%${first.algaeRisk ? "; test, free chlorine may run low" : ""}.`
         : null
       : firstAdd
         ? `add ${firstAdd} of ${product ? product.name.toLowerCase() : "liquid chlorine"}${first.algaeRisk ? "; test first, it may run low" : ""}.`
@@ -134,17 +140,29 @@ export function PlanStrip({
         <p className="rounded-2xl border border-border bg-surface p-4">
           {summary.swgPercent !== null ? (
             <>
-              Set the salt cell to {cellLevels ? "" : "about "}
-              <strong className="font-display text-lg">{summary.swgPercent}%</strong> this week{summary.cellHours ? ` (with the cell running ${summary.cellHours} h a day)` : ""}. It needs to make
+              {start ? (
+                <>
+                  Run the salt cell{" "}
+                  <strong className="font-display text-lg">{start.percent === 0 ? "off" : `at ${start.percent}%`}</strong> until{" "}
+                  {weekday(start.until).day}, then at {cellLevels ? "" : "about "}
+                  <strong className="font-display text-lg">{summary.swgPercent}%</strong>
+                </>
+              ) : (
+                <>
+                  Set the salt cell to {cellLevels ? "" : "about "}
+                  <strong className="font-display text-lg">{summary.swgPercent}%</strong> this week
+                </>
+              )}
+              {summary.cellHours ? ` (with the cell running ${summary.cellHours} h a day)` : ""}. It needs to make
               about {summary.swgNeedPpm?.toFixed(1)} ppm of free chlorine a day.
               {cellLevels
                 ? ` Your cell sets ${cellLevels}${advice?.direction === "high" ? "." : "; this is the lowest that keeps chlorine up all week."}`
                 : ""}
-              {summary.cellSetting !== summary.swgPercent && poolId ? (
+              {summary.cellSetting !== cellNow && poolId ? (
                 <>
                   {" "}
                   <a
-                    href={`/app/pools/${poolId}/events/new?kind=cell_setting&value=${summary.swgPercent}`}
+                    href={`/app/pools/${poolId}/events/new?kind=cell_setting&value=${cellNow}`}
                     className="font-semibold text-lagoon"
                   >
                     I set it

@@ -87,7 +87,9 @@ function section(alert: DueAlert, ctx: EmailContext): Section {
     if (plan.summary.kind === "swg") {
       lines.push(
         plan.summary.swgPercent !== null
-          ? `Salt cell at about ${plan.summary.swgPercent}% this week (about ${plan.summary.swgNeedPpm?.toFixed(1)} ppm of chlorine a day).`
+          ? plan.summary.swgStart
+            ? `Salt cell ${plan.summary.swgStart.percent === 0 ? "off" : `at about ${plan.summary.swgStart.percent}%`} until ${weekday(plan.summary.swgStart.until)}, then about ${plan.summary.swgPercent}% (about ${plan.summary.swgNeedPpm?.toFixed(1)} ppm of chlorine a day).`
+            : `Salt cell at about ${plan.summary.swgPercent}% this week (about ${plan.summary.swgNeedPpm?.toFixed(1)} ppm of chlorine a day).`
           : `The cell needs to make about ${plan.summary.swgNeedPpm?.toFixed(1)} ppm of chlorine a day.`,
       );
     } else {
