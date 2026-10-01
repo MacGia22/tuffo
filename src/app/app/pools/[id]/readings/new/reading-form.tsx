@@ -1,5 +1,7 @@
 "use client";
 
+import { CancelLink, ReturnTo } from "@/components/form-cancel";
+
 import { useActionState, useState } from "react";
 import { QueuedNotice, useOfflineLog } from "@/components/offline-log";
 import { ScanButton, type ScanAllowance, type ScanResponse } from "@/components/scan-button";
@@ -45,7 +47,10 @@ export function ReadingForm({
   scanEnabled,
   scanAllowance,
   edit,
+  returnTo,
 }: {
+  /** Where Save and Cancel go back to. */
+  returnTo: string;
   poolId: string;
   units: Units;
   swg: boolean;
@@ -104,10 +109,11 @@ export function ReadingForm({
       <input type="hidden" name="pool_id" value={poolId} />
       <input type="hidden" name="units" value={units} />
       {offline.hidden}
+      <ReturnTo value={returnTo} />
       <EditFields edit={edit} whenField="taken_at" />
 
       {scanEnabled && !edit ? (
-        <div className="flex flex-col gap-3 rounded-2xl border border-dashed border-border p-4">
+        <div id="scan" className="flex scroll-mt-4 flex-col gap-3 rounded-2xl border border-dashed border-border p-4 target:border-lagoon target:ring-2 target:ring-lagoon/30">
           <ScanButton onResult={applyScan} disabled={pending} allowance={scanAllowance} />
           <p className="text-xs text-muted">
             Photograph the pool store&apos;s printout, a test strip beside its chart, or a tester screen. The numbers
@@ -213,13 +219,16 @@ export function ReadingForm({
         </p>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="h-12 self-start rounded-xl bg-lagoon px-6 text-base font-semibold text-white transition hover:bg-lagoon-deep disabled:opacity-60"
-      >
-        {pending ? "Saving…" : edit ? "Save changes" : "Save test"}
-      </button>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="submit"
+          disabled={pending}
+          className="h-12 self-start rounded-xl bg-lagoon px-6 text-base font-semibold text-white transition hover:bg-lagoon-deep disabled:opacity-60"
+        >
+          {pending ? "Saving…" : edit ? "Save changes" : "Save test"}
+        </button>
+        <CancelLink href={returnTo} />
+      </div>
     </form>
   );
 }

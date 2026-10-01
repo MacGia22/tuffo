@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { safeReturnTo } from "@/lib/return-to";
 import { notFound } from "next/navigation";
 import { PoolCrumbs } from "@/components/pool-crumbs";
 import type { BaseUnit } from "@/lib/dose-format";
@@ -10,8 +11,9 @@ import { DoseForm } from "../../new/dose-form";
 
 export const metadata: Metadata = { title: "Edit a dose" };
 
-export default async function EditDosePage({ params }: PageProps<"/app/pools/[id]/doses/[entryId]/edit">) {
+export default async function EditDosePage({ params, searchParams }: PageProps<"/app/pools/[id]/doses/[entryId]/edit">) {
   const { id, entryId } = await params;
+  const { from } = await searchParams;
   if (!isUuid(id) || !isUuid(entryId)) notFound();
 
   const supabase = await createSupabaseServerClient();
@@ -41,6 +43,7 @@ export default async function EditDosePage({ params }: PageProps<"/app/pools/[id
         <p className="text-muted">Fix the product, the amount or the time.</p>
       </div>
       <DoseForm
+        returnTo={safeReturnTo(from, `/app/pools/${id}`)}
         poolId={pool.id}
         units={units}
         prefill={{}}

@@ -75,3 +75,13 @@ h3 {
   font-family: var(--font-sora), system-ui, sans-serif;
   letter-spacing: -0.02em;
 }
+
+/* Phones: room under the page for a pool's bottom bar, and the Saved notice above it. */
+@media (max-width: 767px) {
+  body:has(#pool-bar) footer {
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  }
+  body:has(#pool-bar) .saved-notice {
+    bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  }
+}

@@ -6,6 +6,7 @@ import { SaltCellForm } from "@/components/salt-cell-form";
 import { describeEquipment, EQUIPMENT_KINDS, KIND_LABELS, type EquipmentKind } from "@/lib/equipment";
 import { litersToDisplayVolume, type Units } from "@/lib/format";
 import { isUuid } from "@/lib/form-data";
+import { fromParam } from "@/lib/return-to";
 import { dueText, type TaskEquipment } from "@/lib/maintenance";
 import { loadPoolMaintenance } from "@/lib/maintenance-data";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -141,7 +142,7 @@ export default async function PoolSettingsPage({ params, searchParams }: PagePro
             "No location yet. "
           )}
           <Link
-            href={`/app/pools/${pool.id}/location`}
+            href={`/app/pools/${pool.id}/location?${fromParam(`/app/pools/${pool.id}/settings`)}`}
             className="font-semibold text-lagoon underline-offset-2 hover:underline"
           >
             {pool.place_label ? "Change location" : "Set location"}
@@ -165,7 +166,7 @@ export default async function PoolSettingsPage({ params, searchParams }: PagePro
             />
             <p className="text-sm">
               <Link
-                href={`/app/pools/${pool.id}/events/new?kind=cell_setting`}
+                href={`/app/pools/${pool.id}/events/new?kind=cell_setting&${fromParam(`/app/pools/${pool.id}/settings`)}`}
                 className="font-semibold text-lagoon underline-offset-2 hover:underline"
               >
                 Log a cell setting change
@@ -201,7 +202,7 @@ export default async function PoolSettingsPage({ params, searchParams }: PagePro
                     }
                   : null
               }
-              scheduleHref={kind === "pump" ? `/app/pools/${pool.id}/pump` : null}
+              scheduleHref={kind === "pump" ? `/app/pools/${pool.id}/pump?${fromParam(`/app/pools/${pool.id}/settings`)}` : null}
               upkeep={current ? upkeep(kind) : []}
               maintenanceHref={maintenanceHref}
             />

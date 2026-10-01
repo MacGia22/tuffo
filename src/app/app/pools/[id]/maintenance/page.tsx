@@ -5,6 +5,7 @@ import { PoolCrumbs } from "@/components/pool-crumbs";
 import { describeEquipment, KIND_LABELS } from "@/lib/equipment";
 import { formatPressure, type Units } from "@/lib/format";
 import { isUuid } from "@/lib/form-data";
+import { fromParam } from "@/lib/return-to";
 import {
   ageYears,
   describeInterval,
@@ -246,7 +247,7 @@ export default async function MaintenancePage({ params }: PageProps<"/app/pools/
               ) : (
                 <p>
                   Installed {day(m.cell.installedOn)} ({formatAge(ageYears(m.cell.installedOn, m.today))}).{" "}
-                  <Link href={`/app/pools/${pool.id}/pump`} className={link}>
+                  <Link href={`/app/pools/${pool.id}/pump?${fromParam(`/app/pools/${pool.id}/maintenance`)}`} className={link}>
                     Add the pump schedule
                   </Link>{" "}
                   to count its hours.

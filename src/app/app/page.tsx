@@ -92,7 +92,7 @@ export default async function PoolsPage() {
                 <Link href={`/app/pools/${pool.id}/settings`} className="font-semibold text-lagoon">
                   Settings and equipment
                 </Link>
-                <Link href={`/app/pools/${pool.id}/location`} className="font-semibold text-lagoon">
+                <Link href={`/app/pools/${pool.id}/location?from=%2Fapp`} className="font-semibold text-lagoon">
                   {pool.place_label ? "Change location" : "Set location"}
                 </Link>
               </div>

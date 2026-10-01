@@ -6,6 +6,11 @@ import { InstallBanner } from "@/components/install-banner";
 import { OfflineSync } from "@/components/offline-sync";
 import { isAdmin } from "@/lib/auth/admin";
 import { requireUser } from "@/lib/auth/user";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { Suspense } from "react";
+import { ChevronDownIcon } from "@/components/icons";
+import { MenuButton } from "@/components/log-menu";
+import { SavedNotice } from "@/components/saved-notice";
 
 // Always rendered per request: depends on the session cookie.
 export const dynamic = "force-dynamic";
@@ -17,6 +22,15 @@ export const metadata: Metadata = {
 
 export default async function AppLayout({ children }: LayoutProps<"/app">) {
   const user = await requireUser("/app");
+  // For the pool switcher; fails open to a plain "Pools" link.
+  const supabase = await createSupabaseServerClient();
+  const { data: pools } = await supabase
+    .from("pools")
+    .select("id, name")
+    .order("created_at")
+    .limit(50)
+    .returns<{ id: string; name: string }[]>();
+  const link = "rounded-lg px-2 py-1.5 font-semibold text-muted hover:text-foreground";
 
   return (
     <>
@@ -25,30 +39,44 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
           <Link href="/app" aria-label="Your pools">
             <TuffoLockup size={32} />
           </Link>
-          <div className="flex items-center gap-4 text-sm">
+          <nav aria-label="Main" className="flex items-center gap-1 text-sm sm:gap-3">
+            {pools && pools.length > 1 ? (
+              <MenuButton
+                label="Pools"
+                placement="below-end"
+                buttonClassName={`${link} flex items-center gap-1`}
+                items={[
+                  ...pools.map((p) => ({ href: `/app/pools/${p.id}`, label: p.name })),
+                  { href: "/app", label: "All pools" },
+                  { href: "/app/pools/new", label: "Add a pool" },
+                ]}
+              >
+                Pools
+                <ChevronDownIcon className="h-4 w-4" />
+              </MenuButton>
+            ) : (
+              <Link href="/app" className={link}>
+                Pools
+              </Link>
+            )}
             {isAdmin(user) ? (
-              <Link href="/app/admin" className="text-muted hover:text-foreground">
+              <Link href="/app/admin" className={link}>
                 Admin
               </Link>
             ) : null}
-            <Link href="/app/account" className="text-muted hover:text-foreground" title={user.email ?? ""}>
+            <Link href="/app/account" className={link} title={user.email ?? ""}>
               Account
             </Link>
-            <form action="/auth/signout" method="post">
-              <button
-                type="submit"
-                className="rounded-lg border border-border px-3 py-1.5 font-semibold text-muted hover:text-foreground"
-              >
-                Sign out
-              </button>
-            </form>
-          </div>
+          </nav>
         </div>
       </header>
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-5 py-8">
         <OfflineSync userId={user.id} />
         <InstallBanner />
         {children}
+        <Suspense fallback={null}>
+          <SavedNotice />
+        </Suspense>
       </main>
       <footer className="border-t border-border">
         <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-x-5 gap-y-2 px-5 py-5 text-xs text-muted">

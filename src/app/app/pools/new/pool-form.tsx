@@ -1,5 +1,7 @@
 "use client";
 
+import { CancelLink } from "@/components/form-cancel";
+
 import { useActionState, useState } from "react";
 import { PlacePicker } from "@/components/place-picker";
 import type { Units } from "@/lib/format";
@@ -106,13 +108,16 @@ export function PoolForm({ defaultUnits }: { defaultUnits: Units }) {
         </p>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="h-12 rounded-xl bg-lagoon px-5 text-base font-semibold text-white transition hover:bg-lagoon-deep disabled:opacity-60"
-      >
-        {pending ? "Saving…" : "Save pool"}
-      </button>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="submit"
+          disabled={pending}
+          className="h-12 rounded-xl bg-lagoon px-5 text-base font-semibold text-white transition hover:bg-lagoon-deep disabled:opacity-60"
+        >
+          {pending ? "Saving…" : "Save pool"}
+        </button>
+        <CancelLink href="/app" />
+      </div>
     </form>
   );
 }

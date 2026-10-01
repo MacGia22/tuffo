@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { safeReturnTo } from "@/lib/return-to";
 import { notFound } from "next/navigation";
 import { PoolCrumbs } from "@/components/pool-crumbs";
 import type { Units } from "@/lib/format";
@@ -21,6 +22,7 @@ function dayTitle(date: string): string {
 
 export default async function RainPage({ params, searchParams }: PageProps<"/app/pools/[id]/rain">) {
   const { id } = await params;
+  const returnTo = safeReturnTo((await searchParams).from, `/app/pools/${id}`);
   if (!isUuid(id)) notFound();
   const query = await searchParams;
 
@@ -88,6 +90,7 @@ export default async function RainPage({ params, searchParams }: PageProps<"/app
         {date === today && areaMm !== null ? " (so far, from the forecast)" : ""}
       </p>
       <RainForm
+        returnTo={returnTo}
         poolId={pool.id}
         date={date}
         units={units}

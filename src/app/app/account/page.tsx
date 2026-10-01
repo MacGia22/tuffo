@@ -24,7 +24,7 @@ export default async function AccountPage() {
 
   return (
     <>
-      <nav className="text-sm text-muted">
+      <nav aria-label="Breadcrumb" className="text-sm text-muted">
         <Link href="/app" className="hover:text-foreground">
           Your pools
         </Link>{" "}
@@ -84,6 +84,19 @@ export default async function AccountPage() {
         >
           Send feedback
         </Link>
+      </section>
+
+      <section className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-5">
+        <h2 className="text-xl font-semibold">Sign out</h2>
+        <p className="text-sm text-muted">Signs you out on this device. Entries saved offline stay here until they are sent.</p>
+        <form action="/auth/signout" method="post">
+          <button
+            type="submit"
+            className="rounded-xl border border-border px-4 py-2 text-sm font-semibold hover:border-lagoon"
+          >
+            Sign out
+          </button>
+        </form>
       </section>
 
       <section className="flex flex-col gap-3 rounded-2xl border border-red-200 bg-surface p-5">

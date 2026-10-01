@@ -1,5 +1,7 @@
 "use client";
 
+import { CancelLink, ReturnTo } from "@/components/form-cancel";
+
 import Link from "next/link";
 import { useActionState } from "react";
 import { PlacePicker } from "@/components/place-picker";
@@ -9,7 +11,16 @@ import { saveLocation, type LocationState } from "../actions";
 
 const initial: LocationState = {};
 
-export function LocationForm({ poolId, current }: { poolId: string; current: Place | null }) {
+export function LocationForm({
+  poolId,
+  current,
+  returnTo,
+}: {
+  poolId: string;
+  current: Place | null;
+  /** Where Save and Cancel go back to. */
+  returnTo: string;
+}) {
   const [state, action, pending] = useActionState(saveLocation, initial);
 
   if (state.saved) {
@@ -26,19 +37,23 @@ export function LocationForm({ poolId, current }: { poolId: string; current: Pla
   return (
     <form action={action} className="flex max-w-xl flex-col gap-4">
       <input type="hidden" name="pool_id" value={poolId} />
+      <ReturnTo value={returnTo} />
       <PlacePicker find={findPlaces} initialPlace={current} />
       {state.error ? (
         <p role="alert" className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
           {state.error}
         </p>
       ) : null}
-      <button
-        type="submit"
-        disabled={pending}
-        className="h-12 self-start rounded-xl bg-lagoon px-6 text-base font-semibold text-white hover:bg-lagoon-deep disabled:opacity-60"
-      >
-        {pending ? "Saving…" : "Save location"}
-      </button>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="submit"
+          disabled={pending}
+          className="h-12 self-start rounded-xl bg-lagoon px-6 text-base font-semibold text-white hover:bg-lagoon-deep disabled:opacity-60"
+        >
+          {pending ? "Saving…" : "Save location"}
+        </button>
+        <CancelLink href={returnTo} />
+      </div>
     </form>
   );
 }

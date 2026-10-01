@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ResetButton } from "@/components/form-cancel";
 import { useActionState, useState } from "react";
 import {
   FEEDER_TYPES,
@@ -92,9 +93,12 @@ export function BasicsForm({
         A new volume, sanitizer or cover changes the chlorine model and the plan; Tuffo works them out again after you
         save.
       </p>
-      <button type="submit" disabled={pending} className={save}>
-        {pending ? "Saving…" : "Save"}
-      </button>
+      <div className="flex items-center gap-4">
+        <button type="submit" disabled={pending} className={save}>
+          {pending ? "Saving…" : "Save"}
+        </button>
+        <ResetButton />
+      </div>
       <Status state={state} />
     </form>
   );
@@ -306,9 +310,21 @@ export function EquipmentCard({
               <input type="date" name="since" defaultValue={current.installedOn} className={`${field} w-44`} />
             </label>
           )}
-          <button type="submit" disabled={pending} className={save}>
-            {pending ? "Saving…" : current ? "Save" : "Add"}
-          </button>
+          <div className="flex items-center gap-4">
+            <button type="submit" disabled={pending} className={save}>
+              {pending ? "Saving…" : current ? "Save" : "Add"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                setReplaced(false);
+              }}
+              className="text-sm text-muted underline-offset-2 hover:underline"
+            >
+              Cancel
+            </button>
+          </div>
           <Status state={state} />
         </form>
       ) : (
@@ -360,13 +376,20 @@ export function DeletePoolForm({ poolId, name }: { poolId: string; name: string 
           className={`${field} w-56`}
         />
       </label>
-      <button
-        type="submit"
-        disabled={pending || !matches}
-        className="h-10 self-start rounded-xl bg-red-700 px-4 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-50"
-      >
-        {pending ? "Deleting…" : "Delete this pool"}
-      </button>
+      <div className="flex items-center gap-4">
+        <button
+          type="submit"
+          disabled={pending || !matches}
+          className="h-10 self-start rounded-xl bg-red-700 px-4 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-50"
+        >
+          {pending ? "Deleting…" : "Delete this pool"}
+        </button>
+        {typed ? (
+          <button type="button" onClick={() => setTyped("")} className="text-sm text-muted underline-offset-2 hover:underline">
+            Cancel
+          </button>
+        ) : null}
+      </div>
       {state.error ? (
         <p role="alert" className="text-sm text-red-600">
           {state.error}

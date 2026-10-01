@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { safeReturnTo } from "@/lib/return-to";
 import { notFound } from "next/navigation";
 import { PoolCrumbs } from "@/components/pool-crumbs";
 import { serverEnv } from "@/lib/env";
@@ -19,8 +20,9 @@ interface ScheduleRow {
   cell_hours: number | string;
 }
 
-export default async function PumpPage({ params }: PageProps<"/app/pools/[id]/pump">) {
+export default async function PumpPage({ params, searchParams }: PageProps<"/app/pools/[id]/pump">) {
   const { id } = await params;
+  const returnTo = safeReturnTo((await searchParams).from, `/app/pools/${id}`);
   if (!isUuid(id)) notFound();
 
   const supabase = await createSupabaseServerClient();
@@ -72,6 +74,7 @@ export default async function PumpPage({ params }: PageProps<"/app/pools/[id]/pu
         </p>
       </div>
       <PumpForm
+        returnTo={returnTo}
         poolId={pool.id}
         timeZone={tz}
         current={history[0]?.segments ?? null}

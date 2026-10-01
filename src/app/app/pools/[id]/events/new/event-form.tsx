@@ -1,5 +1,7 @@
 "use client";
 
+import { CancelLink, ReturnTo } from "@/components/form-cancel";
+
 import { useActionState, useState } from "react";
 import { QueuedNotice, useOfflineLog } from "@/components/offline-log";
 import { EVENT_KINDS, eventKindInfo, type EventKind } from "@/lib/events";
@@ -18,7 +20,10 @@ export function EventForm({
   edit,
   swg = false,
   prefill,
+  returnTo,
 }: {
+  /** Where Save and Cancel go back to. */
+  returnTo: string;
   poolId: string;
   units: Units;
   edit?: EditTarget;
@@ -40,6 +45,7 @@ export function EventForm({
       <input type="hidden" name="pool_id" value={poolId} />
       <input type="hidden" name="units" value={units} />
       {offline.hidden}
+      <ReturnTo value={returnTo} />
       <EditFields edit={edit} whenField="occurred_at" />
 
       <fieldset className="flex flex-col gap-2">
@@ -144,13 +150,16 @@ export function EventForm({
         </p>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="h-12 self-start rounded-xl bg-lagoon px-6 text-base font-semibold text-white transition hover:bg-lagoon-deep disabled:opacity-60"
-      >
-        {pending ? "Saving…" : edit ? "Save changes" : "Save"}
-      </button>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="submit"
+          disabled={pending}
+          className="h-12 self-start rounded-xl bg-lagoon px-6 text-base font-semibold text-white transition hover:bg-lagoon-deep disabled:opacity-60"
+        >
+          {pending ? "Saving…" : edit ? "Save changes" : "Save"}
+        </button>
+        <CancelLink href={returnTo} />
+      </div>
     </form>
   );
 }

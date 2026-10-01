@@ -20,7 +20,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  */
 
 /** `transient` marks a database hiccup worth retrying, as opposed to a refused value. */
-export type SaveResult = { ok: true; poolId: string } | { ok: false; error: string; transient?: boolean };
+export type SaveResult = { ok: true; poolId: string; /** A new row's id (for Undo). */ id?: string } | { ok: false; error: string; transient?: boolean };
 
 export type LogKind = "reading" | "dose" | "event";
 
@@ -72,18 +72,21 @@ async function store(kind: LogKind, poolId: string, entry: { id: string; clientI
     recomputeAfterResponse(poolId);
     return { ok: true, poolId };
   }
-  const { error } = await supabase
+  const { data: inserted, error } = await supabase
     .from(table)
-    .insert({ pool_id: poolId, ...row, ...(entry.clientId ? { client_id: entry.clientId } : {}) });
+    .insert({ pool_id: poolId, ...row, ...(entry.clientId ? { client_id: entry.clientId } : {}) })
+    .select("id")
+    .returns<{ id: string }[]>();
   if (error) {
     // Sent before (a retry after a lost reply): the row is already there.
     if (error.code === "23505" && /client_id/.test(`${error.message} ${error.details ?? ""}`)) return { ok: true, poolId };
     return storeError(error.message);
   }
+  const newId = inserted?.[0]?.id;
   // A new test forms a pair with the one before it, and a cell setting changes what the
   // cell made; other doses and events count once a later test exists.
   if (kind === "reading" || row.kind === "cell_setting") recomputeAfterResponse(poolId);
-  return { ok: true, poolId };
+  return { ok: true, poolId, id: newId };
 }
 
 function storeError(message: string): SaveResult {

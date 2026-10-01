@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { ResetButton } from "@/components/form-cancel";
 import { saveAlertSettings, type AlertState } from "./actions";
 
 const initial: AlertState = {};
@@ -69,6 +70,7 @@ export function AlertsForm({ poolId, poolName, choices }: { poolId: string; pool
         >
           {pending ? "Saving…" : "Save"}
         </button>
+        <ResetButton />
         {state.message ? <span className="text-sm text-muted">{state.message}</span> : null}
         {state.error ? <span className="text-sm text-red-600">{state.error}</span> : null}
       </div>

@@ -72,6 +72,13 @@ export function SaltCellForm({
         >
           {pending ? "Saving…" : "Save"}
         </button>
+        <button
+          type="reset"
+          onClick={() => setModel(listed?.id ?? (current.lbPerDay ? "other" : ""))}
+          className="h-10 px-2 text-sm text-muted underline-offset-2 hover:underline"
+        >
+          Cancel
+        </button>
       </div>
       <p className="text-xs text-muted">
         The rating is on the cell&apos;s label or in its manual, often as pounds per day or grams per hour.

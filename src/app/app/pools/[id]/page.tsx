@@ -35,6 +35,7 @@ import { loadOwnRain, withOwnRain } from "@/lib/weather/own-rain";
 import { localDateRange, summarizeBetween, type WeatherDay } from "@/lib/weather/summary";
 import { deleteEntry } from "./actions";
 import { DoneForm } from "./maintenance/maintenance-forms";
+import { GearIcon } from "@/components/icons";
 import { dueTasks, dueText } from "@/lib/maintenance";
 import { loadPoolMaintenance } from "@/lib/maintenance-data";
 
@@ -444,7 +445,17 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
 
       <div className="flex flex-col gap-4">
         <div>
-          <h1 className="text-3xl font-semibold">{pool.name}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-semibold">{pool.name}</h1>
+            <Link
+              href={`/app/pools/${pool.id}/settings`}
+              aria-label={`Settings for ${pool.name}`}
+              title="Settings"
+              className="rounded-lg p-1.5 text-muted hover:bg-lagoon/10 hover:text-foreground"
+            >
+              <GearIcon className="h-6 w-6" />
+            </Link>
+          </div>
           <p className="text-muted">
             {formatVolume(liters, units)} · {pool.sanitizer === "swg" ? "Salt water chlorinator" : "Chlorine"} ·{" "}
             {pool.surface}

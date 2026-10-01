@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/user";
+import { safeReturnTo, withSaved } from "@/lib/return-to";
 import { formFields, instantInZone, isTimeZone, isUuid, text } from "@/lib/form-data";
 import { scheduleFromForm } from "@/lib/pump";
 import { saveDoseEntry, saveEventEntry, saveReadingEntry, type LogKind, type SaveResult } from "@/lib/log/save";
@@ -34,8 +35,10 @@ async function save(kind: LogKind, formData: FormData, saver: (f: FormData) => P
 
   const result = await saver(formData);
   if (!result.ok) return { error: result.error, fields: formFields(formData) };
-  revalidatePath(`/app/pools/${poolId}`);
-  redirect(`/app/pools/${poolId}`);
+  revalidatePath(`/app/pools/${poolId}`, "layout");
+  // Back where the person came from: "Saved", with Undo for a new entry.
+  const back = safeReturnTo(text(formData, "return_to"), `/app/pools/${poolId}`);
+  redirect(withSaved(back, !id && result.id ? `${kind}.${result.id}` : "1"));
 }
 
 /** Saves a new test, or changes one when the form carries an `id`. */
@@ -130,20 +133,25 @@ export async function savePumpSchedule(_prev: PumpState, formData: FormData): Pr
   }
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.from("pump_schedules").insert({
-    pool_id: poolId,
-    effective_from: effectiveFrom,
-    segments: schedule.segments,
-    cell_hours: schedule.cellHours,
-    source: text(formData, "source") === "screenshot" ? "screenshot" : "manual",
-  });
+  const { data: inserted, error } = await supabase
+    .from("pump_schedules")
+    .insert({
+      pool_id: poolId,
+      effective_from: effectiveFrom,
+      segments: schedule.segments,
+      cell_hours: schedule.cellHours,
+      source: text(formData, "source") === "screenshot" ? "screenshot" : "manual",
+    })
+    .select("id")
+    .returns<{ id: string }[]>();
   if (error) {
     return { error: /pump_schedules/.test(error.message) ? "This is not available yet. Try again in a few minutes." : `Could not save (${error.message}).` };
   }
   recomputeAfterResponse(poolId);
-  revalidatePath(`/app/pools/${poolId}`);
-  revalidatePath(`/app/pools/${poolId}/pump`);
-  return { saved: true };
+  revalidatePath(`/app/pools/${poolId}`, "layout");
+  const back = safeReturnTo(text(formData, "return_to"), `/app/pools/${poolId}`);
+  const newId = inserted?.[0]?.id;
+  redirect(withSaved(back, newId ? `pump.${newId}` : "1"));
 }
 
 export interface RainState {
@@ -184,7 +192,7 @@ export async function saveRain(_prev: RainState, formData: FormData): Promise<Ra
   }
   recomputeAfterResponse(poolId);
   revalidatePath(`/app/pools/${poolId}`);
-  redirect(`/app/pools/${poolId}`);
+  redirect(withSaved(safeReturnTo(text(formData, "return_to"), `/app/pools/${poolId}`), "1"));
 }
 
 /** Goes back to the weather cell's rain for that day. */
@@ -197,7 +205,7 @@ export async function clearRain(formData: FormData): Promise<void> {
   const { data: removed } = await supabase.from("pool_rain").delete().eq("pool_id", poolId).eq("date", date).select("date");
   if (removed && removed.length > 0) recomputeAfterResponse(poolId);
   revalidatePath(`/app/pools/${poolId}`);
-  redirect(`/app/pools/${poolId}`);
+  redirect(withSaved(safeReturnTo(text(formData, "return_to"), `/app/pools/${poolId}`), "1"));
 }
 
 export interface LocationState {
@@ -264,7 +272,7 @@ export async function saveLocation(_prev: LocationState, formData: FormData): Pr
   });
   revalidatePath(`/app/pools/${poolId}`);
   revalidatePath("/app");
-  return { saved: true };
+  redirect(withSaved(safeReturnTo(text(formData, "return_to"), `/app/pools/${poolId}`), "1"));
 }
 
 export interface SettingsState {
