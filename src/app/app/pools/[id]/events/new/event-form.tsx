@@ -98,10 +98,10 @@ export function EventForm({
             id="value"
             name="value"
             type="number"
-            inputMode="numeric"
+            inputMode="decimal"
             min={0}
             max={100}
-            step={5}
+            step={0.5}
             required
             defaultValue={f.value ?? ""}
             placeholder="50"

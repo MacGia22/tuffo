@@ -40,6 +40,8 @@ export interface PlanPool {
   surface: "plaster" | "vinyl" | "fiberglass";
   /** The salt cell's output at 100%, ppm of FC per day in this pool; null when unknown. */
   cellPpmPerDay: number | null;
+  /** The output settings the cell's control offers, percent; absent or null: any 5% step. */
+  cellLevels?: number[] | null;
 }
 
 export interface PlanWater {
@@ -218,15 +220,19 @@ export function planWeek(input: PlanInput): Plan | null {
         let level = water.fc;
         return losses.map((loss) => (level = Math.max(0, level + (cell * percent) / 100 - loss)));
       };
+      // The settings the cell's control offers (plus off), or any 5% step.
+      const candidates = pool.cellLevels?.length
+        ? [0, ...pool.cellLevels.filter((l) => l > 0 && l <= 100)].sort((a, b) => a - b)
+        : Array.from({ length: 100 / SWG_STEP_PERCENT + 1 }, (_, i) => i * SWG_STEP_PERCENT);
       let chosen: number | null = null;
-      for (let p = 0; p <= 100; p += SWG_STEP_PERCENT) {
+      for (const p of candidates) {
         if (ends(p).every((v) => v >= floor)) {
           chosen = p;
           break;
         }
       }
       if (chosen === null) {
-        chosen = 100;
+        chosen = candidates[candidates.length - 1];
         capped = true;
       }
       swgPercent = chosen;

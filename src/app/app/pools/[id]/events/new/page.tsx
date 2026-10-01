@@ -15,7 +15,7 @@ export default async function NewEventPage({ params, searchParams }: PageProps<"
   const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
   const kind = eventKindInfo(one(query.kind) ?? "")?.kind;
   const value = one(query.value);
-  const prefill = kind ? { kind, value: value && /^\d{1,3}$/.test(value) ? value : undefined } : undefined;
+  const prefill = kind ? { kind, value: value && /^\d{1,3}(\.5)?$/.test(value) ? value : undefined } : undefined;
   if (!isUuid(id)) notFound();
 
   const supabase = await createSupabaseServerClient();

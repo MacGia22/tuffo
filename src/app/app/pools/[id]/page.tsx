@@ -12,6 +12,7 @@ import { ChlorineUse } from "@/components/chlorine-use";
 import { ConfirmButton } from "@/components/confirm-button";
 import { planAddLabel, PlanStrip } from "@/components/plan-strip";
 import { SaltCellForm } from "@/components/salt-cell-form";
+import { cellLevels, levelsText } from "@/lib/salt-cells";
 import { canSeePlan } from "@/lib/entitlements";
 import { refreshPlanAfterResponse } from "@/lib/plan/build";
 import { parseStoredPlan, planHasFcLine, planIsStale, type StoredPlan } from "@/lib/plan/stored";
@@ -533,7 +534,15 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
         />
       ) : null}
 
-      {plan ? <PlanStrip plan={plan} units={units} today={today} poolId={pool.id} /> : null}
+      {plan ? (
+        <PlanStrip
+          plan={plan}
+          units={units}
+          today={today}
+          poolId={pool.id}
+          cellLevels={pool.sanitizer === "swg" ? levelsText(cellLevels(pool.swg_cell_model)) : null}
+        />
+      ) : null}
 
       {between ? <BetweenTests summary={between} units={units} swg={pool.sanitizer === "swg"} /> : null}
 

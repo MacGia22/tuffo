@@ -61,7 +61,7 @@ export function describeEvent(kind: string, value: number | null, units: Units):
     case "drain_refill":
       return value ? `Drained and refilled ${depthLabel(value, units)}` : "Drained some water and refilled";
     case "cell_setting":
-      return value === null ? "Changed the salt cell setting" : `Salt cell set to ${Math.round(value)}%`;
+      return value === null ? "Changed the salt cell setting" : `Salt cell set to ${Math.round(value * 2) / 2}%`;
     case "heavy_use":
       return value ? `Busy day, about ${Math.round(value)} swimmers` : "Busy day in the pool";
     default:

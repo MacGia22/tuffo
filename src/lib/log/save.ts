@@ -192,7 +192,8 @@ export async function saveEventEntry(formData: FormData): Promise<SaveResult> {
     if (raw !== null) {
       if (raw < 0 || (raw === 0 && info.value !== "percent")) return fail("Use a positive number, or leave it empty.");
       if (info.value === "percent") {
-        value = Math.round(raw);
+        // Half percents for cells set in 12.5% steps (CircuPool EDGE).
+        value = Math.round(raw * 2) / 2;
         if (value > 100) return fail("A cell setting goes up to 100%.");
       } else if (info.value === "depth") {
         const units: Units = text(formData, "units") === "metric" ? "metric" : "us";

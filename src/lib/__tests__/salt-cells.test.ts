@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cellFromForm, toLbPerDay } from "../salt-cells";
+import { cellFromForm, cellLevels, levelsText, toLbPerDay } from "../salt-cells";
 
 describe("salt cells", () => {
   it("lists CircuPool cells", () => {
@@ -23,5 +23,27 @@ describe("salt cells", () => {
     expect(cellFromForm({ model: "other", value: "25", unit: "lb_day" }).ok).toBe(false);
     expect(cellFromForm({ model: "other", value: "", unit: "lb_day" }).ok).toBe(false);
     expect(cellFromForm({ model: "made-up", value: "", unit: "" }).ok).toBe(false);
+  });
+});
+
+describe("cellLevels", () => {
+  it("knows the settings of listed cells", () => {
+    expect(cellLevels("CircuPool CORE35")).toEqual([25, 50, 75, 100]);
+    expect(cellLevels("CircuPool EDGE40")).toHaveLength(8);
+    expect(cellLevels("Pentair IntelliChlor IC40")).toEqual([20, 40, 60, 80, 100]);
+  });
+
+  it("is null for cells set in 5% steps and for other cells", () => {
+    expect(cellLevels("Hayward TurboCell T-15")).toBeNull();
+    expect(cellLevels("CircuPool RJ-60 Plus")).toBeNull();
+    expect(cellLevels("Other")).toBeNull();
+    expect(cellLevels(null)).toBeNull();
+  });
+});
+
+describe("levelsText", () => {
+  it("lists the settings in words", () => {
+    expect(levelsText([25, 50, 75, 100])).toBe("25%, 50%, 75% or 100%");
+    expect(levelsText(null)).toBeNull();
   });
 });
