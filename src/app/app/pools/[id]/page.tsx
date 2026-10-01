@@ -12,7 +12,7 @@ import { ChlorineUse } from "@/components/chlorine-use";
 import { ConfirmButton } from "@/components/confirm-button";
 import { planAddLabel, PlanStrip } from "@/components/plan-strip";
 import { SaltCellForm } from "@/components/salt-cell-form";
-import { cellLevels, levelsText } from "@/lib/salt-cells";
+import { cellLevels, cellRatedHours, levelsText } from "@/lib/salt-cells";
 import { canSeePlan } from "@/lib/entitlements";
 import { refreshPlanAfterResponse } from "@/lib/plan/build";
 import { parseStoredPlan, planHasFcLine, planIsStale, type StoredPlan } from "@/lib/plan/stored";
@@ -40,7 +40,9 @@ import { StatusTiles } from "@/components/status-tiles";
 import { testAge, tilesFor } from "@/lib/tiles";
 import { MenuButton } from "@/components/log-menu";
 import { logLinks } from "@/lib/log-links";
-import { dueTasks, dueText } from "@/lib/maintenance";
+import { dueTasks, dueText, healthItems } from "@/lib/maintenance";
+import { HealthRow } from "@/components/maintenance-visuals";
+import { KIND_LABELS } from "@/lib/equipment";
 import { loadPoolMaintenance } from "@/lib/maintenance-data";
 
 interface Pool {
@@ -435,8 +437,21 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
     now,
   } = await loadPoolView(id);
   // Upkeep due now or within days; fails open (nothing shown).
-  const upkeep = await loadPoolMaintenance(await createSupabaseServerClient(), pool.id);
+  const upkeep = await loadPoolMaintenance(await createSupabaseServerClient(), pool.id, { cellHours: true });
   const upkeepDue = upkeep ? dueTasks(upkeep.statuses) : [];
+  const health = upkeep
+    ? healthItems({
+        today: upkeep.today,
+        cell: upkeep.cell
+          ? {
+              installedOn: upkeep.cell.installedOn,
+              hoursUsed: upkeep.cell.hours?.hours ?? null,
+              ratedHours: cellRatedHours(upkeep.cell.model),
+            }
+          : null,
+        equipment: upkeep.equipment.map((e) => ({ kind: e.kind, type: e.type, installedOn: e.installedOn, label: KIND_LABELS[e.kind] })),
+      })
+    : [];
   // The tiles' targets: the pool's (from the advice), or typical ones before a full test.
   const t = advice?.targets;
   const tileTargets = {
@@ -622,7 +637,7 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
               <li key={s.task.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
                 <span>
                   <span className="font-semibold">{s.task.label}</span>{" "}
-                  <span className={s.state === "overdue" ? "text-red-700" : "text-muted"}>· {dueText(s)}</span>
+                  <span className={s.state === "overdue" ? "text-red-700 dark:text-red-300" : "text-muted"}>· {dueText(s)}</span>
                 </span>
                 <DoneForm poolId={pool.id} task={s.task.id} taskLabel={s.task.label} />
               </li>
@@ -630,6 +645,8 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
           </ul>
         </section>
       ) : null}
+
+      <HealthRow items={health} href={`/app/pools/${pool.id}/maintenance#life`} />
 
       {trend ? (
         <section aria-labelledby="trends" className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4 sm:p-5">

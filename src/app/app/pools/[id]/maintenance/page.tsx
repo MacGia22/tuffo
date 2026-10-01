@@ -8,7 +8,11 @@ import { isUuid } from "@/lib/form-data";
 import { fromParam } from "@/lib/return-to";
 import {
   ageYears,
+  cellReplacementMonth,
   describeInterval,
+  dueCalendar,
+  intervalProgress,
+  lifeSpan,
   dueText,
   formatAge,
   hoursLife,
@@ -24,6 +28,7 @@ import { cellRatedHours } from "@/lib/salt-cells";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { deleteMaintenance, deletePressure } from "./actions";
 import { CellInstalledForm, DoneForm, IntervalForm, PressureForm } from "./maintenance-forms";
+import { DueStrip, HoursBar, IntervalBar, LifeBar, PressureChart, TONE_LABEL, TonePill } from "@/components/maintenance-visuals";
 
 export const metadata: Metadata = { title: "Maintenance" };
 
@@ -37,7 +42,7 @@ function day(date: string): string {
 }
 
 const STATE_STYLE: Record<TaskState, string> = {
-  overdue: "border-red-300 bg-red-50/60",
+  overdue: "border-red-300 bg-red-50/60 dark:border-red-900 dark:bg-red-950/40",
   due: "border-sun/70 bg-sun/10",
   soon: "border-lagoon/40 bg-lagoon/5",
   ok: "border-border bg-surface",
@@ -116,13 +121,32 @@ export default async function MaintenancePage({ params }: PageProps<"/app/pools/
             .
           </p>
         ) : (
+          <>
+          <DueStrip days={dueCalendar(m.statuses, m.today)} />
           <ul className="flex flex-col gap-3">
             {m.statuses.map((s) => (
               <li key={s.task.id} className={`flex flex-col gap-2 rounded-2xl border p-4 ${STATE_STYLE[s.state]}`}>
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <h3 className="font-semibold">{s.task.label}</h3>
-                  <p className={`text-sm ${s.state === "overdue" ? "font-semibold text-red-700" : ""}`}>{dueText(s)}</p>
+                  <p className={`text-sm ${s.state === "overdue" ? "font-semibold text-red-700 dark:text-red-300" : ""}`}>{dueText(s)}</p>
                 </div>
+                {(() => {
+                  const progress = intervalProgress(s);
+                  if (!progress) return null;
+                  return (
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <IntervalBar
+                          share={progress.share}
+                          tone={progress.tone}
+                          text={`${Math.round(Math.min(progress.share, 1) * 100)}% of the interval gone; ${dueText(s)}`}
+                        />
+                      </div>
+                      <TonePill tone={progress.tone} label={TONE_LABEL[progress.tone]} />
+                    </div>
+                  );
+                })()}
+                {s.nextDue ? <p className="text-xs text-muted">Next due {day(s.nextDue)}</p> : null}
                 <p className="text-sm">
                   {s.lastDone ? `Last done ${day(s.lastDone)}` : "Not logged yet: if you did it recently, log the day"}
                   {" · "}
@@ -144,6 +168,7 @@ export default async function MaintenancePage({ params }: PageProps<"/app/pools/
               </li>
             ))}
           </ul>
+          </>
         )}
       </section>
 
@@ -185,6 +210,14 @@ export default async function MaintenancePage({ params }: PageProps<"/app/pools/
               rule; a much lower reading than clean can mean a blocked skimmer or pump basket.
             </p>
           )}
+          {m.readings.length > 0 ? (
+            <PressureChart
+              readings={[...m.readings].reverse()}
+              cleanKpa={m.pressure?.clean?.kpa ?? null}
+              thresholdKpa={m.pressure?.clean ? m.pressure.clean.kpa + PRESSURE_RISE_KPA : null}
+              units={units}
+            />
+          ) : null}
           <PressureForm poolId={pool.id} units={units} />
           {m.readings.length > 0 ? (
             <ul className="flex flex-col gap-1 text-sm">
@@ -235,6 +268,21 @@ export default async function MaintenancePage({ params }: PageProps<"/app/pools/
                       <>. The maker does not publish a rated life in hours for this cell.</>
                     )}
                   </p>
+                  {ratedHours ? <HoursBar used={m.cell.hours.hours} rated={ratedHours} /> : null}
+                  {(() => {
+                    const month = cellReplacementMonth({
+                      hoursUsed: m.cell.hours.hours,
+                      ratedHours,
+                      hoursPerDay: m.cell.hoursPerDay,
+                      today: m.today,
+                    });
+                    return month ? (
+                      <p>
+                        At today&apos;s pump schedule and setting (about {Math.round((m.cell.hoursPerDay ?? 0) * 10) / 10} h a
+                        day), the rated hours run out around <strong>{month}</strong>.
+                      </p>
+                    ) : null;
+                  })()}
                   <p className="text-xs text-muted">
                     Counted from your pump schedules and cell settings (a cell at 50% makes chlorine about half the
                     time it runs)
@@ -254,6 +302,9 @@ export default async function MaintenancePage({ params }: PageProps<"/app/pools/
                 </p>
               )}
               {m.cell.installedOn && !ratedHours ? (
+                <LifeBar span={lifeSpan(m.cell.installedOn, m.today, TYPICAL_LIFE_YEARS.cell)} label="Salt cell" />
+              ) : null}
+              {m.cell.installedOn && !ratedHours ? (
                 <p>
                   Typical life {TYPICAL_LIFE_YEARS.cell[0]} to {TYPICAL_LIFE_YEARS.cell[1]} years; this one is{" "}
                   {formatAge(ageYears(m.cell.installedOn, m.today))} old,{" "}
@@ -271,11 +322,12 @@ export default async function MaintenancePage({ params }: PageProps<"/app/pools/
                 <h3 className="font-semibold">
                   {KIND_LABELS[e.kind]}: {describeEquipment(e.kind, e.model, e.details)}
                 </h3>
+                {life ? <LifeBar span={lifeSpan(e.installedOn, m.today, life)} label={KIND_LABELS[e.kind]} /> : null}
                 <p>
                   Installed {day(e.installedOn)} ({formatAge(years)})
                   {life ? (
                     <>
-                      . Typical life {life[0]} to {life[1]} years: {LIFE_TEXT[lifeState(years, life)]}.
+                      . Typical life {life[0]} to {life[1]} years: <strong>{lifeSpan(e.installedOn, m.today, life).left}</strong>.
                     </>
                   ) : (
                     "."

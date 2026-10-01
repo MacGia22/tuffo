@@ -39,6 +39,8 @@ export interface PoolMaintenance {
     model: string | null;
     installedOn: string | null;
     hours: CellHours | null;
+    /** Hours a day the cell makes chlorine now: pump hours times the setting. */
+    hoursPerDay: number | null;
   } | null;
   /** Recent completions, newest first. */
   history: { id: string; task: string; doneOn: string }[];
@@ -127,6 +129,7 @@ export async function loadPoolMaintenance(
     let cell: PoolMaintenance["cell"] = null;
     if (pool.sanitizer === "swg") {
       let hours: CellHours | null = null;
+      let hoursPerDay: number | null = null;
       if (options.cellHours && pool.swg_cell_installed_on) {
         const [{ data: schedules }, { data: settings }] = await Promise.all([
           client
@@ -143,16 +146,21 @@ export async function loadPoolMaintenance(
             .limit(2000)
             .returns<{ occurred_at: string; value: number | string | null }[]>(),
         ]);
-        hours = cellHoursUsed({
-          installedOn: pool.swg_cell_installed_on,
-          today,
-          schedules: (schedules ?? []).map((s) => ({ from: s.effective_from, hours: Number(s.cell_hours) })),
-          settings: (settings ?? [])
-            .filter((s) => s.value !== null)
-            .map((s) => ({ at: s.occurred_at, percent: Number(s.value) })),
-        });
+        const spans = (schedules ?? []).map((s) => ({ from: s.effective_from, hours: Number(s.cell_hours) }));
+        const changes = (settings ?? [])
+          .filter((s) => s.value !== null)
+          .map((s) => ({ at: s.occurred_at, percent: Number(s.value) }));
+        hours = cellHoursUsed({ installedOn: pool.swg_cell_installed_on, today, schedules: spans, settings: changes });
+        // Today's pace, for when the rated hours run out.
+        const latest = <T extends { at: string }>(rows: T[]) =>
+          rows.filter((r) => r.at.slice(0, 10) <= today).sort((a, b) => (a.at < b.at ? 1 : -1))[0];
+        const schedule = latest(spans.map((s) => ({ ...s, at: s.from })));
+        const setting = latest(changes);
+        if (schedule && Number.isFinite(schedule.hours)) {
+          hoursPerDay = schedule.hours * (setting ? Math.max(0, Math.min(100, setting.percent)) / 100 : 1);
+        }
       }
-      cell = { model: pool.swg_cell_model, installedOn: pool.swg_cell_installed_on, hours };
+      cell = { model: pool.swg_cell_model, installedOn: pool.swg_cell_installed_on, hours, hoursPerDay };
     }
 
     return {

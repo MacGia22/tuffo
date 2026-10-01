@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   ageYears,
   cellHoursUsed,
+  cellReplacementMonth,
+  dueCalendar,
+  healthItems,
+  intervalProgress,
+  lifeSpan,
   describeInterval,
   dueTasks,
   dueText,
@@ -221,5 +226,68 @@ describe("life", () => {
     expect(lifeState(6, [8, 12])).toBe("fine");
     expect(lifeState(9, [8, 12])).toBe("late");
     expect(lifeState(13, [8, 12])).toBe("past");
+  });
+});
+
+describe("visual helpers", () => {
+  const today = "2026-10-01";
+  const statuses = maintenanceStatus({
+    pool: saltCartridge,
+    overrides: {},
+    done: [
+      { task: "cell_clean", doneOn: "2026-06-01" }, // overdue
+      { task: "pump_basket", doneOn: "2026-09-29" }, // due Oct 6
+      { task: "pump_oring", doneOn: "2025-11-01" }, // due Nov 1 2026 (31 days): outside 30
+    ],
+    pressure: null,
+    today,
+  });
+  const by = Object.fromEntries(statuses.map((s) => [s.task.id, s]));
+
+  it("measures the interval gone by and picks a tone", () => {
+    expect(intervalProgress(by.cell_clean)).toMatchObject({ tone: "critical" });
+    // 2 of 7 days gone: under 80%.
+    expect(intervalProgress(by.pump_basket)).toEqual({ share: 2 / 7, tone: "good" });
+    // 334 of 365 days gone: 91%.
+    expect(intervalProgress(by.pump_oring)?.tone).toBe("warning");
+    expect(intervalProgress(by.cartridge_rinse)).toBeNull();
+  });
+
+  it("lays the due dates over the next 30 days", () => {
+    const cal = dueCalendar(statuses, today);
+    expect(cal).toHaveLength(30);
+    expect(cal[0].tasks).toEqual([{ label: "Inspect the salt cell", overdue: true }]);
+    expect(cal[5]).toEqual({ date: "2026-10-06", tasks: [{ label: "Empty the pump basket", overdue: false }] });
+    expect(cal.flatMap((d) => d.tasks).map((t) => t.label)).not.toContain("Lube the pump lid O-ring");
+  });
+
+  it("places an item on its typical life", () => {
+    expect(lifeSpan("2024-10-01", today, [8, 12])).toMatchObject({ state: "fine", left: "about 8 years left" });
+    expect(lifeSpan("2017-10-01", today, [8, 12])).toMatchObject({ state: "late", left: "in the usual replacement window" });
+    expect(lifeSpan("2010-10-01", today, [8, 12])).toMatchObject({ state: "past", share: 1.2 });
+    expect(lifeSpan("2026-01-01", today, [1, 2]).left).toBe("about 9 months left");
+  });
+
+  it("projects when the cell's rated hours run out", () => {
+    // 6,000 h left at 4 h a day: 1,500 days from Oct 1 2026 is Nov 9 2030.
+    expect(cellReplacementMonth({ hoursUsed: 4000, ratedHours: 10000, hoursPerDay: 4, today })).toBe("Nov 2030");
+    expect(cellReplacementMonth({ hoursUsed: 4000, ratedHours: null, hoursPerDay: 4, today })).toBeNull();
+    expect(cellReplacementMonth({ hoursUsed: 12000, ratedHours: 10000, hoursPerDay: 4, today })).toBeNull();
+    expect(cellReplacementMonth({ hoursUsed: 0, ratedHours: 10000, hoursPerDay: 0, today })).toBeNull();
+  });
+});
+
+describe("healthItems", () => {
+  it("uses rated hours for the cell when known, age otherwise", () => {
+    const items = healthItems({
+      today: "2026-10-01",
+      cell: { installedOn: "2023-05-01", hoursUsed: 8500, ratedHours: 10000 },
+      equipment: [{ kind: "pump", type: null, installedOn: "2019-10-01", label: "Pump" }],
+    });
+    expect(items[0]).toEqual({ label: "Salt cell", share: 0.85, tone: "warning", text: "85% of rated hours" });
+    expect(items[1]).toMatchObject({ label: "Pump", tone: "good", text: "about 3 years left" });
+    const byAge = healthItems({ today: "2026-10-01", cell: { installedOn: "2023-10-01", hoursUsed: null, ratedHours: null }, equipment: [] });
+    // 3 years into a typical 3–7: in the replacement window.
+    expect(byAge[0]).toMatchObject({ label: "Salt cell", tone: "warning", text: "in the usual replacement window" });
   });
 });
