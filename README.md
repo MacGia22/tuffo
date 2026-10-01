@@ -390,11 +390,21 @@ water tests: Pool Math's "Export All Test Logs (.csv)" or any sheet with a date 
 The browser parses it for the column mapping and a preview; `POST /api/pools/[id]/import`
 parses it again with the same code (`src/lib/import/`), checks ranges, reads times
 without a zone in the pool's time zone, and drops rows in the same minute as another row
-or a test already logged. A dry run returns the counts; the real run inserts every row in
-one statement with `method = 'imported'` and refits the chlorine model once. Limits:
-1 MB and 5,000 rows per file. Pool Math exports hold tests only, not chemical additions.
-Its header row is not published, so the mapper presets likely names (`FC`, `pH`, `TA`,
-`CH`, `CYA`, `Salt`, `Bor`, `Water Temp`, …); a real export should become a test fixture.
+or a test already logged. Rows on the same day as a logged test with the same results
+(`src/lib/import/logged.ts`: every result both have agrees) are shown as near-duplicates
+and skipped unless the owner ticks "Import them anyway". A dry run returns the counts;
+the real run inserts every row in one statement with `method = 'imported'` and refits the
+chlorine model once. Limits: 1 MB and 5,000 rows per file.
+
+Pool Math's export (`src/lib/import/__tests__/fixtures/poolmath-export.csv`) has `Date`
+as `2026-09-26 09:47:03 AM`, `FC`, `pH`, `TA`, `CH`, `CYA`, `Salt`, `Temp`, `CSI` (left
+out), `Notes`, and `Backwashed`, `Cleaned Filter`, `Vacuumed` as `True`/`False`. Those
+three are offered, off by default, as upkeep to log too: one backwash event per day
+(and, for a sand or DE filter, its backwash task done that day),
+"Cleaned Filter" as the filter's cleaning task done that day (cartridge rinse or DE
+grids; skipped for sand or no filter), and vacuuming skipped (no task). Days already
+logged are skipped; a failed upkeep insert is logged and reported, never undoing the
+tests. Pool Math exports hold no chemical additions.
 
 ## Chlorine-consumption model
 
