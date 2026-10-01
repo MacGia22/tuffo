@@ -646,3 +646,48 @@ export function nextTaskChip(statuses: TaskStatus[], equipment: TaskEquipment, t
   if (first.state === "overdue") return { text: `Overdue: ${first.task.short} · ${due.date}`, tone: "critical" };
   return { text: `Next: ${first.task.short} · ${due.date}`, tone: statusTone(first) };
 }
+
+/** Install years offered when the owner is not sure of the date: "about N years ago". */
+export const ABOUT_YEARS = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 20] as const;
+
+/**
+ * The install date from the form: an exact day, or "about N years ago" counted back from
+ * today (same month and day; Feb 29 falls back to Feb 28). Null when neither is given or
+ * the date is invalid or in the future.
+ */
+export function installDateFrom(since: string, aboutYears: string, today: string): string | null {
+  if (since) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(since) || since > today || Number.isNaN(Date.parse(`${since}T00:00:00Z`))) return null;
+    return since;
+  }
+  const years = Number(aboutYears);
+  if (!aboutYears || !Number.isInteger(years) || years < 1 || years > 40) return null;
+  const [y, m, d] = today.split("-").map(Number);
+  const back = new Date(Date.UTC(y - years, m - 1, d));
+  if (back.getUTCMonth() !== m - 1) back.setUTCDate(0); // Feb 29 in a non-leap year
+  return back.toISOString().slice(0, 10);
+}
+
+export interface InstallConflict {
+  task: MaintenanceTask;
+  doneOn: string;
+}
+
+/**
+ * Upkeep logged before an item was installed, when no earlier item of the same kind was
+ * in place that day: likely a wrong install date (or a wrong log entry). Earliest first.
+ */
+export function installConflicts(input: {
+  equipment: TaskEquipment;
+  installedOn: string;
+  /** Earlier items of the same kind, from the equipment history. */
+  earlier: { installedOn: string; removedOn: string }[];
+  history: { task: string; doneOn: string }[];
+}): InstallConflict[] {
+  const covered = (day: string) => input.earlier.some((e) => e.installedOn <= day && day <= e.removedOn);
+  return input.history
+    .map((h) => ({ task: MAINTENANCE_TASKS.find((t) => t.id === h.task), doneOn: h.doneOn }))
+    .filter((h): h is InstallConflict => Boolean(h.task) && h.task!.equipment === input.equipment)
+    .filter((h) => h.doneOn < input.installedOn && !covered(h.doneOn))
+    .sort((a, b) => (a.doneOn < b.doneOn ? -1 : a.doneOn > b.doneOn ? 1 : 0));
+}

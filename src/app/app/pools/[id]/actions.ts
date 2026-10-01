@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/user";
 import { safeReturnTo, withSaved } from "@/lib/return-to";
 import { formFields, instantInZone, isTimeZone, isUuid, text } from "@/lib/form-data";
+import { installDateFrom } from "@/lib/maintenance";
 import { scheduleFromForm } from "@/lib/pump";
 import { saveDoseEntry, saveEventEntry, saveReadingEntry, type LogKind, type SaveResult } from "@/lib/log/save";
 import { recomputeAfterResponse, recomputePoolModel } from "@/lib/model/recompute";
@@ -73,14 +74,15 @@ export async function saveSaltCell(_prev: CellState, formData: FormData): Promis
   const supabase = await createSupabaseServerClient();
   // Settings sends the install date and whether the cell was replaced; the pool page
   // form sends neither and leaves the date alone.
-  const since = text(formData, "since");
+  const sinceDay = text(formData, "since");
+  const sinceYears = text(formData, "since_years");
   const replaced = formData.get("replaced") === "on";
   const update: Record<string, unknown> = { swg_cell_lb_per_day: choice.lbPerDay, swg_cell_model: choice.model };
-  if (since || replaced) {
+  if (sinceDay || sinceYears || replaced) {
     const today = await poolToday(poolId);
     if (!today) return { error: "Unknown pool." };
-    const on = since || today;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(on) || on > today) return { error: "Pick the day it was installed, up to today." };
+    const on = sinceDay || sinceYears ? installDateFrom(sinceDay, sinceYears, today) : today;
+    if (!on) return { error: "Pick the day it was installed, up to today." };
     update.swg_cell_installed_on = on;
     if (replaced) {
       const { data: old } = await supabase
@@ -360,8 +362,14 @@ export async function saveEquipment(_prev: SettingsState, formData: FormData): P
 
   const today = await poolToday(poolId);
   if (!today) return { error: "Unknown pool." };
-  const since = text(formData, "since") || today;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(since) || since > today) return { error: "Pick the day it was installed, up to today." };
+  // An exact day, or "about N years ago"; empty means today only when replacing.
+  const given = text(formData, "since") || text(formData, "since_years");
+  const replacing = formData.get("replaced") === "on";
+  if (!given && !replacing) {
+    return { error: "Pick the day it was installed, or about how many years ago." };
+  }
+  const since = given ? installDateFrom(text(formData, "since"), text(formData, "since_years"), today) : today;
+  if (!since) return { error: "Pick the day it was installed, up to today." };
 
   const supabase = await createSupabaseServerClient();
   const unavailable = (message: string) =>
@@ -375,10 +383,10 @@ export async function saveEquipment(_prev: SettingsState, formData: FormData): P
     .maybeSingle<CurrentEquipment>();
   if (readError) return { error: unavailable(readError.message) };
 
-  const replaced = formData.get("replaced") === "on";
+  const replaced = replacing;
   if (current && !replaced) {
     // A corrected install date (used for its age on the maintenance page).
-    const installedOn = text(formData, "since") ? since : current.installed_on;
+    const installedOn = given ? since : current.installed_on;
     const { error } = await supabase
       .from("pool_equipment")
       .update({ model: item.model, details: item.details, installed_on: installedOn })

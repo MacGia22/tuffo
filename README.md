@@ -294,6 +294,11 @@ chlorine feeder (floater, inline, liquid dosing pump, controller, with its setti
 and heater; kinds not added yet sit in one "Add:" row. "I replaced it" dates the old item
 (a replaced cell becomes a dated `cell` row) and starts the new one; "Fix details" corrects
 the current one in place, and holds Remove (with a confirm).
+Tapping an item's name opens Fix details too; Maintenance links to that card (`#equip-<kind>`)
+so each item has one edit place. An install date can be a day or "Not sure: about N years
+ago" (`installDateFrom`). A card warns when the upkeep log has entries before the item's
+install date and no earlier item of that kind covered them (`installConflicts`). The pump's
+running hours come from the pump schedules, like the cell's (`pumpHoursPerDay`).
 The pump schedule page starts in GPM for pumps usually set by flow (Pentair VSF).
 Feeders are recorded only; counting them in the chlorine model is a later step.
 

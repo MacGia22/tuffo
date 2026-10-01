@@ -7,6 +7,8 @@ import {
   dueParts,
   groupTasks,
   nextTaskChip,
+  installDateFrom,
+  installConflicts,
   statusTone,
   healthItems,
   intervalProgress,
@@ -348,5 +350,47 @@ describe("nextTaskChip", () => {
     expect(nextTaskChip(statuses, "pump", today)).toEqual({ text: "Next: empty basket · Oct 6", tone: "good" });
     expect(nextTaskChip(statuses, "filter", today)).toEqual({ text: "Set a start date: hose off", tone: null });
     expect(nextTaskChip(statuses, "heater", today)).toBeNull();
+  });
+});
+
+describe("installDateFrom", () => {
+  it("takes an exact day, or counts about N years back", () => {
+    expect(installDateFrom("2023-04-01", "", "2026-10-01")).toBe("2023-04-01");
+    expect(installDateFrom("", "5", "2026-10-01")).toBe("2021-10-01");
+    expect(installDateFrom("", "1", "2028-02-29")).toBe("2027-02-28");
+  });
+
+  it("refuses a future day, a bad day or nothing", () => {
+    expect(installDateFrom("2026-10-02", "", "2026-10-01")).toBeNull();
+    expect(installDateFrom("2026-13-01", "", "2026-10-01")).toBeNull();
+    expect(installDateFrom("", "", "2026-10-01")).toBeNull();
+    expect(installDateFrom("", "0", "2026-10-01")).toBeNull();
+    expect(installDateFrom("", "2.5", "2026-10-01")).toBeNull();
+  });
+});
+
+describe("installConflicts", () => {
+  const history = [
+    { task: "cartridge_replace", doneOn: "2023-03-03" },
+    { task: "cartridge_rinse", doneOn: "2022-06-01" },
+    { task: "cartridge_rinse", doneOn: "2024-01-10" },
+    { task: "pump_basket", doneOn: "2020-01-01" },
+  ];
+  it("flags filter upkeep logged before the filter was installed", () => {
+    const found = installConflicts({ equipment: "filter", installedOn: "2023-04-01", earlier: [], history });
+    expect(found.map((c) => [c.task.id, c.doneOn])).toEqual([
+      ["cartridge_rinse", "2022-06-01"],
+      ["cartridge_replace", "2023-03-03"],
+    ]);
+  });
+
+  it("does not flag upkeep done while an earlier filter was in place", () => {
+    const found = installConflicts({
+      equipment: "filter",
+      installedOn: "2023-04-01",
+      earlier: [{ installedOn: "2019-01-01", removedOn: "2023-04-01" }],
+      history,
+    });
+    expect(found).toEqual([]);
   });
 });

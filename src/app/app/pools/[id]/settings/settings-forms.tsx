@@ -5,6 +5,7 @@ import { ConfirmButton } from "@/components/confirm-button";
 import { ResetButton } from "@/components/form-cancel";
 import { IntervalBar, ToneIcon } from "@/components/maintenance-visuals";
 import { CellForm } from "@/components/salt-cell-form";
+import { InstallDateField } from "@/components/install-date-field";
 import { useActionState, useState } from "react";
 import {
   FEEDER_TYPES,
@@ -231,6 +232,8 @@ export interface CardFacts {
   /** The next maintenance task: "Next: hose off · Oct 31". */
   chip: { text: string; tone: Tone | null } | null;
   links: { href: string; label: string }[];
+  /** Upkeep logged before this item's install date: likely a wrong date. */
+  warning: string | null;
 }
 
 const CHIP_BG: Record<Tone, string> = {
@@ -241,25 +244,52 @@ const CHIP_BG: Record<Tone, string> = {
 
 /** The one card every piece of equipment uses: what it is, its age, what is next. */
 function ItemCard({
+  id,
   title,
   summary,
   facts,
+  onEdit,
   children,
 }: {
+  id: string;
   title: string;
   summary: string | null;
   facts: CardFacts;
+  /** Tapping the item opens Fix details; null while a form is open. */
+  onEdit: (() => void) | null;
   children: React.ReactNode;
 }) {
+  const head = (
+    <>
+      <span className="flex flex-wrap items-baseline justify-between gap-x-3">
+        <span className="font-semibold">{title}</span>
+        {facts.since ? <span className="text-xs text-muted">since {facts.since}</span> : null}
+      </span>
+      <span className="block text-sm">{summary ?? <span className="text-muted">Not added</span>}</span>
+    </>
+  );
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4">
-      <div className="flex flex-col gap-0.5">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-          <h3 className="font-semibold">{title}</h3>
-          {facts.since ? <span className="text-xs text-muted">since {facts.since}</span> : null}
-        </div>
-        <p className="text-sm">{summary ?? <span className="text-muted">Not added</span>}</p>
-      </div>
+    <div id={id} className="flex scroll-mt-20 flex-col gap-3 rounded-2xl border border-border bg-surface p-4 target:ring-2 target:ring-lagoon/40">
+      <h3>
+        {onEdit ? (
+          <button
+            type="button"
+            onClick={onEdit}
+            aria-label={`${title}: edit details`}
+            className="-m-1 flex w-[calc(100%+0.5rem)] flex-col gap-0.5 rounded-lg p-1 text-left hover:bg-lagoon/5"
+          >
+            {head}
+          </button>
+        ) : (
+          <span className="flex flex-col gap-0.5">{head}</span>
+        )}
+      </h3>
+      {facts.warning ? (
+        <p className="flex items-start gap-1.5 rounded-lg bg-status-warning/20 px-2.5 py-1.5 text-xs text-foreground">
+          <ToneIcon tone="warning" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>{facts.warning}</span>
+        </p>
+      ) : null}
       {facts.life ? (
         <div className="flex items-center gap-3">
           <div className="w-24 shrink-0 sm:w-32">
@@ -322,10 +352,10 @@ function EquipmentForm({
       </p>
       <div className="flex flex-wrap items-end gap-3">
         <KindFields kind={kind} current={fix ? current : null} />
-        <label className={label}>
-          {fix ? "Installed on" : "Installed on (empty = today)"}
-          <input type="date" name="since" defaultValue={fix ? current.installedOn : ""} className={`${field} w-44`} />
-        </label>
+        <InstallDateField
+          defaultValue={fix ? current.installedOn : ""}
+          hint={mode === "replace" ? "(empty = today)" : undefined}
+        />
       </div>
       {mode === "replace" ? (
         <p className="text-xs text-muted">The old one stays in the history, from its install date to this one.</p>
@@ -357,7 +387,13 @@ export function EquipmentCard({
 }) {
   const [mode, setMode] = useState<"fix" | "replace" | null>(null);
   return (
-    <ItemCard title={KIND_LABELS[kind]} summary={current.summary} facts={facts}>
+    <ItemCard
+      id={`equip-${kind}`}
+      title={KIND_LABELS[kind]}
+      summary={current.summary}
+      facts={facts}
+      onEdit={mode === null ? () => setMode("fix") : null}
+    >
       {mode === null ? (
         <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
           <button type="button" onClick={() => setMode("replace")} className={actionLink}>
@@ -405,7 +441,13 @@ export function CellCard({
   const known = current.lbPerDay !== null;
   const [mode, setMode] = useState<"fix" | "replace" | null>(known ? null : "fix");
   return (
-    <ItemCard title="Salt cell" summary={summary} facts={facts}>
+    <ItemCard
+      id="equip-cell"
+      title="Salt cell"
+      summary={summary}
+      facts={facts}
+      onEdit={mode === null ? () => setMode("fix") : null}
+    >
       {mode === null ? (
         <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
           <button type="button" onClick={() => setMode("replace")} className={actionLink}>

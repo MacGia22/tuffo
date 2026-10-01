@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { saveSaltCell, type CellState } from "@/app/app/pools/[id]/actions";
 import { OUTPUT_UNITS, SALT_CELLS } from "@/lib/salt-cells";
+import { InstallDateField } from "@/components/install-date-field";
 
 const initial: CellState = {};
 const field = "h-10 rounded-xl border border-border bg-background px-3 text-sm";
@@ -73,10 +74,7 @@ export function CellForm({
           </>
         ) : null}
         {mode !== "set" ? (
-          <label className="flex flex-col gap-1 text-xs text-muted">
-            {fresh ? "Installed on (empty = today)" : "Installed on"}
-            <input type="date" name="since" defaultValue={fresh ? "" : (installedOn ?? "")} className={`${field} w-44`} />
-          </label>
+          <InstallDateField defaultValue={fresh ? "" : (installedOn ?? "")} hint={fresh ? "(empty = today)" : undefined} />
         ) : null}
       </div>
       <p className="text-xs text-muted">

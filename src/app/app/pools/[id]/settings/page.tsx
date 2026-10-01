@@ -6,7 +6,7 @@ import { describeEquipment, EQUIPMENT_KINDS, KIND_LABELS, type EquipmentKind } f
 import { litersToDisplayVolume, type Units } from "@/lib/format";
 import { isUuid } from "@/lib/form-data";
 import { fromParam } from "@/lib/return-to";
-import { healthItems, nextTaskChip, type TaskEquipment } from "@/lib/maintenance";
+import { healthItems, installConflicts, nextTaskChip, type TaskEquipment } from "@/lib/maintenance";
 import { loadPoolMaintenance } from "@/lib/maintenance-data";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { cellRatedHours } from "@/lib/salt-cells";
@@ -80,7 +80,7 @@ export default async function PoolSettingsPage({ params, searchParams }: PagePro
   const swg = pool.sanitizer === "swg";
 
   // Upkeep and life per piece of equipment; fails open (no chips or bars) before its migration.
-  const upkeep = await loadPoolMaintenance(supabase, pool.id, { cellHours: swg });
+  const upkeep = await loadPoolMaintenance(supabase, pool.id, { cellHours: true });
   const current = EQUIPMENT_KINDS.flatMap((kind) => {
     const row = rows.find((r) => r.kind === kind && r.removed_on === null);
     return row ? [{ kind, row }] : [];
@@ -107,11 +107,28 @@ export default async function PoolSettingsPage({ params, searchParams }: PagePro
     : [];
   const facts = (equipment: TaskEquipment, lifeLabel: string, since: string | null, links: CardFacts["links"]): CardFacts => {
     const item = life.find((l) => l.label === lifeLabel);
+    // Upkeep logged before this item was installed, with no earlier item of the kind in place.
+    const conflicts =
+      upkeep && since
+        ? installConflicts({
+            equipment,
+            installedOn: since,
+            earlier: earlier
+              .filter((r) => r.kind === equipment)
+              .map((r) => ({ installedOn: r.installed_on, removedOn: r.removed_on as string })),
+            history: upkeep.log,
+          })
+        : [];
+    const first = conflicts[0];
+    const hours = equipment === "pump" && upkeep?.pumpHours ? `, about ${upkeep.pumpHours.hours.toLocaleString("en-US")} hours run` : "";
     return {
       since: since ? day(since) : null,
-      life: item ? { share: item.share, tone: item.tone, text: item.text } : null,
+      life: item ? { share: item.share, tone: item.tone, text: `${item.text}${hours}` } : null,
       chip: upkeep ? nextTaskChip(upkeep.statuses, equipment, upkeep.today) : null,
       links: [...links, { href: maintenanceHref, label: "Maintenance" }],
+      warning: first
+        ? `The log has "${first.task.label}" on ${day(first.doneOn)}${conflicts.length > 1 ? ` and ${conflicts.length - 1} more` : ""}, before this was installed. Fix the install date, or the log in Maintenance.`
+        : null,
     };
   };
   const missing = EQUIPMENT_KINDS.filter((kind) => !current.some((c) => c.kind === kind));
