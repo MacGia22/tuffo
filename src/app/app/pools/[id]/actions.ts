@@ -8,6 +8,7 @@ import { formFields, instantInZone, isTimeZone, isUuid, text } from "@/lib/form-
 import { scheduleFromForm } from "@/lib/pump";
 import { saveDoseEntry, saveEventEntry, saveReadingEntry, type LogKind, type SaveResult } from "@/lib/log/save";
 import { recomputeAfterResponse, recomputePoolModel } from "@/lib/model/recompute";
+import { basicsFromForm, equipmentFromForm, isEquipmentKind } from "@/lib/equipment";
 import { cellFromForm } from "@/lib/salt-cells";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -264,4 +265,122 @@ export async function saveLocation(_prev: LocationState, formData: FormData): Pr
   revalidatePath(`/app/pools/${poolId}`);
   revalidatePath("/app");
   return { saved: true };
+}
+
+export interface SettingsState {
+  error?: string;
+  saved?: boolean;
+}
+
+/** Reads one form field as text, or null when it is missing. */
+function field(formData: FormData) {
+  return (name: string) => {
+    const v = formData.get(name);
+    return typeof v === "string" ? v : null;
+  };
+}
+
+/** Name, volume, sanitizer, surface and cover. Refits the model and the plan. */
+export async function savePoolBasics(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
+  const poolId = text(formData, "pool_id");
+  if (!isUuid(poolId)) return { error: "Unknown pool." };
+  await requireUser(`/app/pools/${poolId}/settings`);
+  const basics = basicsFromForm(field(formData));
+  if (!basics.ok) return { error: basics.error };
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("pools")
+    .update({
+      name: basics.name,
+      volume_l: basics.volumeL,
+      sanitizer: basics.sanitizer,
+      surface: basics.surface,
+      covered: basics.covered,
+    })
+    .eq("id", poolId)
+    .select("id");
+  if (error) return { error: `Could not save (${error.message}).` };
+  if (!data || data.length === 0) return { error: "Unknown pool." };
+  recomputeAfterResponse(poolId);
+  revalidatePath(`/app/pools/${poolId}`);
+  revalidatePath(`/app/pools/${poolId}/settings`);
+  revalidatePath("/app");
+  return { saved: true };
+}
+
+interface CurrentEquipment {
+  id: string;
+  installed_on: string;
+}
+
+/**
+ * Saves a pump, feeder, filter or heater. Without "replaced", the current item is
+ * corrected in place; with it (or when there is none), the current one is dated as
+ * removed and the new one starts on the given day, so the history stays true.
+ */
+export async function saveEquipment(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
+  const poolId = text(formData, "pool_id");
+  const kind = text(formData, "kind");
+  if (!isUuid(poolId) || !isEquipmentKind(kind)) return { error: "Unknown equipment." };
+  await requireUser(`/app/pools/${poolId}/settings`);
+  const item = equipmentFromForm(kind, field(formData));
+  if (!item.ok) return { error: item.error };
+
+  const today = await poolToday(poolId);
+  if (!today) return { error: "Unknown pool." };
+  const since = text(formData, "since") || today;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(since) || since > today) return { error: "Pick the day it was installed, up to today." };
+
+  const supabase = await createSupabaseServerClient();
+  const unavailable = (message: string) =>
+    /pool_equipment/.test(message) ? "This is not available yet. Try again in a few minutes." : `Could not save (${message}).`;
+  const { data: current, error: readError } = await supabase
+    .from("pool_equipment")
+    .select("id, installed_on")
+    .eq("pool_id", poolId)
+    .eq("kind", kind)
+    .is("removed_on", null)
+    .maybeSingle<CurrentEquipment>();
+  if (readError) return { error: unavailable(readError.message) };
+
+  const replaced = formData.get("replaced") === "on";
+  if (current && !replaced) {
+    const { error } = await supabase
+      .from("pool_equipment")
+      .update({ model: item.model, details: item.details })
+      .eq("id", current.id);
+    if (error) return { error: unavailable(error.message) };
+  } else {
+    if (current) {
+      if (since < current.installed_on) return { error: "The new one cannot start before the old one was installed." };
+      const { error } = await supabase.from("pool_equipment").update({ removed_on: since }).eq("id", current.id);
+      if (error) return { error: unavailable(error.message) };
+    }
+    const { error } = await supabase
+      .from("pool_equipment")
+      .insert({ pool_id: poolId, kind, model: item.model, details: item.details, installed_on: since });
+    if (error) return { error: unavailable(error.message) };
+  }
+  revalidatePath(`/app/pools/${poolId}/settings`);
+  return { saved: true };
+}
+
+/** Dates the current item of a kind as removed today; it stays in the history. */
+export async function removeEquipment(formData: FormData): Promise<void> {
+  const poolId = text(formData, "pool_id");
+  const kind = text(formData, "kind");
+  if (!isUuid(poolId) || !isEquipmentKind(kind)) return;
+  await requireUser(`/app/pools/${poolId}/settings`);
+  const today = await poolToday(poolId);
+  if (!today) return;
+  const supabase = await createSupabaseServerClient();
+  await supabase
+    .from("pool_equipment")
+    .update({ removed_on: today })
+    .eq("pool_id", poolId)
+    .eq("kind", kind)
+    .is("removed_on", null)
+    .lte("installed_on", today);
+  revalidatePath(`/app/pools/${poolId}/settings`);
 }

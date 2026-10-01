@@ -156,6 +156,10 @@ insert into public.pump_schedules (id, pool_id, segments, cell_hours) values
   ('00000000-0000-0000-0000-0000000000a7', '00000000-0000-0000-0000-0000000000a1', '[{"start":"08:00","end":"16:00","cell":true}]', 8),
   ('00000000-0000-0000-0000-0000000000b7', '00000000-0000-0000-0000-0000000000b1', '[{"start":"08:00","end":"16:00","cell":true}]', 8);
 
+insert into public.pool_equipment (id, pool_id, kind, model, details) values
+  ('00000000-0000-0000-0000-0000000000a8', '00000000-0000-0000-0000-0000000000a1', 'pump', 'A pump', '{"speed":"variable"}'),
+  ('00000000-0000-0000-0000-0000000000b8', '00000000-0000-0000-0000-0000000000b1', 'pump', 'B pump', '{"speed":"single"}');
+
 insert into public.pool_rain (pool_id, date, rain_mm) values
   ('00000000-0000-0000-0000-0000000000a1', '2026-09-01', 5),
   ('00000000-0000-0000-0000-0000000000b1', '2026-09-01', 7);
@@ -364,6 +368,40 @@ select rls_test.check(
   'A can log a cell setting'
 );
 
+-- equipment: A reads, adds, edits and removes A's only; one current item per kind
+select rls_test.check(rls_test.rows('select 1 from public.pool_equipment') = 1, 'A sees only A''s equipment');
+select rls_test.check(
+  rls_test.touched('insert into public.pool_equipment (pool_id, kind, details) values (''00000000-0000-0000-0000-0000000000a1'', ''filter'', ''{"type":"sand"}'')') = 1,
+  'A can add equipment to A''s pool'
+);
+select rls_test.denied(
+  'insert into public.pool_equipment (pool_id, kind) values (''00000000-0000-0000-0000-0000000000b1'', ''filter'')',
+  'A cannot add equipment to B''s pool'
+);
+select rls_test.check(rls_test.touched('update public.pool_equipment set model = ''renamed''') = 2, 'A can edit A''s equipment only');
+select rls_test.denied(
+  'update public.pool_equipment set pool_id = ''00000000-0000-0000-0000-0000000000b1'' where id = ''00000000-0000-0000-0000-0000000000a8''',
+  'A cannot move equipment to B''s pool'
+);
+do $$
+begin
+  insert into public.pool_equipment (pool_id, kind) values ('00000000-0000-0000-0000-0000000000a1', 'pump');
+  raise exception 'RLS FAIL: a second current pump was accepted';
+exception
+  when unique_violation then
+    null;
+end;
+$$;
+select rls_test.check(
+  rls_test.touched('update public.pool_equipment set removed_on = current_date where id = ''00000000-0000-0000-0000-0000000000a8''') = 1,
+  'A can retire A''s pump'
+);
+select rls_test.check(
+  rls_test.touched('insert into public.pool_equipment (pool_id, kind) values (''00000000-0000-0000-0000-0000000000a1'', ''pump'')') = 1,
+  'A can add a new pump once the old one is retired'
+);
+select rls_test.check(rls_test.touched('delete from public.pool_equipment where kind = ''filter''') = 1, 'A can delete A''s equipment only');
+
 -- rain at the pool: A reads, sets, changes and removes A's only
 select rls_test.check(rls_test.rows('select 1 from public.pool_rain') = 1, 'A sees only A''s rain');
 select rls_test.check(
@@ -467,6 +505,7 @@ select rls_test.check(
   'B''s feedback is unchanged'
 );
 select rls_test.check((select cell_hours = 8 from public.pump_schedules where id = '00000000-0000-0000-0000-0000000000b7'), 'B''s pump schedule is unchanged');
+select rls_test.check((select model = 'B pump' from public.pool_equipment where id = '00000000-0000-0000-0000-0000000000b8'), 'B''s equipment is unchanged');
 select rls_test.check((select rain_mm = 7 from public.pool_rain where pool_id = '00000000-0000-0000-0000-0000000000b1'), 'B''s rain is unchanged');
 
 -- one alert email per person per day: a second claim for the same day is refused

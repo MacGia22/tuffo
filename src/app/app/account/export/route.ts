@@ -9,7 +9,7 @@ export async function GET() {
   if (!user) return new Response("Sign in first.", { status: 401 });
 
   const supabase = await createSupabaseServerClient();
-  const [profile, pools, readings, doses, events, scans, feedback, plans, alertSettings, alertLog, pumpSchedules, poolRain] = await Promise.all([
+  const [profile, pools, readings, doses, events, scans, feedback, plans, alertSettings, alertLog, pumpSchedules, poolRain, poolEquipment] = await Promise.all([
     supabase.from("profiles").select("display_name, locale, units, consent_marketing_at, created_at").maybeSingle(),
     supabase.from("pools").select("*").order("created_at"),
     supabase.from("readings").select("*").order("taken_at"),
@@ -27,6 +27,7 @@ export async function GET() {
     supabase.from("alert_log").select("pool_id, kind, sent_on").order("sent_on"),
     supabase.from("pump_schedules").select("pool_id, effective_from, segments, cell_hours, source").order("effective_from"),
     supabase.from("pool_rain").select("pool_id, date, rain_mm, updated_at").order("date"),
+    supabase.from("pool_equipment").select("pool_id, kind, model, details, installed_on, removed_on").order("installed_on"),
   ]);
 
   const body = {
@@ -50,6 +51,7 @@ export async function GET() {
     alerts_sent: alertLog.data ?? [],
     pump_schedules: pumpSchedules.data ?? [],
     rain_at_pool: poolRain.data ?? [],
+    equipment: poolEquipment.data ?? [],
     units_note: "Volumes in liters, temperatures in °C, rain in millimeters, doses in grams or milliliters; locations are 0.03° weather cells (0.05° for pools not moved since September 2026).",
   };
 

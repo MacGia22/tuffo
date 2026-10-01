@@ -7,6 +7,7 @@ import { isUuid } from "@/lib/form-data";
 import type { PumpSegment } from "@/lib/pump";
 import { monthlyUsed, resetLabel, scanLimits } from "@/lib/scan/quota";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { pumpScheduleUnit } from "@/lib/equipment";
 import { PumpForm } from "./pump-form";
 
 export const metadata: Metadata = { title: "Pump schedule" };
@@ -23,7 +24,7 @@ export default async function PumpPage({ params }: PageProps<"/app/pools/[id]/pu
   if (!isUuid(id)) notFound();
 
   const supabase = await createSupabaseServerClient();
-  const [{ data: pool }, { data: schedules }] = await Promise.all([
+  const [{ data: pool }, { data: schedules }, { data: pump }] = await Promise.all([
     supabase
       .from("pools")
       .select("id, name, timezone")
@@ -36,6 +37,14 @@ export default async function PumpPage({ params }: PageProps<"/app/pools/[id]/pu
       .order("effective_from", { ascending: false })
       .limit(20)
       .returns<ScheduleRow[]>(),
+    // The pump from the pool's settings, for the unit its schedule is usually set in.
+    supabase
+      .from("pool_equipment")
+      .select("details")
+      .eq("pool_id", id)
+      .eq("kind", "pump")
+      .is("removed_on", null)
+      .maybeSingle<{ details: unknown }>(),
   ]);
   if (!pool) notFound();
   const tz = pool.timezone ?? "UTC";
@@ -62,7 +71,14 @@ export default async function PumpPage({ params }: PageProps<"/app/pools/[id]/pu
           runs. With the schedule and the cell setting, Tuffo counts what the cell made between tests.
         </p>
       </div>
-      <PumpForm poolId={pool.id} timeZone={tz} current={history[0]?.segments ?? null} scanEnabled={scanEnabled} allowance={allowance} />
+      <PumpForm
+        poolId={pool.id}
+        timeZone={tz}
+        current={history[0]?.segments ?? null}
+        scanEnabled={scanEnabled}
+        allowance={allowance}
+        defaultUnit={pumpScheduleUnit(pump?.details) ?? "rpm"}
+      />
       {history.length > 0 ? (
         <section aria-labelledby="pump-history" className="flex flex-col gap-2">
           <h2 id="pump-history" className="text-xl font-semibold">
