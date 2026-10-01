@@ -10,7 +10,7 @@ import { parseSaved, withoutSaved } from "@/lib/return-to";
 /**
  * After a form saves and returns to the page the person came from (`?saved=`): "Saved",
  * with Undo when the save added a row (a test, dose, event or pump schedule); "Removed"
- * with Undo after a dose or event was removed from its edit screen. Closing it,
+ * with Undo after a test, dose or event was removed from its edit screen. Closing it,
  * or Undo, takes the marker off the address so a reload does not show it again.
  */
 export function SavedNotice() {
@@ -42,7 +42,7 @@ export function SavedNotice() {
   const undo = () =>
     start(async () => {
       if (removed) {
-        // Put a removed dose or event back from the copy this tab kept.
+        // Put a removed test, dose or event back from the copy this tab kept.
         let row: unknown = null;
         try {
           row = JSON.parse(sessionStorage.getItem(removedKey(removed.id)) ?? "null");

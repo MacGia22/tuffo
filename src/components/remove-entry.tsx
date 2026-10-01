@@ -6,8 +6,10 @@ import { removeEntry } from "@/app/app/remove-actions";
 import { removedKey, removedToken, type RemovableKind } from "@/lib/removed";
 import { withSaved } from "@/lib/return-to";
 
+const NOUN: Record<RemovableKind, string> = { reading: "test", dose: "dose", event: "event" };
+
 /**
- * Remove, on the edit screen of a dose or event. Goes back to where the person came from
+ * Remove, on the edit screen of a test, dose or event. Goes back to where the person came from
  * with "Removed · Undo"; the removed row waits in this tab for Undo.
  */
 export function RemoveEntry({ kind, id, returnTo }: { kind: RemovableKind; id: string; returnTo: string }) {
@@ -36,7 +38,7 @@ export function RemoveEntry({ kind, id, returnTo }: { kind: RemovableKind; id: s
         disabled={pending}
         className="self-start rounded-xl px-1 py-2 text-sm font-semibold text-red-700 underline-offset-2 hover:underline disabled:opacity-60 dark:text-red-300"
       >
-        {pending ? "Removing…" : `Remove this ${kind}`}
+        {pending ? "Removing…" : `Remove this ${NOUN[kind]}`}
       </button>
       {failed ? (
         <p role="alert" className="text-sm text-red-700 dark:text-red-300">

@@ -7,10 +7,10 @@ import { recomputeAfterResponse } from "@/lib/model/recompute";
 import { isRemovableKind, pickRestorable, RESTORE_COLUMNS } from "@/lib/removed";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-const TABLES = { dose: "doses", event: "events" } as const;
+const TABLES = { reading: "readings", dose: "doses", event: "events" } as const;
 
 /**
- * Removes a dose or event and returns the removed row, so the page can offer Undo.
+ * Removes a test, dose or event and returns the removed row, so the page can offer Undo.
  * Row-level security limits it to the person's own pools.
  */
 export async function removeEntry(
@@ -28,13 +28,13 @@ export async function removeEntry(
     .returns<Record<string, unknown>[]>();
   const row = data?.[0];
   if (!row || typeof row.pool_id !== "string") return { ok: false };
-  // A removed dose or event changes what the chlorine model learned from.
+  // A removed test, dose or event changes what the chlorine model learned from.
   recomputeAfterResponse(row.pool_id);
   revalidatePath(`/app/pools/${row.pool_id}`, "layout");
   return { ok: true, row };
 }
 
-/** Undo: puts a removed dose or event back with its own id. */
+/** Undo: puts a removed test, dose or event back with its own id. */
 export async function restoreEntry(kind: string, row: unknown): Promise<boolean> {
   const clean = pickRestorable(kind, row);
   if (!clean || !isRemovableKind(kind)) return false;

@@ -54,23 +54,6 @@ export async function saveEvent(_prev: LogState, formData: FormData): Promise<Lo
   return save("event", formData, saveEventEntry);
 }
 
-const TABLES = { reading: "readings", dose: "doses", event: "events" } as const;
-
-/** Removes one test, dose or event. Row-level security limits it to the owner's pools. */
-export async function deleteEntry(formData: FormData): Promise<void> {
-  const poolId = text(formData, "pool_id");
-  const id = text(formData, "id");
-  const kind = text(formData, "kind") as keyof typeof TABLES;
-  if (!isUuid(poolId) || !isUuid(id) || !(kind in TABLES)) return;
-  await requireUser(`/app/pools/${poolId}`);
-
-  const supabase = await createSupabaseServerClient();
-  const { data: removed } = await supabase.from(TABLES[kind]).delete().eq("id", id).eq("pool_id", poolId).select("id");
-  // A removed test, dose or event changes what the chlorine model learned from.
-  if (removed && removed.length > 0) recomputeAfterResponse(poolId);
-  revalidatePath(`/app/pools/${poolId}`);
-}
-
 export interface CellState {
   error?: string;
   saved?: boolean;

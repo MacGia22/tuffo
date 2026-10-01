@@ -106,3 +106,43 @@ export function testAge(takenAt: string, now: number): { text: string; days: num
   else text = `${Math.floor(days)} days ago`;
   return { text, days, stale: days > STALE_TEST_DAYS };
 }
+
+export interface HistoryCell {
+  key: keyof TileReading;
+  /** Short name, as in the table header: "FC", "pH". */
+  label: string;
+  /** "5.0", "7.45", "80"; "—" when not tested. */
+  text: string;
+  /** Against the pool's target; null when not tested or without a target (salt on a chlorine pool). */
+  level: Level | null;
+}
+
+const HISTORY: { key: keyof TileReading; label: string; decimals: number }[] = [
+  { key: "fc", label: "FC", decimals: 1 },
+  { key: "cc", label: "CC", decimals: 1 },
+  { key: "ph", label: "pH", decimals: 1 },
+  { key: "ta", label: "TA", decimals: 0 },
+  { key: "ch", label: "CH", decimals: 0 },
+  { key: "cya", label: "CYA", decimals: 0 },
+  { key: "salt", label: "Salt", decimals: 0 },
+];
+
+/**
+ * One past test for the history: each measure with its value and where it sat against
+ * the pool's targets. pH keeps a second decimal when the tester gave one.
+ */
+export function historyCells(reading: TileReading, targets: TileTargets): HistoryCell[] {
+  const ranges: Partial<Record<keyof TileReading, Range>> = { ...targets, cc: { low: 0, high: CC_MAX } };
+  return HISTORY.map(({ key, label, decimals }) => {
+    const raw = reading[key];
+    const value = raw === null || raw === undefined ? null : Number(raw);
+    const range = ranges[key];
+    const text =
+      value === null
+        ? "—"
+        : key === "ph"
+          ? value.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 2 })
+          : value.toFixed(decimals);
+    return { key, label, text, level: value !== null && range ? levelOf(value, range) : null };
+  });
+}

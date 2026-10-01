@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { levelOf, rangeText, testAge, tilesFor } from "../tiles";
+import { historyCells, levelOf, rangeText, testAge, tilesFor } from "../tiles";
 
 const targets = {
   fc: { low: 3, high: 4.5 },
@@ -40,5 +40,26 @@ describe("tiles", () => {
     expect(testAge("2026-09-30T08:00:00Z", now).text).toBe("yesterday");
     expect(testAge("2026-09-28T12:00:00Z", now)).toMatchObject({ text: "3 days ago", stale: false });
     expect(testAge("2026-09-23T12:00:00Z", now)).toMatchObject({ text: "8 days ago", stale: true });
+  });
+});
+
+describe("historyCells", () => {
+  it("formats each measure and rates it against the pool's targets", () => {
+    const cells = historyCells({ fc: 2.5, cc: 0.8, ph: 7.45, ta: 70, ch: 300, cya: null, salt: 3200 }, targets);
+    expect(cells.map((c) => [c.label, c.text, c.level])).toEqual([
+      ["FC", "2.5", "low"],
+      ["CC", "0.8", "high"],
+      ["pH", "7.45", "ok"],
+      ["TA", "70", "ok"],
+      ["CH", "300", "ok"],
+      ["CYA", "—", null],
+      ["Salt", "3200", "ok"],
+    ]);
+  });
+
+  it("leaves salt unrated without a salt target", () => {
+    const cells = historyCells({ fc: 4, cc: null, ph: 7.5, ta: 70, ch: 300, cya: 70, salt: 900 }, { ...targets, salt: undefined });
+    expect(cells.find((c) => c.key === "salt")).toEqual({ key: "salt", label: "Salt", text: "900", level: null });
+    expect(cells.find((c) => c.key === "ph")?.text).toBe("7.5");
   });
 });
