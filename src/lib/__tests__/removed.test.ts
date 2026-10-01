@@ -9,7 +9,8 @@ describe("removed", () => {
   it("round-trips the marker and keeps it apart from a save", () => {
     const token = removedToken("dose", ID);
     expect(parseRemoved(token)).toEqual({ kind: "dose", id: ID });
-    expect(parseRemoved(`removed.reading.${ID}`)).toBeNull();
+    expect(parseRemoved(`removed.reading.${ID}`)).toEqual({ kind: "reading", id: ID });
+    expect(parseRemoved(`removed.pump.${ID}`)).toBeNull();
     expect(parseRemoved(`dose.${ID}`)).toBeNull();
     expect(parseRemoved("removed.dose.not-an-id")).toBeNull();
     expect(parseSaved(token)).toBe("saved");
@@ -30,7 +31,7 @@ describe("removed", () => {
 
   it("refuses rows that are not rows of that kind", () => {
     expect(pickRestorable("dose", null)).toBeNull();
-    expect(pickRestorable("reading", { id: ID, pool_id: POOL })).toBeNull();
+    expect(pickRestorable("pump", { id: ID, pool_id: POOL })).toBeNull();
     expect(pickRestorable("event", { id: "x", pool_id: POOL })).toBeNull();
     expect(pickRestorable("event", { id: ID, pool_id: POOL, notes: { nested: true } })).toBeNull();
   });

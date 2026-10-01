@@ -1,5 +1,6 @@
 "use client";
 
+import { RemoveEntry } from "@/components/remove-entry";
 import { WhenField } from "@/components/when-field";
 import { CancelLink, ReturnTo } from "@/components/form-cancel";
 
@@ -218,6 +219,7 @@ export function ReadingForm({
         </button>
         <CancelLink href={returnTo} />
       </div>
+      {edit ? <RemoveEntry kind="reading" id={edit.id} returnTo={returnTo} /> : null}
     </form>
   );
 }

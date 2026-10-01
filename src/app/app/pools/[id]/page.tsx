@@ -6,10 +6,10 @@ import { notFound } from "next/navigation";
 import { after } from "next/server";
 import { effectsOf, PLAN_OWN_MODEL_PAIRS } from "@/engine/server";
 import { ActivityList, type ActivityItem } from "@/components/activity-list";
+import { TestHistory } from "@/components/test-history";
 import { AdvicePanel } from "@/components/advice-panel";
 import { BetweenTests } from "@/components/between-tests";
 import { ChlorineUse } from "@/components/chlorine-use";
-import { ConfirmButton } from "@/components/confirm-button";
 import { planAddLabel, PlanStrip } from "@/components/plan-strip";
 import { SaltCellForm } from "@/components/salt-cell-form";
 import { cellLevels, cellRatedHours, levelsText } from "@/lib/salt-cells";
@@ -33,11 +33,11 @@ import { buildTrend, rangeStart, parseRange, TREND_RANGES, type TrendRange } fro
 import { FRESH_HOURS, refreshCellIfStale } from "@/lib/weather/job";
 import { loadOwnRain, withOwnRain } from "@/lib/weather/own-rain";
 import { localDateRange, summarizeBetween, type WeatherDay } from "@/lib/weather/summary";
-import { deleteEntry } from "./actions";
 import { DoneForm } from "./maintenance/maintenance-forms";
 import { ChevronDownIcon, GearIcon, PlusIcon } from "@/components/icons";
 import { StatusTiles } from "@/components/status-tiles";
-import { testAge, tilesFor } from "@/lib/tiles";
+import { historyCells, testAge, tilesFor } from "@/lib/tiles";
+import { fromParam } from "@/lib/return-to";
 import { MenuButton } from "@/components/log-menu";
 import { logLinks } from "@/lib/log-links";
 import { dueParts, dueTasks, healthItems } from "@/lib/maintenance";
@@ -124,17 +124,6 @@ export async function generateMetadata({ params }: PageProps<"/app/pools/[id]">)
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase.from("pools").select("name").eq("id", id).maybeSingle<{ name: string }>();
   return { title: data?.name ?? "Pool" };
-}
-
-function cell(value: number | null, decimals = 1) {
-  return value === null ? "—" : Number(value).toFixed(decimals);
-}
-
-/** pH as tested: one decimal, two when the tester gave two. */
-function phText(value: number | null) {
-  return value === null
-    ? "—"
-    : Number(value).toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 2 });
 }
 
 function doseLabel(dose: Dose, units: Units): string {
@@ -774,68 +763,16 @@ export default async function PoolPage({ params, searchParams }: PageProps<"/app
       {activity.length > 0 ? <ActivityList poolId={pool.id} items={activity} /> : null}
 
       {allReadings.length > 0 ? (
-        <section aria-labelledby="history" className="flex flex-col gap-3">
-          <h2 id="history" className="text-xl font-semibold">
-            Test history
-          </h2>
-          <div className="overflow-x-auto rounded-2xl border border-border">
-            <table className="w-full min-w-[700px] text-sm">
-              <thead className="bg-surface text-left text-xs font-semibold text-muted">
-                <tr>
-                  <th className="px-4 py-3">When</th>
-                  <th className="px-3 py-3 text-right">FC</th>
-                  <th className="px-3 py-3 text-right">CC</th>
-                  <th className="px-3 py-3 text-right">pH</th>
-                  <th className="px-3 py-3 text-right">TA</th>
-                  <th className="px-3 py-3 text-right">CH</th>
-                  <th className="px-3 py-3 text-right">CYA</th>
-                  <th className="px-3 py-3 text-right">Salt</th>
-                  <th className="px-3 py-3 text-right">Temp</th>
-                  <th className="px-3 py-3">
-                    <span className="sr-only">Edit or remove</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {allReadings.slice(0, 30).map((r) => (
-                  <tr key={r.id} className="border-t border-border">
-                    <td className="px-4 py-2.5 whitespace-nowrap">{formatDateTime(r.taken_at, tz)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{cell(r.fc)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{cell(r.cc)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{phText(r.ph)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{cell(r.ta, 0)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{cell(r.ch, 0)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{cell(r.cya, 0)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{cell(r.salt, 0)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">
-                      {r.water_temp_c === null ? "—" : formatTemperature(Number(r.water_temp_c), units)}
-                    </td>
-                    <td className="px-2 py-1.5 text-right">
-                      <div className="flex justify-end gap-2">
-                        <Link
-                          href={`/app/pools/${pool.id}/readings/${r.id}/edit`}
-                          aria-label={`Edit the test from ${formatDateTime(r.taken_at, tz)}`}
-                          className="rounded-lg border border-border px-3 py-1.5 font-semibold hover:border-lagoon"
-                        >
-                          Edit
-                        </Link>
-                        <form action={deleteEntry}>
-                          <input type="hidden" name="pool_id" value={pool.id} />
-                          <input type="hidden" name="kind" value="reading" />
-                          <input type="hidden" name="id" value={r.id} />
-                          <ConfirmButton
-                            question={`Remove the test from ${formatDateTime(r.taken_at, tz)}?`}
-                            label="Remove"
-                          />
-                        </form>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+        <TestHistory
+          poolId={pool.id}
+          back={fromParam(`/app/pools/${pool.id}#history`)}
+          rows={allReadings.slice(0, 30).map((r) => ({
+            id: r.id,
+            when: formatDateTime(r.taken_at, tz),
+            cells: historyCells(r, tileTargets),
+            temp: r.water_temp_c === null ? null : formatTemperature(Number(r.water_temp_c), units),
+          }))}
+        />
       ) : null}
     </>
   );

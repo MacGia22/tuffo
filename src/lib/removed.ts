@@ -1,5 +1,5 @@
 /**
- * Undo after removing a dose or event. The server action that removes a row returns it;
+ * Undo after removing a test, dose or event. The server action that removes a row returns it;
  * the browser keeps that copy for the tab (sessionStorage, never a cookie) and the page
  * shows "Removed · Undo". Undo sends the copy back, and only the columns below are put
  * back, with the same id. Row-level security still decides whose pool it can go into.
@@ -8,6 +8,26 @@
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const RESTORE_COLUMNS = {
+  reading: [
+    "id",
+    "pool_id",
+    "taken_at",
+    "fc",
+    "cc",
+    "ph",
+    "ta",
+    "ch",
+    "cya",
+    "salt",
+    "water_temp_c",
+    "borate",
+    "phosphate",
+    "tds",
+    "method",
+    "notes",
+    "client_id",
+    "created_at",
+  ],
   dose: ["id", "pool_id", "added_at", "product_id", "amount", "unit", "notes", "client_id", "created_at"],
   event: ["id", "pool_id", "occurred_at", "kind", "value", "notes", "client_id", "created_at"],
 } as const;
