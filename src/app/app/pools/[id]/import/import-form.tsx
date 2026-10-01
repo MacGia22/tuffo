@@ -189,7 +189,7 @@ export function ImportForm({ poolId, units, timeZone }: { poolId: string; units:
             <div className="overflow-x-auto rounded-2xl border border-border">
               <table className="w-full min-w-[560px] text-sm">
                 <caption className="px-4 py-2 text-left text-xs text-muted">First rows as Tuffo reads them</caption>
-                <thead className="bg-surface text-left text-xs uppercase tracking-wider text-muted">
+                <thead className="bg-surface text-left text-xs font-semibold text-muted">
                   <tr>
                     <th className="px-4 py-2">When</th>
                     <th className="px-3 py-2 text-right">FC</th>

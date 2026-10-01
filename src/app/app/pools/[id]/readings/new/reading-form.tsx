@@ -1,5 +1,6 @@
 "use client";
 
+import { WhenField } from "@/components/when-field";
 import { CancelLink, ReturnTo } from "@/components/form-cancel";
 
 import { useActionState, useState } from "react";
@@ -182,19 +183,7 @@ export function ReadingForm({
             {values.method === "imported" ? <option value="imported">Imported</option> : null}
           </select>
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="taken_at" className="text-sm font-semibold">
-            When <span className="font-normal text-muted">{edit ? "(time at the pool)" : "(empty = now)"}</span>
-          </label>
-          <input
-            id="taken_at"
-            name="taken_at"
-            type="datetime-local"
-            value={values.taken_at ?? ""}
-            onChange={(e) => set("taken_at", e.target.value)}
-            className={input}
-          />
-        </div>
+        <WhenField id="taken_at" name="taken_at" edit={Boolean(edit)} value={values.taken_at ?? ""} onChange={(v) => set("taken_at", v)} />
       </div>
 
       <div className="flex flex-col gap-1.5">

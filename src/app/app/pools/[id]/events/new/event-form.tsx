@@ -1,5 +1,6 @@
 "use client";
 
+import { WhenField } from "@/components/when-field";
 import { CancelLink, ReturnTo } from "@/components/form-cancel";
 
 import { useActionState, useState } from "react";
@@ -130,12 +131,7 @@ export function EventForm({
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="occurred_at" className="text-sm font-semibold">
-            When <span className="font-normal text-muted">{edit ? "(time at the pool)" : "(empty = now)"}</span>
-          </label>
-          <input id="occurred_at" name="occurred_at" type="datetime-local" defaultValue={f.occurred_at ?? ""} className={input} />
-        </div>
+        <WhenField id="occurred_at" name="occurred_at" edit={Boolean(edit)} defaultValue={f.occurred_at ?? ""} />
         <div className="flex flex-col gap-1.5">
           <label htmlFor="notes" className="text-sm font-semibold">
             Notes <span className="font-normal text-muted">{kind === "other" ? "(say what happened)" : "(optional)"}</span>
