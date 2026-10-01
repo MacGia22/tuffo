@@ -6,6 +6,7 @@ import {
   dueCalendar,
   dueParts,
   groupTasks,
+  nextTaskChip,
   statusTone,
   healthItems,
   intervalProgress,
@@ -327,5 +328,25 @@ describe("card format", () => {
     expect(g.later.map((s) => s.task.id)).toEqual(["pump_oring"]);
     expect(statusTone(g.soon[0])).toBe("critical");
     expect(statusTone(g.start[0])).toBeNull();
+  });
+});
+
+describe("nextTaskChip", () => {
+  const today = "2026-10-01";
+  const statuses = maintenanceStatus({
+    pool: saltCartridge,
+    overrides: {},
+    done: [
+      { task: "cell_clean", doneOn: "2026-06-01" },
+      { task: "pump_basket", doneOn: "2026-09-29" },
+    ],
+    pressure: null,
+    today,
+  });
+  it("names the next task for a piece of equipment", () => {
+    expect(nextTaskChip(statuses, "cell", today)).toEqual({ text: "Overdue: inspect · Aug 30", tone: "critical" });
+    expect(nextTaskChip(statuses, "pump", today)).toEqual({ text: "Next: empty basket · Oct 6", tone: "good" });
+    expect(nextTaskChip(statuses, "filter", today)).toEqual({ text: "Set a start date: hose off", tone: null });
+    expect(nextTaskChip(statuses, "heater", today)).toBeNull();
   });
 });

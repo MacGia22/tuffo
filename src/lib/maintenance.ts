@@ -28,6 +28,8 @@ export type TaskEquipment = "cell" | "pump" | "filter" | "heater" | "feeder";
 export interface MaintenanceTask {
   id: TaskId;
   label: string;
+  /** A few words for chips: "hose off". */
+  short: string;
   equipment: TaskEquipment;
   /** Default interval, days. */
   defaultDays: number;
@@ -42,6 +44,7 @@ export interface MaintenanceTask {
 export const MAINTENANCE_TASKS: MaintenanceTask[] = [
   {
     id: "cell_clean",
+    short: "inspect",
     label: "Inspect the salt cell",
     equipment: "cell",
     defaultDays: 90,
@@ -50,6 +53,7 @@ export const MAINTENANCE_TASKS: MaintenanceTask[] = [
   },
   {
     id: "pump_basket",
+    short: "empty basket",
     label: "Empty the pump basket",
     equipment: "pump",
     defaultDays: 7,
@@ -58,6 +62,7 @@ export const MAINTENANCE_TASKS: MaintenanceTask[] = [
   },
   {
     id: "pump_oring",
+    short: "lube O-ring",
     label: "Lube the pump lid O-ring",
     equipment: "pump",
     defaultDays: 365,
@@ -66,6 +71,7 @@ export const MAINTENANCE_TASKS: MaintenanceTask[] = [
   },
   {
     id: "cartridge_rinse",
+    short: "hose off",
     label: "Hose off the filter cartridge",
     equipment: "filter",
     defaultDays: 35,
@@ -75,6 +81,7 @@ export const MAINTENANCE_TASKS: MaintenanceTask[] = [
   },
   {
     id: "cartridge_replace",
+    short: "new cartridge",
     label: "Replace the filter cartridge",
     equipment: "filter",
     defaultDays: 540,
@@ -83,6 +90,7 @@ export const MAINTENANCE_TASKS: MaintenanceTask[] = [
   },
   {
     id: "sand_backwash",
+    short: "backwash",
     label: "Backwash the sand filter",
     equipment: "filter",
     defaultDays: 30,
@@ -92,6 +100,7 @@ export const MAINTENANCE_TASKS: MaintenanceTask[] = [
   },
   {
     id: "sand_replace",
+    short: "new sand",
     label: "Replace the filter sand",
     equipment: "filter",
     defaultDays: 2190,
@@ -100,6 +109,7 @@ export const MAINTENANCE_TASKS: MaintenanceTask[] = [
   },
   {
     id: "de_backwash",
+    short: "backwash + DE",
     label: "Backwash and recharge the DE filter",
     equipment: "filter",
     defaultDays: 30,
@@ -109,6 +119,7 @@ export const MAINTENANCE_TASKS: MaintenanceTask[] = [
   },
   {
     id: "de_grids",
+    short: "clean grids",
     label: "Clean the DE filter grids",
     equipment: "filter",
     defaultDays: 365,
@@ -117,6 +128,7 @@ export const MAINTENANCE_TASKS: MaintenanceTask[] = [
   },
   {
     id: "heater_service",
+    short: "service",
     label: "Service the heater",
     equipment: "heater",
     defaultDays: 365,
@@ -125,6 +137,7 @@ export const MAINTENANCE_TASKS: MaintenanceTask[] = [
   },
   {
     id: "feeder_refill",
+    short: "refill",
     label: "Refill the chlorine feeder",
     equipment: "feeder",
     defaultDays: 7,
@@ -614,4 +627,22 @@ export function statusTone(s: Pick<TaskStatus, "state">): Tone | null {
   if (s.state === "due" || s.state === "soon") return "warning";
   if (s.state === "ok") return "good";
   return null;
+}
+
+/**
+ * The next task for one piece of equipment, as a chip: "Next: hose off · Oct 31",
+ * "Overdue: inspect · Sep 8", or "Set a start date: hose off". Null without tasks.
+ */
+export function nextTaskChip(statuses: TaskStatus[], equipment: TaskEquipment, today: string): { text: string; tone: Tone | null } | null {
+  const mine = statuses.filter((s) => s.task.equipment === equipment);
+  if (mine.length === 0) return null;
+  const dated = mine
+    .filter((s) => s.nextDue !== null || s.pressureHigh)
+    .sort((a, b) => (a.pressureHigh ? -1 : b.pressureHigh ? 1 : (a.daysLeft ?? 0) - (b.daysLeft ?? 0)));
+  const first = dated[0];
+  if (!first) return { text: `Set a start date: ${mine[0].task.short}`, tone: null };
+  const due = dueParts(first, today);
+  if (first.pressureHigh && (first.daysLeft === null || first.daysLeft >= 0)) return { text: `Due now: ${first.task.short} · pressure up`, tone: "warning" };
+  if (first.state === "overdue") return { text: `Overdue: ${first.task.short} · ${due.date}`, tone: "critical" };
+  return { text: `Next: ${first.task.short} · ${due.date}`, tone: statusTone(first) };
 }

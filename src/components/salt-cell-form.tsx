@@ -8,28 +8,36 @@ const initial: CellState = {};
 const field = "h-10 rounded-xl border border-border bg-background px-3 text-sm";
 
 /**
- * A salt pool's cell. With its rated output, the plan can suggest the cell setting in
- * percent and the model can count what the cell made between tests.
+ * The cell form on its own: model or rated output, and on the settings page an install
+ * date. `replace` stores the current cell in the history and starts a new one.
  */
-export function SaltCellForm({
+export function CellForm({
   poolId,
   current,
+  mode = "set",
+  installedOn = null,
+  onCancel,
 }: {
   poolId: string;
   current: { model: string | null; lbPerDay: number | null };
+  mode?: "set" | "fix" | "replace";
+  installedOn?: string | null;
+  onCancel?: () => void;
 }) {
   const [state, action, pending] = useActionState(saveSaltCell, initial);
-  const listed = SALT_CELLS.find((c) => c.name === current.model);
-  const [model, setModel] = useState(listed?.id ?? (current.lbPerDay ? "other" : ""));
-  const known = current.lbPerDay !== null;
+  const fresh = mode === "replace";
+  const listed = fresh ? undefined : SALT_CELLS.find((c) => c.name === current.model);
+  const start = fresh ? "" : (listed?.id ?? (current.lbPerDay ? "other" : ""));
+  const [model, setModel] = useState(start);
 
-  const form = (
+  return (
     <form action={action} className="flex flex-col gap-3">
       <input type="hidden" name="pool_id" value={poolId} />
+      {fresh ? <input type="hidden" name="replaced" value="on" /> : null}
       <div className="flex flex-wrap items-end gap-2">
-        <label className="flex flex-col gap-1 text-xs text-muted">
+        <label className="flex min-w-0 flex-col gap-1 text-xs text-muted">
           Cell
-          <select name="model" value={model} onChange={(e) => setModel(e.target.value)} className={field}>
+          <select name="model" value={model} onChange={(e) => setModel(e.target.value)} className={`${field} max-w-full`}>
             <option value="" disabled>
               Choose…
             </option>
@@ -48,8 +56,7 @@ export function SaltCellForm({
               <input
                 name="value"
                 inputMode="decimal"
-                defaultValue={!listed && current.lbPerDay ? String(current.lbPerDay) : ""}
-                placeholder="1.4"
+                defaultValue={!fresh && !listed && current.lbPerDay ? String(current.lbPerDay) : ""}
                 className={`${field} w-28`}
               />
             </label>
@@ -65,6 +72,17 @@ export function SaltCellForm({
             </label>
           </>
         ) : null}
+        {mode !== "set" ? (
+          <label className="flex flex-col gap-1 text-xs text-muted">
+            {fresh ? "Installed on (empty = today)" : "Installed on"}
+            <input type="date" name="since" defaultValue={fresh ? "" : (installedOn ?? "")} className={`${field} w-44`} />
+          </label>
+        ) : null}
+      </div>
+      <p className="text-xs text-muted">
+        The rating is on the cell&apos;s label or in its manual, often as pounds per day or grams per hour.
+      </p>
+      <div className="flex items-center gap-4">
         <button
           type="submit"
           disabled={pending || model === ""}
@@ -74,17 +92,17 @@ export function SaltCellForm({
         </button>
         <button
           type="reset"
-          onClick={() => setModel(listed?.id ?? (current.lbPerDay ? "other" : ""))}
+          onClick={() => {
+            setModel(start);
+            onCancel?.();
+          }}
           className="h-10 px-2 text-sm text-muted underline-offset-2 hover:underline"
         >
           Cancel
         </button>
       </div>
-      <p className="text-xs text-muted">
-        The rating is on the cell&apos;s label or in its manual, often as pounds per day or grams per hour.
-      </p>
       {state.error ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-red-600 dark:text-red-300">
           {state.error}
         </p>
       ) : null}
@@ -95,6 +113,21 @@ export function SaltCellForm({
       ) : null}
     </form>
   );
+}
+
+/**
+ * A salt pool's cell on the pool page. With its rated output, the plan can suggest the
+ * cell setting in percent and the model can count what the cell made between tests.
+ */
+export function SaltCellForm({
+  poolId,
+  current,
+}: {
+  poolId: string;
+  current: { model: string | null; lbPerDay: number | null };
+}) {
+  const known = current.lbPerDay !== null;
+  const form = <CellForm poolId={poolId} current={current} />;
 
   if (known) {
     return (
