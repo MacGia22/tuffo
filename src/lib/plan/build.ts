@@ -18,6 +18,7 @@ import { loadPopulationPrior } from "@/lib/model/recompute";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { estimateStartFc, type StoredPlanDay, type StoredPlanSummary } from "./stored";
 import { loadOwnRain, withOwnRain } from "@/lib/weather/own-rain";
+import { cellLevels } from "@/lib/salt-cells";
 
 /**
  * Builds and stores a pool's 7-day plan with the service key: the pool's model (or the
@@ -37,6 +38,7 @@ interface PoolRow {
   surface: "plaster" | "vinyl" | "fiberglass";
   covered: boolean;
   swg_cell_lb_per_day: number | string | null;
+  swg_cell_model?: string | null;
   timezone: string | null;
   cell_id: string | null;
 }
@@ -74,7 +76,7 @@ function weatherOf(row: ForecastRow): WeatherDrivers {
 export async function buildPlan(admin: SupabaseClient, poolId: string, now = Date.now()): Promise<boolean> {
   const { data: pool, error } = await admin
     .from("pools")
-    .select("id, volume_l, surface_area_m2, sanitizer, surface, covered, swg_cell_lb_per_day, timezone, cell_id")
+    .select("id, volume_l, surface_area_m2, sanitizer, surface, covered, swg_cell_lb_per_day, swg_cell_model, timezone, cell_id")
     .eq("id", poolId)
     .maybeSingle<PoolRow>();
   if (error) throw new Error(`pool: ${error.message}`);
@@ -195,6 +197,8 @@ export async function buildPlan(admin: SupabaseClient, poolId: string, now = Dat
       surface: pool.surface,
       // What the cell makes a day at 100% with the pump hours it runs now.
       cellPpmPerDay: swg && lb && lb > 0 && cellHours ? ((lb * GRAMS_PER_POUND * 1000) / volumeL) * (cellHours / 24) : null,
+      // The settings the cell's own control offers (CircuPool CORE: 25/50/75/100%).
+      cellLevels: cellLevels(pool.swg_cell_model),
     },
     water: { fc: fcStart, cya, ch: latest("ch"), salt: latest("salt") },
     days,

@@ -121,6 +121,30 @@ describe("planWeek, salt pool", () => {
     expect(plan.kind).toBe("swg");
   });
 
+  it("picks among the settings the cell's control offers", () => {
+    // Same week on a CORE35 (25/50/75/100%): 20% is not a setting; 25% makes
+    // 11.18 × 0.25 = 2.80 ppm/day against 1.86 used, so FC rises and holds: 25%.
+    const core = planWeek({ ...salt, pool: { ...salt.pool, cellLevels: [25, 50, 75, 100] } })!;
+    expect(core.swgPercent).toBe(25);
+    expect(core.days.every((d) => d.fcEnd >= 4.5)).toBe(true);
+    expect(core.days[0].fcEnd).toBeCloseTo(5 + 2.8 - 1.86, 1);
+    // An EDGE (12.5% steps): 12.5% makes 1.40/day, short by 0.46/day → 5 − 7 × 0.46 = 1.8 < 4.5; 25% holds.
+    const edge = planWeek({
+      ...salt,
+      pool: { ...salt.pool, cellLevels: [12.5, 25, 37.5, 50, 62.5, 75, 87.5, 100] },
+    })!;
+    expect(edge.swgPercent).toBe(25);
+    // FC at 30 ppm: seven days of 1.86 still leave 17, above the floor, so the cell can be off.
+    const off = planWeek({ ...salt, water: { ...salt.water, fc: 30 }, pool: { ...salt.pool, cellLevels: [25, 50, 75, 100] } })!;
+    expect(off.swgPercent).toBe(0);
+  });
+
+  it("runs a cell with set levels at its top setting when it cannot keep up", () => {
+    const small = planWeek({ ...salt, pool: { ...salt.pool, cellPpmPerDay: 1, cellLevels: [20, 40, 60, 80, 100] } })!;
+    expect(small.swgPercent).toBe(100);
+    expect(small.capped).toBe(true);
+  });
+
   it("dilutes salt in heavy rain", () => {
     const wet = planWeek({ ...salt, days: [day(1, STORM)] })!;
     // 3200 × (1 − 0.03276) = 3095.

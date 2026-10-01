@@ -38,7 +38,20 @@ function dilutionText(day: StoredPlanDay): string | null {
  * This week: what to add each day (or where to set the salt cell), the chlorine the pool
  * is expected to use, and days to watch. Advice only; no model parameters.
  */
-export function PlanStrip({ plan, units, today, poolId }: { plan: StoredPlan; units: Units; today: string; poolId?: string }) {
+export function PlanStrip({
+  plan,
+  units,
+  today,
+  poolId,
+  cellLevels = null,
+}: {
+  plan: StoredPlan;
+  units: Units;
+  today: string;
+  poolId?: string;
+  /** The settings the cell's control offers, as words: "25%, 50%, 75% or 100%". */
+  cellLevels?: string | null;
+}) {
   const { summary } = plan;
   const days = plan.days.filter((d) => d.date >= today).slice(0, 7);
   if (days.length === 0) return null;
@@ -66,9 +79,10 @@ export function PlanStrip({ plan, units, today, poolId }: { plan: StoredPlan; un
         <p className="rounded-2xl border border-border bg-surface p-4">
           {summary.swgPercent !== null ? (
             <>
-              Set the salt cell to about <strong className="font-display text-lg">{summary.swgPercent}%</strong> this
-              week{summary.cellHours ? ` (with the cell running ${summary.cellHours} h a day)` : ""}. It needs to make
+              Set the salt cell to {cellLevels ? "" : "about "}
+              <strong className="font-display text-lg">{summary.swgPercent}%</strong> this week{summary.cellHours ? ` (with the cell running ${summary.cellHours} h a day)` : ""}. It needs to make
               about {summary.swgNeedPpm?.toFixed(1)} ppm of free chlorine a day.
+              {cellLevels ? ` Your cell sets ${cellLevels}; this is the lowest that keeps chlorine up all week.` : ""}
               {summary.cellSetting !== summary.swgPercent && poolId ? (
                 <>
                   {" "}

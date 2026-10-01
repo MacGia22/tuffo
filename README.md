@@ -210,7 +210,11 @@ cell runs during each, typed or read from a screenshot of the pump's app or pane
 (`POST /api/scan/pump`, one scan of the allowance). Between two tests the model counts
 rated output × setting × cell hours ÷ 24 for the settings and schedules in force
 (`src/engine/swg.ts`); a salt pair with no setting or schedule known at its first test is
-left out instead of guessed. The plan suggests the setting for the current pump hours.
+left out instead of guessed. The plan suggests the setting for the current pump hours: the
+lowest setting that holds free chlorine all week, picked among the settings the cell's own
+control offers (`levels` in `src/lib/salt-cells.ts`: CircuPool CORE 25/50/75/100%, EDGE
+12.5% steps, Pentair IntelliChlor power center 20% steps), or in 5% steps for dial cells
+(Hayward AquaRite, CircuPool RJ Plus) and cells entered by rating.
 
 ## Pool settings and equipment
 
