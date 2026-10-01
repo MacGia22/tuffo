@@ -88,7 +88,9 @@ sign-ups per network address per 10 minutes (counted in memory, never stored) an
 
 Invitations: people whose email is in `ADMIN_EMAILS` see **Admin** in the app header
 (`/app/admin`; everyone else gets a 404). It lists the waitlist and sends an invitation
-to any address with Supabase's admin API; the address then leaves the waitlist. Sign-ups
+to any address with Supabase's admin API; the address then leaves the waitlist. Its Users
+list shows each account's sign-up, last sign-in and source, and can delete an account
+(never your own or another admin's) with everything under it. Sign-ups
 stay closed. The Supabase "Invite user" template needs a token-hash link like the others:
 
 ```html
