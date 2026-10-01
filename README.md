@@ -456,6 +456,13 @@ resend after a lost reply is answered "already saved" and never makes a second r
 refused entry stays in the banner with its reason until discarded. Edits need a
 connection.
 
+## Landing page
+
+`/` has a product screenshot (the week's plan and the trends card, light and dark, as
+`public/screens/*.webp`, taken from the app with demo data and marked as such), a short
+FAQ (free, Pool Math import, what data is kept) and the About section. Retake the
+screenshots when the plan or chart look changes noticeably.
+
 ## Brand
 
 Colours: lagoon `#0E7C9E`, navy `#0B2E4F`, ice `#8FD3F4`, sun `#F5B301`. Type: Sora for
