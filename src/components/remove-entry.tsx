@@ -6,7 +6,13 @@ import { removeEntry } from "@/app/app/remove-actions";
 import { removedKey, removedToken, type RemovableKind } from "@/lib/removed";
 import { withSaved } from "@/lib/return-to";
 
-const NOUN: Record<RemovableKind, string> = { reading: "test", dose: "dose", event: "event" };
+const NOUN: Record<RemovableKind, string> = {
+  reading: "test",
+  dose: "dose",
+  event: "event",
+  maintenance: "entry",
+  pressure: "reading",
+};
 
 /**
  * Remove, on the edit screen of a test, dose or event. Goes back to where the person came from

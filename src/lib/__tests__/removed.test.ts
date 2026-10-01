@@ -35,4 +35,9 @@ describe("removed", () => {
     expect(pickRestorable("event", { id: "x", pool_id: POOL })).toBeNull();
     expect(pickRestorable("event", { id: ID, pool_id: POOL, notes: { nested: true } })).toBeNull();
   });
+
+  it("keeps pressure readings with their clean flag", () => {
+    const row = { id: ID, pool_id: POOL, read_on: "2026-09-30", kpa: 96.5, clean: true, created_at: "2026-09-30T10:00:00Z" };
+    expect(pickRestorable("pressure", row)).toEqual(row);
+  });
 });

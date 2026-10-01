@@ -1,5 +1,5 @@
 /**
- * Undo after removing a test, dose or event. The server action that removes a row returns it;
+ * Undo after removing a test, dose, event, maintenance entry or pressure reading. The server action that removes a row returns it;
  * the browser keeps that copy for the tab (sessionStorage, never a cookie) and the page
  * shows "Removed · Undo". Undo sends the copy back, and only the columns below are put
  * back, with the same id. Row-level security still decides whose pool it can go into.
@@ -30,6 +30,8 @@ export const RESTORE_COLUMNS = {
   ],
   dose: ["id", "pool_id", "added_at", "product_id", "amount", "unit", "notes", "client_id", "created_at"],
   event: ["id", "pool_id", "occurred_at", "kind", "value", "notes", "client_id", "created_at"],
+  maintenance: ["id", "pool_id", "task", "done_on", "created_at"],
+  pressure: ["id", "pool_id", "read_on", "kpa", "clean", "created_at"],
 } as const;
 
 export type RemovableKind = keyof typeof RESTORE_COLUMNS;
@@ -48,7 +50,7 @@ export function pickRestorable(kind: string, row: unknown): Record<string, unkno
   for (const column of RESTORE_COLUMNS[kind]) {
     const value = source[column];
     if (value === undefined) continue;
-    if (value !== null && typeof value !== "string" && typeof value !== "number") return null;
+    if (value !== null && typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") return null;
     out[column] = value;
   }
   return out;
