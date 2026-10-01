@@ -37,7 +37,9 @@ export default function PrivacyPage() {
         numbers such as your fill water&apos;s calcium or your salt cell&apos;s model and output. For a salt pool, also
         the pump schedules you enter (run times, speeds, whether the cell runs) and the dates they started. If you enter the
         rain that fell at your pool on a day, that amount and date. The equipment you add (pump, chlorine feeder,
-        filter, heater): its kind, make and model, setting, and the dates it was in use. The location is stored as a
+        filter, heater): its kind, make and model, setting, and the dates it was in use, and the day the salt cell
+        was installed if you enter it. For maintenance: the days you mark a task done (such as cleaning the cell or
+        backwashing), the filter pressure readings you log and their dates, and how often you want each task. The location is stored as a
         weather cell about 3 km (2 miles) across (5 km for pools set up before September 30, 2026, until their location is
         picked again), plus the town name you picked and the time zone. If you pick the square on the map, only the
         square is sent to Tuffo, not the point you tap. Tuffo never stores a street address or a GPS position.
@@ -73,7 +75,7 @@ export default function PrivacyPage() {
       <h3>Email alerts</h3>
       <p>
         Alerts are off unless you switch them on for a pool. If you do, Tuffo keeps your choices for that pool (algae-risk
-        warning, test reminder and after how many days, weekly summary) and, for 90 days, a record of each alert it
+        warning, test reminder and after how many days, weekly summary, maintenance reminders) and, for 90 days, a record of each alert it
         sent (the date and the kind), so it does not repeat itself or email you more than once a day. The emails go to
         your sign-in address. Every one has a link that switches them off, and you can change them on your account
         page.

@@ -164,6 +164,13 @@ insert into public.pool_rain (pool_id, date, rain_mm) values
   ('00000000-0000-0000-0000-0000000000a1', '2026-09-01', 5),
   ('00000000-0000-0000-0000-0000000000b1', '2026-09-01', 7);
 
+insert into public.pool_maintenance (pool_id, task, done_on) values
+  ('00000000-0000-0000-0000-0000000000a1', 'cell_clean', '2026-09-01'),
+  ('00000000-0000-0000-0000-0000000000b1', 'cell_clean', '2026-09-01');
+
+insert into public.pool_pressure (pool_id, read_on, kpa, clean) values
+  ('00000000-0000-0000-0000-0000000000a1', '2026-09-01', 70, true),
+  ('00000000-0000-0000-0000-0000000000b1', '2026-09-01', 80, true);
 
 insert into public.plans (pool_id, version, summary, days) values
   ('00000000-0000-0000-0000-0000000000a1', 1, '{}', '[]'),
@@ -402,6 +409,48 @@ select rls_test.check(
 );
 select rls_test.check(rls_test.touched('delete from public.pool_equipment where kind = ''filter''') = 1, 'A can delete A''s equipment only');
 
+-- maintenance log and filter pressure: A reads, adds and removes A's only; no edits
+select rls_test.check(rls_test.rows('select 1 from public.pool_maintenance') = 1, 'A sees only A''s maintenance');
+select rls_test.check(
+  rls_test.touched('insert into public.pool_maintenance (pool_id, task, done_on) values (''00000000-0000-0000-0000-0000000000a1'', ''pump_basket'', ''2026-09-02'')') = 1,
+  'A can log maintenance for A''s pool'
+);
+select rls_test.denied(
+  'insert into public.pool_maintenance (pool_id, task, done_on) values (''00000000-0000-0000-0000-0000000000b1'', ''pump_basket'', ''2026-09-02'')',
+  'A cannot log maintenance for B''s pool'
+);
+select rls_test.denied('update public.pool_maintenance set done_on = ''2026-09-03''', 'A cannot edit maintenance rows');
+select rls_test.check(rls_test.touched('delete from public.pool_maintenance') = 2, 'A can remove A''s maintenance only');
+do $$
+begin
+  insert into public.pool_maintenance (pool_id, task, done_on) values ('00000000-0000-0000-0000-0000000000a1', 'Drop table', '2026-09-03');
+  raise exception 'RLS FAIL: a malformed task id was accepted';
+exception
+  when check_violation then
+    null;
+end;
+$$;
+select rls_test.check(rls_test.rows('select 1 from public.pool_pressure') = 1, 'A sees only A''s filter pressure');
+select rls_test.check(
+  rls_test.touched('insert into public.pool_pressure (pool_id, read_on, kpa) values (''00000000-0000-0000-0000-0000000000a1'', ''2026-09-02'', 120)') = 1,
+  'A can log pressure for A''s pool'
+);
+select rls_test.denied(
+  'insert into public.pool_pressure (pool_id, read_on, kpa) values (''00000000-0000-0000-0000-0000000000b1'', ''2026-09-02'', 120)',
+  'A cannot log pressure for B''s pool'
+);
+select rls_test.denied('update public.pool_pressure set kpa = 1', 'A cannot edit pressure rows');
+select rls_test.check(rls_test.touched('delete from public.pool_pressure') = 2, 'A can remove A''s pressure only');
+do $$
+begin
+  insert into public.pool_pressure (pool_id, read_on, kpa) values ('00000000-0000-0000-0000-0000000000a1', '2026-09-03', 900);
+  raise exception 'RLS FAIL: a pressure above 400 kPa was accepted';
+exception
+  when check_violation then
+    null;
+end;
+$$;
+
 -- rain at the pool: A reads, sets, changes and removes A's only
 select rls_test.check(rls_test.rows('select 1 from public.pool_rain') = 1, 'A sees only A''s rain');
 select rls_test.check(
@@ -507,6 +556,8 @@ select rls_test.check(
 select rls_test.check((select cell_hours = 8 from public.pump_schedules where id = '00000000-0000-0000-0000-0000000000b7'), 'B''s pump schedule is unchanged');
 select rls_test.check((select model = 'B pump' from public.pool_equipment where id = '00000000-0000-0000-0000-0000000000b8'), 'B''s equipment is unchanged');
 select rls_test.check((select rain_mm = 7 from public.pool_rain where pool_id = '00000000-0000-0000-0000-0000000000b1'), 'B''s rain is unchanged');
+select rls_test.check((select count(*) = 1 from public.pool_maintenance where pool_id = '00000000-0000-0000-0000-0000000000b1'), 'B''s maintenance is unchanged');
+select rls_test.check((select kpa = 80 from public.pool_pressure where pool_id = '00000000-0000-0000-0000-0000000000b1'), 'B''s filter pressure is unchanged');
 
 -- one alert email per person per day: a second claim for the same day is refused
 do $$

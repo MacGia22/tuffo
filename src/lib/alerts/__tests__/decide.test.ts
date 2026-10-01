@@ -62,3 +62,23 @@ describe("dueAlerts", () => {
     expect(dueAlerts({ today, now, settings: [off], state: [low], sent: [] })).toEqual([]);
   });
 });
+
+describe("maintenance reminders", () => {
+  const on = { ...settings, algae: false, testReminder: false, weekly: false, maintenance: true };
+  const due = { ...calm, maintenanceDue: ["Inspect the salt cell (3 days overdue)"] };
+
+  it("lists the upkeep due, at most once a week per pool", () => {
+    expect(dueAlerts({ today, now, settings: [on], state: [due], sent: [] })).toEqual([
+      { poolId: POOL, poolName: "Backyard", kind: "maintenance", detail: { tasks: ["Inspect the salt cell (3 days overdue)"] } },
+    ]);
+    const lastWeek = [{ poolId: POOL, kind: "maintenance" as const, sentOn: "2026-09-26" }];
+    expect(dueAlerts({ today, now, settings: [on], state: [due], sent: lastWeek })).toEqual([]);
+    const older = [{ poolId: POOL, kind: "maintenance" as const, sentOn: "2026-09-24" }];
+    expect(dueAlerts({ today, now, settings: [on], state: [due], sent: older })).toHaveLength(1);
+  });
+
+  it("sends nothing when switched off or nothing is due", () => {
+    expect(dueAlerts({ today, now, settings: [{ ...on, maintenance: false }], state: [due], sent: [] })).toEqual([]);
+    expect(dueAlerts({ today, now, settings: [on], state: [calm], sent: [] })).toEqual([]);
+  });
+});

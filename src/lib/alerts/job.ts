@@ -5,6 +5,8 @@ import { canSeePlan } from "@/lib/entitlements";
 import { publicEnv, serverEnv } from "@/lib/env";
 import type { Units } from "@/lib/format";
 import { parseStoredPlan, type StoredPlan } from "@/lib/plan/stored";
+import { dueText } from "@/lib/maintenance";
+import { loadPoolMaintenance } from "@/lib/maintenance-data";
 import { dueAlerts, type PoolAlertSettings, type PoolAlertState, type SentAlert } from "./decide";
 import { renderAlertEmail } from "./email";
 import { sendEmail } from "./send";
@@ -38,6 +40,7 @@ interface SettingsRow {
   test_reminder: boolean;
   test_after_days: number;
   weekly: boolean;
+  maintenance?: boolean;
   pools: { name: string; owner_id: string } | null;
 }
 
@@ -57,11 +60,20 @@ export async function runAlertsJob(admin: SupabaseClient, now = Date.now()): Pro
   const siteUrl = publicEnv.siteUrl();
   const planAllowed = await canSeePlan();
 
-  const { data: settings, error } = await admin
+  const columns = "pool_id, algae, test_reminder, test_after_days, weekly, pools(name, owner_id)";
+  let { data: settings, error } = await admin
     .from("alert_settings")
-    .select("pool_id, algae, test_reminder, test_after_days, weekly, pools(name, owner_id)")
-    .or("algae.eq.true,test_reminder.eq.true,weekly.eq.true")
+    .select(`${columns}, maintenance`)
+    .or("algae.eq.true,test_reminder.eq.true,weekly.eq.true,maintenance.eq.true")
     .returns<SettingsRow[]>();
+  if (error && /maintenance/.test(error.message)) {
+    // Before the maintenance migration lands.
+    ({ data: settings, error } = await admin
+      .from("alert_settings")
+      .select(columns)
+      .or("algae.eq.true,test_reminder.eq.true,weekly.eq.true")
+      .returns<SettingsRow[]>());
+  }
   if (error) throw new Error(`alert_settings: ${error.message}`);
 
   const byOwner = new Map<string, PoolAlertSettings[]>();
@@ -75,6 +87,7 @@ export async function runAlertsJob(admin: SupabaseClient, now = Date.now()): Pro
       testReminder: row.test_reminder,
       testAfterDays: row.test_after_days,
       weekly: row.weekly && planAllowed,
+      maintenance: row.maintenance === true,
     });
     byOwner.set(row.pools.owner_id, list);
   }
@@ -118,11 +131,19 @@ export async function runAlertsJob(admin: SupabaseClient, now = Date.now()): Pro
         const parsed = parseStoredPlan(row as { computed_at: string; version: number; summary: unknown; days: unknown });
         if (parsed) plans[(row as { pool_id: string }).pool_id] = parsed;
       }
+      // Upkeep due today or overdue, for pools with maintenance reminders on; fails open.
+      const maintenanceDue = new Map<string, string[]>();
+      for (const p of pools.filter((x) => x.maintenance)) {
+        const m = await loadPoolMaintenance(admin, p.poolId, { now });
+        const due = (m?.statuses ?? []).filter((t) => t.state === "overdue" || t.state === "due");
+        maintenanceDue.set(p.poolId, due.map((t) => `${t.task.label} (${dueText(t)})`));
+      }
       const state: PoolAlertState[] = lastTests.map(([poolId, lastTestAt]) => {
         const plan = plans[poolId];
         return {
           poolId,
           lastTestAt,
+          maintenanceDue: maintenanceDue.get(poolId) ?? [],
           plan: plan
             ? { fcStart: plan.summary.fcStart, fcMin: plan.summary.fc.min, riskDates: plan.days.filter((d) => d.algaeRisk).map((d) => d.date) }
             : null,
@@ -191,5 +212,8 @@ export async function unsubscribe(admin: SupabaseClient, userId: string, poolId:
     .update({ algae: false, test_reminder: false, weekly: false, updated_at: new Date().toISOString() })
     .in("pool_id", ids);
   if (uErr) throw new Error(`alert_settings: ${uErr.message}`);
+  // Separate, so a missing column (before its migration) cannot block the rest.
+  const { error: mErr } = await admin.from("alert_settings").update({ maintenance: false }).in("pool_id", ids);
+  if (mErr) console.error(`[alerts] unsubscribe maintenance: ${mErr.message}`);
   return true;
 }

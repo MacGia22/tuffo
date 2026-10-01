@@ -65,3 +65,15 @@ describe("renderAlertEmail", () => {
     expect(email.html).not.toContain("<b>Pool</b>");
   });
 });
+
+describe("maintenance reminder", () => {
+  it("lists the tasks and links to the maintenance page", () => {
+    const email = renderAlertEmail(
+      [{ poolId: POOL, poolName: "Backyard", kind: "maintenance", detail: { tasks: ["Inspect the salt cell (3 days overdue)"] } }],
+      ctx,
+    );
+    expect(email.subject).toBe("Backyard: maintenance due");
+    expect(email.text).toContain("Inspect the salt cell (3 days overdue)");
+    expect(email.text).toContain(`https://tuffo.app/app/pools/${POOL}/maintenance`);
+  });
+});

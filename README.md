@@ -244,6 +244,22 @@ it" dates the old item and starts the new one; otherwise the current one is corr
 place. The pump schedule page starts in GPM for pumps usually set by flow (Pentair VSF).
 Feeders are recorded only; counting them in the chlorine model is a later step.
 
+## Maintenance
+
+`/app/pools/[id]/maintenance` lists the upkeep the pool's equipment needs, from the
+catalog in `src/lib/maintenance.ts` (salt cell inspection every 3 months, pump basket
+weekly, cartridge rinse every 5 weeks, backwash by pressure, sand every 6 years, and so on).
+Each task has a default interval the owner can change (`pools.maintenance_intervals`, days
+per task id); "Done today" (or another day) logs a row in `pool_maintenance` and the next
+due date follows. Filter pressure readings (`pool_pressure`, kPa, shown as psi or bar) mark
+the backwash/rinse due when the gauge is 8 psi (55 kPa) over the last reading marked clean.
+Equipment life: the salt cell's hours of making chlorine since `pools.swg_cell_installed_on`,
+from the pump schedules times the cell setting, against the maker's rated hours where
+published (`ratedHours` in `src/lib/salt-cells.ts`); other equipment shows its age against a
+typical life. Tasks due within days show on the pool page with a Done button and on the
+settings cards. "Maintenance reminders" in the email alerts (`alert_settings.maintenance`)
+adds the tasks due or overdue, at most once a week per pool.
+
 ## Rain at the pool
 
 The weather cell's rain is a model estimate for a few kilometers around; storms vary a

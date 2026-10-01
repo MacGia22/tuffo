@@ -74,6 +74,14 @@ function section(alert: DueAlert, ctx: EmailContext): Section {
       link: `${poolUrl}/readings/new`,
     };
   }
+  if (alert.kind === "maintenance") {
+    const tasks = alert.detail.tasks ?? [];
+    return {
+      title: `${alert.poolName}: maintenance due`,
+      lines: [...tasks, "Mark each one done in Tuffo to set the next reminder."],
+      link: `${poolUrl}/maintenance`,
+    };
+  }
   const lines: string[] = [];
   if (plan) {
     if (plan.summary.kind === "swg") {

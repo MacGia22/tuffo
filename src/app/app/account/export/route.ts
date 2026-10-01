@@ -9,7 +9,7 @@ export async function GET() {
   if (!user) return new Response("Sign in first.", { status: 401 });
 
   const supabase = await createSupabaseServerClient();
-  const [profile, pools, readings, doses, events, scans, feedback, plans, alertSettings, alertLog, pumpSchedules, poolRain, poolEquipment] = await Promise.all([
+  const [profile, pools, readings, doses, events, scans, feedback, plans, alertSettings, alertLog, pumpSchedules, poolRain, poolEquipment, poolMaintenance, poolPressure] = await Promise.all([
     supabase.from("profiles").select("display_name, locale, units, consent_marketing_at, created_at").maybeSingle(),
     supabase.from("pools").select("*").order("created_at"),
     supabase.from("readings").select("*").order("taken_at"),
@@ -23,11 +23,13 @@ export async function GET() {
       .order("created_at"),
     // The 7-day plans Tuffo worked out: advice per day, no model parameters.
     supabase.from("plans").select("pool_id, computed_at, summary, days"),
-    supabase.from("alert_settings").select("pool_id, algae, test_reminder, test_after_days, weekly, updated_at"),
+    supabase.from("alert_settings").select("*"),
     supabase.from("alert_log").select("pool_id, kind, sent_on").order("sent_on"),
     supabase.from("pump_schedules").select("pool_id, effective_from, segments, cell_hours, source").order("effective_from"),
     supabase.from("pool_rain").select("pool_id, date, rain_mm, updated_at").order("date"),
     supabase.from("pool_equipment").select("pool_id, kind, model, details, installed_on, removed_on").order("installed_on"),
+    supabase.from("pool_maintenance").select("pool_id, task, done_on, created_at").order("done_on"),
+    supabase.from("pool_pressure").select("pool_id, read_on, kpa, clean, created_at").order("read_on"),
   ]);
 
   const body = {
@@ -52,7 +54,9 @@ export async function GET() {
     pump_schedules: pumpSchedules.data ?? [],
     rain_at_pool: poolRain.data ?? [],
     equipment: poolEquipment.data ?? [],
-    units_note: "Volumes in liters, temperatures in °C, rain in millimeters, doses in grams or milliliters; locations are 0.03° weather cells (0.05° for pools not moved since September 2026).",
+    maintenance_done: poolMaintenance.data ?? [],
+    filter_pressure: poolPressure.data ?? [],
+    units_note: "Volumes in liters, temperatures in °C, rain in millimeters, filter pressure in kPa, doses in grams or milliliters; locations are 0.03° weather cells (0.05° for pools not moved since September 2026).",
   };
 
   const stamp = new Date().toISOString().slice(0, 10);

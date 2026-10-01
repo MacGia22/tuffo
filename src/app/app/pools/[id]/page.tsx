@@ -34,6 +34,9 @@ import { FRESH_HOURS, refreshCellIfStale } from "@/lib/weather/job";
 import { loadOwnRain, withOwnRain } from "@/lib/weather/own-rain";
 import { localDateRange, summarizeBetween, type WeatherDay } from "@/lib/weather/summary";
 import { deleteEntry } from "./actions";
+import { DoneForm } from "./maintenance/maintenance-forms";
+import { dueTasks, dueText } from "@/lib/maintenance";
+import { loadPoolMaintenance } from "@/lib/maintenance-data";
 
 interface Pool {
   id: string;
@@ -425,6 +428,9 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
     saltStatus,
     estimateMiss,
   } = await loadPoolView(id);
+  // Upkeep due now or within days; fails open (nothing shown).
+  const upkeep = await loadPoolMaintenance(await createSupabaseServerClient(), pool.id);
+  const upkeepDue = upkeep ? dueTasks(upkeep.statuses) : [];
 
   const secondary =
     "rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold hover:border-lagoon";
@@ -451,6 +457,10 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
             {" · "}
             <Link href={`/app/pools/${pool.id}/settings`} className="text-lagoon underline-offset-2 hover:underline">
               Settings and equipment
+            </Link>
+            {" · "}
+            <Link href={`/app/pools/${pool.id}/maintenance`} className="text-lagoon underline-offset-2 hover:underline">
+              Maintenance
             </Link>
           </p>
         </div>
@@ -567,6 +577,30 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
           cellLevels={pool.sanitizer === "swg" ? levelsText(cellLevels(pool.swg_cell_model)) : null}
           cellLowest={pool.sanitizer === "swg" ? (cellLevels(pool.swg_cell_model)?.[0] ?? null) : null}
         />
+      ) : null}
+
+      {upkeepDue.length > 0 ? (
+        <section aria-labelledby="upkeep" className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 id="upkeep" className="text-xl font-semibold">
+              Maintenance due
+            </h2>
+            <Link href={`/app/pools/${pool.id}/maintenance`} className="text-sm font-semibold text-lagoon">
+              All maintenance
+            </Link>
+          </div>
+          <ul className="flex flex-col gap-3">
+            {upkeepDue.map((s) => (
+              <li key={s.task.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                <span>
+                  <span className="font-semibold">{s.task.label}</span>{" "}
+                  <span className={s.state === "overdue" ? "text-red-700" : "text-muted"}>· {dueText(s)}</span>
+                </span>
+                <DoneForm poolId={pool.id} task={s.task.id} taskLabel={s.task.label} />
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
 
       {between ? <BetweenTests summary={between} units={units} swg={pool.sanitizer === "swg"} /> : null}

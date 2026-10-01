@@ -6,9 +6,10 @@
  *   flags today or tomorrow. At most once every 3 days per pool.
  * - Time to test: N days (the person picks; default 7) since the last test, once per gap.
  * - Weekly summary: on Saturdays.
+ * - Maintenance: upkeep that is due or overdue, at most once a week per pool.
  */
 
-export type AlertKind = "algae" | "test_reminder" | "weekly";
+export type AlertKind = "algae" | "test_reminder" | "weekly" | "maintenance";
 
 export interface PoolAlertSettings {
   poolId: string;
@@ -17,6 +18,7 @@ export interface PoolAlertSettings {
   testReminder: boolean;
   testAfterDays: number;
   weekly: boolean;
+  maintenance?: boolean;
 }
 
 export interface PoolAlertState {
@@ -29,6 +31,8 @@ export interface PoolAlertState {
     /** Dates (YYYY-MM-DD) the plan flags as algae risk. */
     riskDates: string[];
   } | null;
+  /** Upkeep due today or overdue: "Inspect the salt cell (3 days overdue)". */
+  maintenanceDue?: string[];
 }
 
 export interface SentAlert {
@@ -41,12 +45,16 @@ export interface DueAlert {
   poolId: string;
   poolName: string;
   kind: AlertKind;
-  /** Algae: the first risky date, or today when FC is already estimated low. Reminder: days since the test. */
-  detail: { date?: string; days?: number };
+  /**
+   * Algae: the first risky date, or today when FC is already estimated low. Reminder: days
+   * since the test. Maintenance: the tasks due.
+   */
+  detail: { date?: string; days?: number; tasks?: string[] };
 }
 
 export const ALGAE_REPEAT_DAYS = 3;
 export const WEEKLY_DAY = 6; // Saturday
+export const MAINTENANCE_REPEAT_DAYS = 7;
 
 const DAY_MS = 86_400_000;
 
@@ -94,6 +102,12 @@ export function dueAlerts(input: {
 
     if (s.weekly && weekday === WEEKLY_DAY && !sentFor("weekly").some((x) => daysBetween(x.sentOn, today) < 6)) {
       due.push({ poolId: s.poolId, poolName: s.poolName, kind: "weekly", detail: {} });
+    }
+
+    const tasks = state?.maintenanceDue ?? [];
+    if (s.maintenance && tasks.length > 0) {
+      const recent = sentFor("maintenance").some((x) => daysBetween(x.sentOn, today) < MAINTENANCE_REPEAT_DAYS);
+      if (!recent) due.push({ poolId: s.poolId, poolName: s.poolName, kind: "maintenance", detail: { tasks } });
     }
   }
   return due;
