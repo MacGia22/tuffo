@@ -107,6 +107,10 @@ migration must survive a second run.
   a day the cell runs, from when); owner reads, inserts and deletes, never updates, so the
   history the chlorine model reads stays true. Cell settings are `events` of kind
   `cell_setting` with the percent in `value`.
+- `pool_equipment`: the pump, chlorine feeder, filter and heater of a pool (`kind`, `model`,
+  `details` JSON, `installed_on`, `removed_on`); one current row per kind (partial unique
+  index on `removed_on is null`); replacing dates the old row. Owner reads, inserts, updates
+  and deletes. The salt cell stays on `pools`.
 - `pool_rain`: the rain an owner entered for a day at the pool (mm, one row per pool and
   day), used instead of the weather cell's rain; owner reads, inserts, updates and deletes.
 - `plans` (the 7-day plan per pool) is written only by the server (nightly job, after a

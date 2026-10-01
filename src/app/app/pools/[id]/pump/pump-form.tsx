@@ -29,12 +29,15 @@ export function PumpForm({
   current,
   scanEnabled,
   allowance,
+  defaultUnit = "rpm",
 }: {
   poolId: string;
   timeZone: string;
   current: PumpSegment[] | null;
   scanEnabled: boolean;
   allowance: ScanAllowance | null;
+  /** From the pump in the pool's settings: GPM for pumps usually set by flow. */
+  defaultUnit?: SpeedUnit;
 }) {
   const [state, action, pending] = useActionState(savePumpSchedule, initial);
   const [rows, setRows] = useState<Row[]>(() =>
@@ -43,7 +46,7 @@ export function PumpForm({
       : [row({ start: "08:00", end: "16:00" })],
   );
   const [source, setSource] = useState<"manual" | "screenshot">("manual");
-  const [unit, setUnit] = useState<SpeedUnit>(current?.find((s) => s.unit)?.unit ?? "rpm");
+  const [unit, setUnit] = useState<SpeedUnit>(current?.find((s) => s.unit)?.unit ?? defaultUnit);
   const [scanNote, setScanNote] = useState<string | null>(null);
 
   const hours = cellHoursPerDay(rows.filter((r) => r.start && r.end).map((r) => ({ start: r.start, end: r.end, cell: r.cell })));

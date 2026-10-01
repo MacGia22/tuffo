@@ -212,6 +212,17 @@ rated output × setting × cell hours ÷ 24 for the settings and schedules in fo
 (`src/engine/swg.ts`); a salt pair with no setting or schedule known at its first test is
 left out instead of guessed. The plan suggests the setting for the current pump hours.
 
+## Pool settings and equipment
+
+`/app/pools/[id]/settings` edits the pool's name, volume, sanitizer, surface and cover (a
+change refits the model and plan), links to the location map, holds the salt cell form for
+salt pools, and one card per piece of equipment in `pool_equipment`: pump (common models
+listed in `src/lib/equipment.ts`, or another with its speed type), chlorine feeder (floater,
+inline, liquid dosing pump, controller, with its setting), filter and heater. "I replaced
+it" dates the old item and starts the new one; otherwise the current one is corrected in
+place. The pump schedule page starts in GPM for pumps usually set by flow (Pentair VSF).
+Feeders are recorded only; counting them in the chlorine model is a later step.
+
 ## Rain at the pool
 
 The weather cell's rain is a model estimate for a few kilometers around; storms vary a
