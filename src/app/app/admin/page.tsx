@@ -4,6 +4,7 @@ import { ConfirmButton } from "@/components/confirm-button";
 import { requireAdmin } from "@/lib/auth/admin";
 import { formatDateTime } from "@/lib/format";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { sourceCounts, userRows } from "@/lib/admin-users";
 import { FeedbackStatusBadge } from "@/components/feedback-status";
 import {
   FEEDBACK_KINDS,
@@ -66,6 +67,17 @@ async function loadFeedback(kind: FeedbackKind | null, status: FeedbackStatus | 
   return { rows, count, error, emails };
 }
 
+/** Every account (up to 1,000), newest first; null when the auth admin API fails. */
+async function loadUsers() {
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  if (error) {
+    console.error(`[admin] list users: ${error.status ?? ""} ${error.message}`);
+    return null;
+  }
+  return userRows(data.users);
+}
+
 interface Entry {
   email: string;
   source: string | null;
@@ -73,7 +85,7 @@ interface Entry {
 }
 
 /**
- * Private-beta admin: feedback, the waitlist, and invitations by email. Hidden (404)
+ * Private-beta admin: feedback, users, the waitlist, and invitations by email. Hidden (404)
  * from everyone not in ADMIN_EMAILS.
  */
 export default async function AdminPage({ searchParams }: PageProps<"/app/admin">) {
@@ -85,7 +97,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/app/admin"
   const filters = new URLSearchParams();
   if (kindFilter) filters.set("kind", kindFilter);
   if (statusFilter) filters.set("fstatus", statusFilter);
-  const feedback = await loadFeedback(kindFilter, statusFilter);
+  const [feedback, users] = await Promise.all([loadFeedback(kindFilter, statusFilter), loadUsers()]);
 
   const admin = createSupabaseAdminClient();
   const { data: entries, count, error } = await admin
@@ -108,7 +120,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/app/admin"
       </nav>
       <div>
         <h1 className="text-3xl font-semibold">Admin</h1>
-        <p className="text-muted">Feedback from the app, the waitlist, and invitations.</p>
+        <p className="text-muted">Feedback from the app, users, the waitlist, and invitations.</p>
       </div>
 
       {message ? (
@@ -195,6 +207,54 @@ export default async function AdminPage({ searchParams }: PageProps<"/app/admin"
               </li>
             ))}
           </ul>
+        )}
+      </section>
+
+      <section id="users" aria-labelledby="users-title" className="flex flex-col gap-3">
+        <h2 id="users-title" className="text-xl font-semibold">
+          Users{users ? ` (${users.length})` : ""}
+        </h2>
+        {!users ? (
+          <p className="text-sm text-muted">The user list is not available right now. Check the server logs.</p>
+        ) : users.length === 0 ? (
+          <p className="text-sm text-muted">No accounts yet.</p>
+        ) : (
+          <>
+            <p className="text-sm text-muted">
+              By source:{" "}
+              {sourceCounts(users)
+                .map((s) => `${s.source} ${s.count}`)
+                .join(" · ")}
+            </p>
+            <div className="overflow-x-auto rounded-2xl border border-border">
+              <table className="w-full min-w-[600px] text-sm">
+                <thead className="bg-surface text-left text-xs font-semibold text-muted">
+                  <tr>
+                    <th className="px-4 py-3">Email</th>
+                    <th className="px-3 py-3">Signed up</th>
+                    <th className="px-3 py-3">Last sign-in</th>
+                    <th className="px-3 py-3">Source</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((u) => (
+                    <tr key={u.id} className="border-t border-border">
+                      <td className="px-4 py-2.5">{u.email}</td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-muted">{formatDateTime(u.signedUpAt, "UTC")} UTC</td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-muted">
+                        {u.lastSignInAt ? `${formatDateTime(u.lastSignInAt, "UTC")} UTC` : "Not yet"}
+                      </td>
+                      <td className="px-3 py-2.5 text-muted">{u.source}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-muted">
+              Source is the ?ref= label of the link someone came through (kept from the waitlist when you invite them);
+              &ldquo;invited&rdquo; means invited without one, &ldquo;direct&rdquo; signed up without one.
+            </p>
+          </>
         )}
       </section>
 
