@@ -111,6 +111,11 @@ migration must survive a second run.
   `details` JSON, `installed_on`, `removed_on`); one current row per kind (partial unique
   index on `removed_on is null`); replacing dates the old row. Owner reads, inserts, updates
   and deletes. The salt cell stays on `pools`.
+- `pool_maintenance`: upkeep done (`task` id from `src/lib/maintenance.ts`, `done_on`);
+  `pool_pressure`: filter gauge readings (`kpa`, `read_on`, `clean` for the reading right
+  after cleaning). Owner reads, inserts and deletes. `pools.maintenance_intervals` (JSON,
+  days per task id) and `pools.swg_cell_installed_on` hold the owner's settings;
+  `alert_settings.maintenance` switches the reminder email on.
 - `pool_rain`: the rain an owner entered for a day at the pool (mm, one row per pool and
   day), used instead of the weather cell's rain; owner reads, inserts, updates and deletes.
 - `plans` (the 7-day plan per pool) is written only by the server (nightly job, after a

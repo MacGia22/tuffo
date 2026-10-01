@@ -17,10 +17,10 @@ export default async function AccountPage() {
     supabase.from("pools").select("id, name").order("created_at").returns<{ id: string; name: string }[]>(),
     supabase
       .from("alert_settings")
-      .select("pool_id, algae, test_reminder, test_after_days, weekly")
+      .select("pool_id, algae, test_reminder, test_after_days, weekly, maintenance")
       .returns<(AlertChoices & { pool_id: string })[]>(),
   ]);
-  const off: AlertChoices = { algae: false, test_reminder: false, test_after_days: 7, weekly: false };
+  const off: AlertChoices = { algae: false, test_reminder: false, test_after_days: 7, weekly: false, maintenance: false };
 
   return (
     <>

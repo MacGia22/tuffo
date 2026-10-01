@@ -104,6 +104,8 @@ interface CurrentItem {
   model: string | null;
   details: Record<string, unknown>;
   since: string;
+  /** YYYY-MM-DD, for the date field. */
+  installedOn: string;
   summary: string;
 }
 
@@ -216,11 +218,16 @@ export function EquipmentCard({
   kind,
   current,
   scheduleHref,
+  upkeep = [],
+  maintenanceHref,
 }: {
   poolId: string;
   kind: EquipmentKind;
   current: CurrentItem | null;
   scheduleHref: string | null;
+  /** Its maintenance tasks: "Empty the pump basket: last done Sep 30, due in 6 days". */
+  upkeep?: string[];
+  maintenanceHref?: string;
 }) {
   const [state, action, pending] = useActionState(saveEquipment, initial);
   const [open, setOpen] = useState(false);
@@ -246,6 +253,20 @@ export function EquipmentCard({
             Pump schedule
           </Link>
         </p>
+      ) : null}
+      {upkeep.length > 0 ? (
+        <ul className="flex flex-col gap-0.5 text-sm">
+          {upkeep.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+          {maintenanceHref ? (
+            <li>
+              <Link href={maintenanceHref} className="font-semibold text-lagoon underline-offset-2 hover:underline">
+                Maintenance
+              </Link>
+            </li>
+          ) : null}
+        </ul>
       ) : null}
       {!open && !current ? (
         <button
@@ -279,7 +300,12 @@ export function EquipmentCard({
               Installed on (leave empty for today)
               <input type="date" name="since" className={`${field} w-44`} />
             </label>
-          ) : null}
+          ) : (
+            <label className={label}>
+              Installed on
+              <input type="date" name="since" defaultValue={current.installedOn} className={`${field} w-44`} />
+            </label>
+          )}
           <button type="submit" disabled={pending} className={save}>
             {pending ? "Saving…" : current ? "Save" : "Add"}
           </button>

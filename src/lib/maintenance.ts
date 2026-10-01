@@ -1,0 +1,447 @@
+/**
+ * Pool upkeep: which tasks a pool's equipment needs, how often (a typical default the
+ * owner can change), when each is next due, filter pressure against its clean pressure,
+ * and how much of its life a piece of equipment has used. Browser-safe and pure: the
+ * pages and the alert job load the rows and call these.
+ *
+ * Intervals and lives are typical figures from makers' manuals and pool-care guides, not
+ * promises; the copy says "about" and "typical".
+ */
+
+import type { FeederType, FilterType, HeaterType } from "@/lib/equipment";
+
+export type TaskId =
+  | "cell_clean"
+  | "pump_basket"
+  | "pump_oring"
+  | "cartridge_rinse"
+  | "cartridge_replace"
+  | "sand_backwash"
+  | "sand_replace"
+  | "de_backwash"
+  | "de_grids"
+  | "heater_service"
+  | "feeder_refill";
+
+export type TaskEquipment = "cell" | "pump" | "filter" | "heater" | "feeder";
+
+export interface MaintenanceTask {
+  id: TaskId;
+  label: string;
+  equipment: TaskEquipment;
+  /** Default interval, days. */
+  defaultDays: number;
+  /** What guides usually say, for the settings copy. */
+  typical: string;
+  /** Also due when the filter pressure has risen this far above its clean pressure. */
+  pressure?: boolean;
+  /** One line on how, with the care it needs. */
+  how: string;
+}
+
+export const MAINTENANCE_TASKS: MaintenanceTask[] = [
+  {
+    id: "cell_clean",
+    label: "Inspect the salt cell",
+    equipment: "cell",
+    defaultDays: 90,
+    typical: "every 3 months",
+    how: "Power the cell off and look inside. Clean only if you see scale, as the manual says; if it calls for acid, add acid to water (never water to acid), outdoors, with gloves and eye protection.",
+  },
+  {
+    id: "pump_basket",
+    label: "Empty the pump basket",
+    equipment: "pump",
+    defaultDays: 7,
+    typical: "every week",
+    how: "Turn the pump off first, empty the basket, check the lid O-ring is seated.",
+  },
+  {
+    id: "pump_oring",
+    label: "Lube the pump lid O-ring",
+    equipment: "pump",
+    defaultDays: 365,
+    typical: "every year",
+    how: "Clean it and use a silicone pool lubricant (not petroleum jelly); replace it if it is cracked or flat.",
+  },
+  {
+    id: "cartridge_rinse",
+    label: "Hose off the filter cartridge",
+    equipment: "filter",
+    defaultDays: 35,
+    typical: "every 4 to 6 weeks, or when the pressure is 8 to 10 psi over clean",
+    pressure: true,
+    how: "Pump off, release the air, then rinse the cartridge top to bottom between the pleats.",
+  },
+  {
+    id: "cartridge_replace",
+    label: "Replace the filter cartridge",
+    equipment: "filter",
+    defaultDays: 540,
+    typical: "every 1 to 2 years",
+    how: "Sooner if the pleats are torn or flat, or the pressure stays high right after a rinse.",
+  },
+  {
+    id: "sand_backwash",
+    label: "Backwash the sand filter",
+    equipment: "filter",
+    defaultDays: 30,
+    typical: "when the pressure is 8 to 10 psi over clean",
+    pressure: true,
+    how: "Pump off before moving the valve. Backwash until the sight glass runs clear, then rinse.",
+  },
+  {
+    id: "sand_replace",
+    label: "Replace the filter sand",
+    equipment: "filter",
+    defaultDays: 2190,
+    typical: "every 5 to 7 years",
+    how: "Sooner if backwashes get short or the water stays cloudy with good chemistry.",
+  },
+  {
+    id: "de_backwash",
+    label: "Backwash and recharge the DE filter",
+    equipment: "filter",
+    defaultDays: 30,
+    typical: "when the pressure is 8 to 10 psi over clean",
+    pressure: true,
+    how: "Pump off before moving the valve. Backwash, then add fresh DE through the skimmer as the filter's label says. Wear a dust mask.",
+  },
+  {
+    id: "de_grids",
+    label: "Clean the DE filter grids",
+    equipment: "filter",
+    defaultDays: 365,
+    typical: "every year",
+    how: "Take the grids out and hose them off; replace any that are torn.",
+  },
+  {
+    id: "heater_service",
+    label: "Service the heater",
+    equipment: "heater",
+    defaultDays: 365,
+    typical: "every year",
+    how: "A technician's check before the season.",
+  },
+  {
+    id: "feeder_refill",
+    label: "Refill the chlorine feeder",
+    equipment: "feeder",
+    defaultDays: 7,
+    typical: "set it to how long yours lasts",
+    how: "Refill with the product the feeder is made for, and only that one; never mix different chlorine products.",
+  },
+];
+
+export function taskById(id: string): MaintenanceTask | undefined {
+  return MAINTENANCE_TASKS.find((t) => t.id === id);
+}
+
+export interface MaintenancePool {
+  sanitizer: "chlorine" | "swg";
+  hasPump: boolean;
+  filterType: FilterType | null;
+  heaterType: HeaterType | null;
+  feederType: FeederType | null;
+}
+
+const FILTER_TASKS: Record<FilterType, TaskId[]> = {
+  cartridge: ["cartridge_rinse", "cartridge_replace"],
+  sand: ["sand_backwash", "sand_replace"],
+  de: ["de_backwash", "de_grids"],
+};
+
+/** The tasks that apply to a pool's equipment, in catalog order. */
+export function tasksFor(pool: MaintenancePool): MaintenanceTask[] {
+  const ids = new Set<TaskId>();
+  if (pool.sanitizer === "swg") ids.add("cell_clean");
+  if (pool.hasPump) {
+    ids.add("pump_basket");
+    ids.add("pump_oring");
+  }
+  for (const id of pool.filterType ? FILTER_TASKS[pool.filterType] : []) ids.add(id);
+  if (pool.heaterType && pool.heaterType !== "solar") ids.add("heater_service");
+  if (pool.feederType) ids.add("feeder_refill");
+  return MAINTENANCE_TASKS.filter((t) => ids.has(t.id));
+}
+
+export const MIN_INTERVAL_DAYS = 1;
+export const MAX_INTERVAL_DAYS = 3650;
+
+function validDays(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= MIN_INTERVAL_DAYS && value <= MAX_INTERVAL_DAYS;
+}
+
+/** The owner's interval for a task, or the default. `overrides` is pools.maintenance_intervals. */
+export function intervalFor(task: MaintenanceTask, overrides: unknown): number {
+  const value = overrides && typeof overrides === "object" ? (overrides as Record<string, unknown>)[task.id] : undefined;
+  return validDays(value) ? value : task.defaultDays;
+}
+
+export const INTERVAL_UNITS = [
+  { value: "days", label: "days", days: 1 },
+  { value: "weeks", label: "weeks", days: 7 },
+  { value: "months", label: "months", days: 30 },
+  { value: "years", label: "years", days: 365 },
+] as const;
+
+export type IntervalUnit = (typeof INTERVAL_UNITS)[number]["value"];
+
+/** An interval from the form's number and unit, in days; null when out of range. */
+export function intervalFromForm(count: string | null, unit: string | null): number | null {
+  const n = Number((count ?? "").trim());
+  const u = INTERVAL_UNITS.find((x) => x.value === unit);
+  if (!u || !Number.isFinite(n) || n <= 0) return null;
+  const days = Math.round(n * u.days);
+  return validDays(days) ? days : null;
+}
+
+/** An interval split into the largest whole unit, for the form and the copy. */
+export function splitInterval(days: number): { count: number; unit: IntervalUnit } {
+  for (const u of [...INTERVAL_UNITS].reverse()) {
+    if (u.days > 1 && days % u.days === 0) return { count: days / u.days, unit: u.value };
+  }
+  return { count: days, unit: "days" };
+}
+
+/** "every week", "every 3 months", "every 2 years". */
+export function describeInterval(days: number): string {
+  const { count, unit } = splitInterval(days);
+  const singular = unit.slice(0, -1);
+  if (count === 1) return unit === "days" ? "every day" : `every ${singular}`;
+  return `every ${count} ${unit}`;
+}
+
+const DAY_MS = 86_400_000;
+
+function dayNumber(date: string): number {
+  return Math.round(Date.parse(`${date.slice(0, 10)}T00:00:00Z`) / DAY_MS);
+}
+
+export function addDays(date: string, days: number): string {
+  return new Date((dayNumber(date) + days) * DAY_MS).toISOString().slice(0, 10);
+}
+
+export function daysBetween(from: string, to: string): number {
+  return dayNumber(to) - dayNumber(from);
+}
+
+export interface PressureReading {
+  readOn: string;
+  kpa: number;
+  clean: boolean;
+}
+
+/** A rise of 8 psi (55 kPa) over the clean pressure: time to clean the filter. */
+export const PRESSURE_RISE_KPA = 55;
+
+export interface PressureStatus {
+  latest: PressureReading;
+  /** The last reading marked clean, at or before the latest. */
+  clean: PressureReading | null;
+  /** Latest minus clean, kPa; null without a clean reading. */
+  riseKpa: number | null;
+  high: boolean;
+}
+
+/**
+ * The filter's pressure now against its clean pressure. Readings may come in any order;
+ * readings before `since` (the filter's install date) are ignored. Null without readings.
+ */
+export function pressureStatus(readings: PressureReading[], since: string | null = null): PressureStatus | null {
+  const list = readings
+    .filter((r) => Number.isFinite(r.kpa) && (!since || r.readOn >= since))
+    .map((r, i) => ({ r, i }))
+    // Oldest first; the same day keeps the order given (logged order).
+    .sort((a, b) => (a.r.readOn === b.r.readOn ? a.i - b.i : a.r.readOn < b.r.readOn ? -1 : 1))
+    .map((x) => x.r);
+  if (list.length === 0) return null;
+  const latest = list[list.length - 1];
+  const clean = [...list].reverse().find((r) => r.clean) ?? null;
+  const riseKpa = clean ? Math.round((latest.kpa - clean.kpa) * 10) / 10 : null;
+  return { latest, clean, riseKpa, high: riseKpa !== null && riseKpa >= PRESSURE_RISE_KPA };
+}
+
+export type TaskState = "overdue" | "due" | "soon" | "ok" | "unknown";
+
+export interface TaskStatus {
+  task: MaintenanceTask;
+  intervalDays: number;
+  lastDone: string | null;
+  nextDue: string | null;
+  /** Days from today to the next due date (negative: overdue). */
+  daysLeft: number | null;
+  /** Due because the filter pressure is high (since the last time it was done). */
+  pressureHigh: boolean;
+  state: TaskState;
+}
+
+/** Due within this many days counts as "soon" (at most a week, or a tenth of the interval). */
+export function soonWindow(intervalDays: number): number {
+  return Math.max(1, Math.min(7, Math.round(intervalDays / 10)));
+}
+
+export interface MaintenanceInput {
+  pool: MaintenancePool;
+  overrides: unknown;
+  /** Every logged completion, any order. */
+  done: { task: string; doneOn: string }[];
+  pressure: PressureStatus | null;
+  today: string;
+}
+
+/** The status of each task that applies, most urgent first. */
+export function maintenanceStatus(input: MaintenanceInput): TaskStatus[] {
+  const rank: Record<TaskState, number> = { overdue: 0, due: 1, soon: 2, ok: 3, unknown: 4 };
+  return tasksFor(input.pool)
+    .map((task): TaskStatus => {
+      const intervalDays = intervalFor(task, input.overrides);
+      const lastDone =
+        input.done
+          .filter((d) => d.task === task.id && d.doneOn <= input.today)
+          .map((d) => d.doneOn.slice(0, 10))
+          .sort()
+          .pop() ?? null;
+      const p = input.pressure;
+      const pressureHigh = Boolean(task.pressure && p?.high && (!lastDone || p.latest.readOn >= lastDone));
+      const nextDue = lastDone ? addDays(lastDone, intervalDays) : null;
+      const daysLeft = nextDue ? daysBetween(input.today, nextDue) : null;
+      let state: TaskState;
+      if (daysLeft !== null && daysLeft < 0) state = "overdue";
+      else if (pressureHigh || daysLeft === 0) state = "due";
+      else if (daysLeft === null) state = "unknown";
+      else if (daysLeft <= soonWindow(intervalDays)) state = "soon";
+      else state = "ok";
+      return { task, intervalDays, lastDone, nextDue, daysLeft, pressureHigh, state };
+    })
+    .sort((a, b) => rank[a.state] - rank[b.state] || (a.daysLeft ?? 0) - (b.daysLeft ?? 0));
+}
+
+/** The tasks to show on the pool page and in the reminder email. */
+export function dueTasks(statuses: TaskStatus[]): TaskStatus[] {
+  return statuses.filter((s) => s.state === "overdue" || s.state === "due" || s.state === "soon");
+}
+
+/** "due today", "3 days overdue", "due in 2 days", "due Mar 4", "not logged yet". */
+export function dueText(s: TaskStatus): string {
+  if (s.pressureHigh && (s.daysLeft === null || s.daysLeft >= 0)) return "due now: filter pressure is up";
+  if (s.daysLeft === null || s.nextDue === null) return "not logged yet";
+  if (s.daysLeft < 0) return `${-s.daysLeft} ${s.daysLeft === -1 ? "day" : "days"} overdue`;
+  if (s.daysLeft === 0) return "due today";
+  if (s.daysLeft === 1) return "due tomorrow";
+  if (s.daysLeft <= 14) return `due in ${s.daysLeft} days`;
+  const date = new Date(`${s.nextDue}T12:00:00Z`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  return `due ${date}`;
+}
+
+export interface ScheduleSpan {
+  /** When it took effect (ISO instant or date). */
+  from: string;
+  /** Hours a day the cell runs (the pump hours it is on). */
+  hours: number;
+}
+
+export interface SettingChange {
+  at: string;
+  /** Output setting, percent. */
+  percent: number;
+}
+
+export interface CellHours {
+  hours: number;
+  /** Days before the first logged schedule were counted with that first schedule. */
+  extrapolated: boolean;
+}
+
+/**
+ * About how many hours the cell has made chlorine since it was installed: each day, the
+ * pump hours in force times the output setting in force (a cell at 50% is on about half
+ * the time; no setting logged counts as 100%). Days before the first logged schedule use
+ * the first one. Null without a schedule, or an install date after today.
+ */
+export function cellHoursUsed(input: {
+  installedOn: string;
+  today: string;
+  schedules: ScheduleSpan[];
+  settings: SettingChange[];
+}): CellHours | null {
+  const schedules = input.schedules
+    .filter((s) => Number.isFinite(s.hours) && s.hours >= 0)
+    .map((s) => ({ day: s.from.slice(0, 10), hours: Math.min(24, s.hours) }))
+    .sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0));
+  if (schedules.length === 0) return null;
+  const settings = input.settings
+    .filter((s) => Number.isFinite(s.percent))
+    .map((s) => ({ day: s.at.slice(0, 10), share: Math.max(0, Math.min(100, s.percent)) / 100 }))
+    .sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0));
+  const days = daysBetween(input.installedOn, input.today);
+  if (days < 0) return null;
+
+  // Walk day by day; the value in force on a day is the last change on or before it.
+  let total = 0;
+  let si = -1;
+  let pi = -1;
+  let extrapolated = false;
+  for (let d = 0; d < days; d += 1) {
+    const day = addDays(input.installedOn, d);
+    while (si + 1 < schedules.length && schedules[si + 1].day <= day) si += 1;
+    while (pi + 1 < settings.length && settings[pi + 1].day <= day) pi += 1;
+    if (si < 0) extrapolated = true;
+    const hours = schedules[Math.max(0, si)].hours;
+    const share = pi >= 0 ? settings[pi].share : settings.length > 0 ? settings[0].share : 1;
+    total += hours * share;
+  }
+  return { hours: Math.round(total), extrapolated };
+}
+
+/** Typical service life, years, by equipment. */
+export const TYPICAL_LIFE_YEARS: Record<string, [number, number]> = {
+  cell: [3, 7],
+  pump: [8, 12],
+  filter: [10, 15],
+  heater_gas: [5, 10],
+  heater_heat_pump: [10, 15],
+  heater_electric: [10, 15],
+  heater_solar: [10, 20],
+  feeder: [5, 10],
+};
+
+export function ageYears(installedOn: string, today: string): number {
+  return Math.max(0, daysBetween(installedOn, today) / 365.25);
+}
+
+/** "8 months", "1 year", "3.5 years". */
+export function formatAge(years: number): string {
+  if (years < 1) {
+    const months = Math.max(0, Math.round(years * 12));
+    return months <= 1 ? (months === 0 ? "under a month" : "1 month") : `${months} months`;
+  }
+  const rounded = Math.round(years * 2) / 2;
+  return rounded === 1 ? "1 year" : `${rounded} years`;
+}
+
+export type LifeState = "fine" | "late" | "past";
+
+/** Within a typical life, in its later part (past the low end), or past the high end. */
+export function lifeState(years: number, life: [number, number]): LifeState {
+  if (years > life[1]) return "past";
+  if (years >= life[0]) return "late";
+  return "fine";
+}
+
+export interface LifeUsed {
+  percent: number;
+  state: LifeState;
+}
+
+/** Hours used against the rating: "late" from 80%, "past" over 100%. */
+export function hoursLife(hours: number, ratedHours: number): LifeUsed | null {
+  if (!(ratedHours > 0) || !(hours >= 0)) return null;
+  const percent = Math.round((hours / ratedHours) * 100);
+  return { percent, state: percent > 100 ? "past" : percent >= 80 ? "late" : "fine" };
+}

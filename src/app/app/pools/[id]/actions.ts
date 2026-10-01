@@ -346,9 +346,11 @@ export async function saveEquipment(_prev: SettingsState, formData: FormData): P
 
   const replaced = formData.get("replaced") === "on";
   if (current && !replaced) {
+    // A corrected install date (used for its age on the maintenance page).
+    const installedOn = text(formData, "since") ? since : current.installed_on;
     const { error } = await supabase
       .from("pool_equipment")
-      .update({ model: item.model, details: item.details })
+      .update({ model: item.model, details: item.details, installed_on: installedOn })
       .eq("id", current.id);
     if (error) return { error: unavailable(error.message) };
   } else {

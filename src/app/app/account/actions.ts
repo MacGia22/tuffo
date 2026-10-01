@@ -68,12 +68,13 @@ export async function saveAlertSettings(_prev: AlertState, formData: FormData): 
       test_reminder: on("test_reminder"),
       test_after_days: days,
       weekly: on("weekly"),
+      maintenance: on("maintenance"),
       updated_at: new Date().toISOString(),
     },
     { onConflict: "pool_id" },
   );
   if (error) return { error: /alert_settings/.test(error.message) ? "Alerts are not available yet. Try again in a few minutes." : `Could not save (${error.message}).` };
   revalidatePath("/app/account");
-  const any = on("algae") || on("test_reminder") || on("weekly");
+  const any = on("algae") || on("test_reminder") || on("weekly") || on("maintenance");
   return { message: any ? "Saved. Emails come from hello@tuffo.app, at most one a day." : "Saved. No alert emails for this pool." };
 }

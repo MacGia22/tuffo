@@ -25,6 +25,26 @@ export function formatVolume(liters: number, units: Units): string {
   return `${rounded.toLocaleString("en-US")} ${volumeUnitLabel(units)}`;
 }
 
+const KPA_PER_PSI = 6.894757;
+
+/** Filter gauge pressure: psi in US units, bar in metric (what gauges show). */
+export function kpaToDisplayPressure(kpa: number, units: Units): number {
+  return units === "us" ? kpa / KPA_PER_PSI : kpa / 100;
+}
+
+export function displayPressureToKpa(value: number, units: Units): number {
+  return units === "us" ? value * KPA_PER_PSI : value * 100;
+}
+
+export function pressureUnitLabel(units: Units): string {
+  return units === "us" ? "psi" : "bar";
+}
+
+export function formatPressure(kpa: number, units: Units): string {
+  const v = kpaToDisplayPressure(kpa, units);
+  return units === "us" ? `${Math.round(v)} psi` : `${(Math.round(v * 10) / 10).toFixed(1)} bar`;
+}
+
 export function formatTemperature(celsius: number, units: Units): string {
   return units === "us" ? `${Math.round((celsius * 9) / 5 + 32)} °F` : `${Math.round(celsius)} °C`;
 }

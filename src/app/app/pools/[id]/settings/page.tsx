@@ -6,6 +6,8 @@ import { SaltCellForm } from "@/components/salt-cell-form";
 import { describeEquipment, EQUIPMENT_KINDS, KIND_LABELS, type EquipmentKind } from "@/lib/equipment";
 import { litersToDisplayVolume, type Units } from "@/lib/format";
 import { isUuid } from "@/lib/form-data";
+import { dueText, type TaskEquipment } from "@/lib/maintenance";
+import { loadPoolMaintenance } from "@/lib/maintenance-data";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { BasicsForm, DeletePoolForm, EquipmentCard } from "./settings-forms";
 
@@ -32,6 +34,15 @@ export interface EquipmentRow {
   removed_on: string | null;
 }
 
+function day(date: string): string {
+  return new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 export default async function PoolSettingsPage({ params, searchParams }: PageProps<"/app/pools/[id]/settings">) {
   const { id } = await params;
   // Just created: the page opens as the pool's set-up step.
@@ -56,17 +67,17 @@ export default async function PoolSettingsPage({ params, searchParams }: PagePro
       .returns<EquipmentRow[]>(),
   ]);
   if (!pool) notFound();
+  // Upkeep per piece of equipment; fails open (no lines) before its migration.
+  const upkeepData = await loadPoolMaintenance(supabase, pool.id);
+  const maintenanceHref = `/app/pools/${pool.id}/maintenance`;
+  const upkeep = (equipment: TaskEquipment) =>
+    (upkeepData?.statuses ?? [])
+      .filter((s) => s.task.equipment === equipment)
+      .map((s) => `${s.task.label}: ${s.lastDone ? `last done ${day(s.lastDone)}, ` : ""}${dueText(s)}`);
   const units = profile?.units ?? "us";
   const rows = equipment ?? [];
   const volume = Math.round(litersToDisplayVolume(Number(pool.volume_l), units));
   const earlier = rows.filter((r) => r.removed_on !== null);
-  const day = (date: string) =>
-    new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      timeZone: "UTC",
-    });
 
   return (
     <>
@@ -160,6 +171,16 @@ export default async function PoolSettingsPage({ params, searchParams }: PagePro
                 Log a cell setting change
               </Link>
             </p>
+            {upkeep("cell").map((line) => (
+              <p key={line} className="text-sm">
+                {line}
+              </p>
+            ))}
+            <p className="text-sm">
+              <Link href={maintenanceHref} className="font-semibold text-lagoon underline-offset-2 hover:underline">
+                Maintenance and cell life
+              </Link>
+            </p>
           </div>
         ) : null}
         {EQUIPMENT_KINDS.map((kind) => {
@@ -175,11 +196,14 @@ export default async function PoolSettingsPage({ params, searchParams }: PagePro
                       model: current.model,
                       details: current.details,
                       since: day(current.installed_on),
+                      installedOn: current.installed_on,
                       summary: describeEquipment(kind, current.model, current.details),
                     }
                   : null
               }
               scheduleHref={kind === "pump" ? `/app/pools/${pool.id}/pump` : null}
+              upkeep={current ? upkeep(kind) : []}
+              maintenanceHref={maintenanceHref}
             />
           );
         })}

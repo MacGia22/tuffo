@@ -10,6 +10,7 @@ export interface AlertChoices {
   test_reminder: boolean;
   test_after_days: number;
   weekly: boolean;
+  maintenance: boolean;
 }
 
 /** One pool's alert choices. All off until the person switches one on. */
@@ -52,6 +53,12 @@ export function AlertsForm({ poolId, poolName, choices }: { poolId: string; pool
         <input id={id("weekly")} type="checkbox" name="weekly" defaultChecked={choices.weekly} className="mt-1 accent-lagoon" />
         <span>
           Weekly summary <span className="text-muted">— Saturday morning: the week&apos;s plan</span>
+        </span>
+      </label>
+      <label htmlFor={id("maintenance")} className="flex items-start gap-2 text-sm">
+        <input id={id("maintenance")} type="checkbox" name="maintenance" defaultChecked={choices.maintenance} className="mt-1 accent-lagoon" />
+        <span>
+          Maintenance reminders <span className="text-muted">— when cleaning the cell or filter, or other upkeep, is due (at most once a week)</span>
         </span>
       </label>
       <div className="flex items-center gap-3">
