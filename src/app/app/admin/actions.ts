@@ -3,9 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/admin";
-import { normalizeEmail, signupSource } from "@/lib/beta";
+import { deleteBlock } from "@/lib/admin-users";
+import { normalizeEmail, parseAdminEmails, signupSource } from "@/lib/beta";
 import { isFeedbackStatus } from "@/lib/feedback";
-import { publicEnv } from "@/lib/env";
+import { publicEnv, serverEnv } from "@/lib/env";
 import { isUuid, text } from "@/lib/form-data";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -56,6 +57,35 @@ export async function removeFromWaitlist(formData: FormData): Promise<void> {
   if (!email) done("bad-email");
   const { error } = await createSupabaseAdminClient().from("waitlist").delete().eq("email", email);
   done(error ? "remove-failed" : "removed");
+}
+
+/**
+ * Deletes someone's account and everything under it, as their own "Delete account"
+ * does: pools with their logs and plans, scans and feedback cascade from auth.users, and
+ * any waitlist entry for the address goes too. Never your own account or another admin's.
+ */
+export async function deleteUserAccount(formData: FormData): Promise<void> {
+  const me = await requireAdmin();
+  const id = text(formData, "id");
+  if (!isUuid(id)) done("delete-failed");
+
+  const admin = createSupabaseAdminClient();
+  const { data: found, error: findError } = await admin.auth.admin.getUserById(id);
+  if (findError || !found.user) done("delete-failed");
+  const target = found.user;
+  if (deleteBlock(target, me, parseAdminEmails(serverEnv.adminEmails()))) done("delete-blocked");
+
+  const { error } = await admin.auth.admin.deleteUser(id);
+  if (error) {
+    console.error(`[admin] delete user: ${error.status ?? ""} ${error.message}`);
+    done("delete-failed");
+  }
+  const email = normalizeEmail(target.email);
+  if (email) {
+    const { error: waitlistError } = await admin.from("waitlist").delete().eq("email", email);
+    if (waitlistError) console.error(`[admin] waitlist cleanup: ${waitlistError.message}`);
+  }
+  done("user-deleted");
 }
 
 /** Sets a feedback message's status (new, planned, done or declined). */

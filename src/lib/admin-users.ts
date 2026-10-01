@@ -50,3 +50,18 @@ export function sourceCounts(rows: Pick<UserRow, "source">[]): { source: string;
     .map(([source, count]) => ({ source, count }))
     .sort((a, b) => b.count - a.count || a.source.localeCompare(b.source));
 }
+
+/**
+ * Why the admin page will not delete an account, or null when it may: never your own
+ * (you would lose the session mid-action) and never another admin's.
+ */
+export function deleteBlock(
+  target: { id: string; email?: string | null },
+  me: { id: string },
+  admins: Set<string>,
+): "self" | "admin" | null {
+  if (target.id === me.id) return "self";
+  const email = target.email?.trim().toLowerCase();
+  if (email && admins.has(email)) return "admin";
+  return null;
+}

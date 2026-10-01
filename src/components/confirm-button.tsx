@@ -6,10 +6,13 @@ import { useFormStatus } from "react-dom";
 export function ConfirmButton({
   question,
   label,
+  text,
   className,
 }: {
   question: string;
   label: string;
+  /** The visible word; "Remove" when not given. */
+  text?: string;
   className?: string;
 }) {
   const { pending } = useFormStatus();
@@ -24,7 +27,7 @@ export function ConfirmButton({
       }}
       className={className ?? "rounded-md px-2 py-1 text-xs font-semibold text-muted hover:bg-red-50 hover:text-red-700 disabled:opacity-50"}
     >
-      {pending ? "…" : "Remove"}
+      {pending ? "…" : (text ?? "Remove")}
     </button>
   );
 }

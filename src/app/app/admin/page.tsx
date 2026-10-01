@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ConfirmButton } from "@/components/confirm-button";
 import { requireAdmin } from "@/lib/auth/admin";
+import { parseAdminEmails } from "@/lib/beta";
+import { serverEnv } from "@/lib/env";
 import { formatDateTime } from "@/lib/format";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { sourceCounts, userRows } from "@/lib/admin-users";
+import { deleteBlock, sourceCounts, userRows } from "@/lib/admin-users";
 import { FeedbackStatusBadge } from "@/components/feedback-status";
 import {
   FEEDBACK_KINDS,
@@ -16,7 +18,7 @@ import {
   type FeedbackKind,
   type FeedbackStatus,
 } from "@/lib/feedback";
-import { inviteEmail, removeFromWaitlist, setFeedbackStatus } from "./actions";
+import { deleteUserAccount, inviteEmail, removeFromWaitlist, setFeedbackStatus } from "./actions";
 
 export const metadata: Metadata = { title: "Admin" };
 
@@ -29,6 +31,9 @@ const MESSAGES: Record<string, { text: string; error?: boolean }> = {
   "remove-failed": { text: "Could not remove it. Try again.", error: true },
   "status-saved": { text: "Feedback status saved." },
   "status-failed": { text: "Could not change the status. Try again.", error: true },
+  "user-deleted": { text: "Account deleted, with its pools, logs and feedback." },
+  "delete-blocked": { text: "Your own account and other admins' accounts cannot be deleted here.", error: true },
+  "delete-failed": { text: "Could not delete the account. Check the server logs.", error: true },
 };
 
 interface FeedbackRow {
@@ -89,7 +94,8 @@ interface Entry {
  * from everyone not in ADMIN_EMAILS.
  */
 export default async function AdminPage({ searchParams }: PageProps<"/app/admin">) {
-  await requireAdmin();
+  const me = await requireAdmin();
+  const admins = parseAdminEmails(serverEnv.adminEmails());
   const { status, kind: kindParam, fstatus } = await searchParams;
   const message = typeof status === "string" ? MESSAGES[status] : undefined;
   const kindFilter = isFeedbackKind(kindParam) ? kindParam : null;
@@ -227,13 +233,16 @@ export default async function AdminPage({ searchParams }: PageProps<"/app/admin"
                 .join(" · ")}
             </p>
             <div className="overflow-x-auto rounded-2xl border border-border">
-              <table className="w-full min-w-[600px] text-sm">
+              <table className="w-full min-w-[680px] text-sm">
                 <thead className="bg-surface text-left text-xs font-semibold text-muted">
                   <tr>
                     <th className="px-4 py-3">Email</th>
                     <th className="px-3 py-3">Signed up</th>
                     <th className="px-3 py-3">Last sign-in</th>
                     <th className="px-3 py-3">Source</th>
+                    <th className="px-3 py-3">
+                      <span className="sr-only">Actions</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -245,6 +254,21 @@ export default async function AdminPage({ searchParams }: PageProps<"/app/admin"
                         {u.lastSignInAt ? `${formatDateTime(u.lastSignInAt, "UTC")} UTC` : "Not yet"}
                       </td>
                       <td className="px-3 py-2.5 text-muted">{u.source}</td>
+                      <td className="px-3 py-1.5 text-right">
+                        {deleteBlock(u, me, admins) ? (
+                          <span className="text-xs text-muted">{deleteBlock(u, me, admins) === "self" ? "You" : "Admin"}</span>
+                        ) : (
+                          <form action={deleteUserAccount}>
+                            <input type="hidden" name="id" value={u.id} />
+                            <ConfirmButton
+                              question={`Delete ${u.email} and all their pools, logs and feedback? This cannot be undone.`}
+                              label={`Delete ${u.email}`}
+                              text="Delete"
+                              className="rounded-lg border border-border px-3 py-1.5 font-semibold text-red-700 hover:border-red-700 hover:bg-red-50 disabled:opacity-50 dark:text-red-300 dark:hover:bg-red-950/40"
+                            />
+                          </form>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -252,7 +276,8 @@ export default async function AdminPage({ searchParams }: PageProps<"/app/admin"
             </div>
             <p className="text-xs text-muted">
               Source is the ?ref= label of the link someone came through (kept from the waitlist when you invite them);
-              &ldquo;invited&rdquo; means invited without one, &ldquo;direct&rdquo; signed up without one.
+              &ldquo;invited&rdquo; means invited without one, &ldquo;direct&rdquo; signed up without one. Delete removes the
+              account with its pools, logs and feedback, as the person&apos;s own Delete account does. Your own and other admins&apos; accounts have no Delete.
             </p>
           </>
         )}

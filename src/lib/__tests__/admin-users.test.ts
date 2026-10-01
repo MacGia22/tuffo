@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sourceCounts, userRows, userSource } from "@/lib/admin-users";
+import { deleteBlock, sourceCounts, userRows, userSource } from "@/lib/admin-users";
 
 describe("admin users", () => {
   it("names the source: link label, else invited, else direct", () => {
@@ -24,5 +24,14 @@ describe("admin users", () => {
       { source: "reddit", count: 2 },
       { source: "invited", count: 1 },
     ]);
+  });
+
+  it("never deletes your own account or another admin's", () => {
+    const admins = new Set(["boss@example.com"]);
+    const me = { id: "me" };
+    expect(deleteBlock({ id: "me", email: "boss@example.com" }, me, admins)).toBe("self");
+    expect(deleteBlock({ id: "x", email: " Boss@Example.com " }, me, admins)).toBe("admin");
+    expect(deleteBlock({ id: "y", email: "test@example.com" }, me, admins)).toBeNull();
+    expect(deleteBlock({ id: "z", email: null }, me, admins)).toBeNull();
   });
 });
