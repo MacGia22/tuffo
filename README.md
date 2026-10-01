@@ -246,6 +246,9 @@ Maintenance, Settings.
 Status tiles show each measure of the latest test against the pool's target as Low / OK /
 High (icon and word) with the target range, plus Salt for salt pools and combined chlorine
 when logged (`src/lib/tiles.ts`); a test over 7 days old gets a "Log a test" prompt.
+The Log a test form starts with "Tested with" (the last method used) and When; each field
+shows its last value and a gentle check for likely typos (`src/lib/reading-hints.ts`);
+calcium, borates and phosphates sit under "More tests"; Save stays in view on phones.
 
 A "Set up N of 7" card (`src/lib/setup.ts`) sits at the top of a pool until everything is
 done or it is dismissed (remembered in the browser): location, first test, equipment, the

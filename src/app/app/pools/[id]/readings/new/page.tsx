@@ -6,6 +6,7 @@ import { monthlyUsed, resetLabel, scanLimits } from "@/lib/scan/quota";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Units } from "@/lib/format";
 import { PoolCrumbs } from "@/components/pool-crumbs";
+import { lastValues, type PastReading } from "@/lib/reading-hints";
 import { ReadingForm } from "./reading-form";
 
 export const metadata: Metadata = { title: "Log a test" };
@@ -27,15 +28,26 @@ export default async function NewReadingPage({ params, searchParams }: PageProps
   if (!UUID.test(id)) notFound();
 
   const supabase = await createSupabaseServerClient();
-  const [{ data: pool }, { data: profile }] = await Promise.all([
-    supabase.from("pools").select("id, name, sanitizer").eq("id", id).maybeSingle<{
+  const [{ data: pool }, { data: profile }, { data: recent }] = await Promise.all([
+    supabase.from("pools").select("id, name, sanitizer, timezone").eq("id", id).maybeSingle<{
       id: string;
       name: string;
       sanitizer: "chlorine" | "swg";
+      timezone: string | null;
     }>(),
     supabase.from("profiles").select("units").maybeSingle<{ units: Units }>(),
+    // The last value of each measure, shown under its field.
+    supabase
+      .from("readings")
+      .select("taken_at, method, fc, cc, ph, ta, ch, cya, salt, borate, phosphate, water_temp_c")
+      .eq("pool_id", id)
+      .order("taken_at", { ascending: false })
+      .limit(20)
+      .returns<PastReading[]>(),
   ]);
   if (!pool) notFound();
+  const units = profile?.units ?? "us";
+  const last = lastValues(recent ?? [], units, pool.timezone ?? "UTC");
 
   const scanEnabled = Boolean(serverEnv.anthropicApiKey());
   const scanAllowance = scanEnabled ? await loadAllowance(supabase) : null;
@@ -50,10 +62,12 @@ export default async function NewReadingPage({ params, searchParams }: PageProps
       <ReadingForm
         returnTo={safeReturnTo(from, `/app/pools/${id}`)}
         poolId={pool.id}
-        units={profile?.units ?? "us"}
+        units={units}
         swg={pool.sanitizer === "swg"}
         scanEnabled={scanEnabled}
         scanAllowance={scanAllowance}
+        last={last.values}
+        lastMethod={last.method}
       />
     </>
   );
