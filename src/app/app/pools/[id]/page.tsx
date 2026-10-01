@@ -451,14 +451,6 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
             {pool.covered ? " · covered" : ""}
             {pool.place_label ? ` · ${pool.place_label}` : ""}
             {" · "}
-            <Link href={`/app/pools/${pool.id}/location`} className="text-lagoon underline-offset-2 hover:underline">
-              {pool.place_label ? "Change location" : "Set location"}
-            </Link>
-            {" · "}
-            <Link href={`/app/pools/${pool.id}/settings`} className="text-lagoon underline-offset-2 hover:underline">
-              Settings and equipment
-            </Link>
-            {" · "}
             <Link href={`/app/pools/${pool.id}/maintenance`} className="text-lagoon underline-offset-2 hover:underline">
               Maintenance
             </Link>

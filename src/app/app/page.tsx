@@ -85,12 +85,15 @@ export default async function PoolsPage() {
                   {pool.place_label ? ` · ${pool.place_label}` : ""}
                 </span>
               </Link>
-              <div className="flex gap-5 border-t border-border px-5 py-2.5 text-sm">
+              <div className="flex flex-wrap gap-x-5 gap-y-1 border-t border-border px-5 py-2.5 text-sm">
                 <Link href={`/app/pools/${pool.id}`} className="font-semibold text-lagoon">
                   Open
                 </Link>
                 <Link href={`/app/pools/${pool.id}/settings`} className="font-semibold text-lagoon">
                   Settings and equipment
+                </Link>
+                <Link href={`/app/pools/${pool.id}/location`} className="font-semibold text-lagoon">
+                  {pool.place_label ? "Change location" : "Set location"}
                 </Link>
               </div>
             </li>
