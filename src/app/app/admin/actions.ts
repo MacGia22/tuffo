@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/admin";
-import { normalizeEmail } from "@/lib/beta";
+import { normalizeEmail, signupSource } from "@/lib/beta";
 import { isFeedbackStatus } from "@/lib/feedback";
 import { publicEnv } from "@/lib/env";
 import { isUuid, text } from "@/lib/form-data";
@@ -24,7 +24,8 @@ function done(status: string, filters: string | null = null): never {
 /**
  * Invites one address: Supabase creates the account and sends the "Invite user"
  * email, whose link signs the person in. Sign-ups stay closed for everyone else. The
- * address leaves the waitlist once invited, as the privacy notice promises.
+ * address leaves the waitlist once invited, as the privacy notice promises; its link
+ * label, if any, stays on the account.
  */
 export async function inviteEmail(formData: FormData): Promise<void> {
   await requireAdmin();
@@ -32,8 +33,12 @@ export async function inviteEmail(formData: FormData): Promise<void> {
   if (!email) done("bad-email");
 
   const admin = createSupabaseAdminClient();
+  // The waitlist's link label moves onto the new account, as a sign-up through that link would.
+  const { data: entry } = await admin.from("waitlist").select("source").eq("email", email).maybeSingle<{ source: string | null }>();
+  const source = signupSource(entry?.source ?? null);
   const { error } = await admin.auth.admin.inviteUserByEmail(email, {
     redirectTo: `${publicEnv.siteUrl()}/auth/callback`,
+    ...(source ? { data: { signup_source: source } } : {}),
   });
   const already = error && /already|registered|exists/i.test(error.message);
   if (error && !already) {
