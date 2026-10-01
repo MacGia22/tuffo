@@ -231,7 +231,8 @@ control offers (`levels` in `src/lib/salt-cells.ts`: CircuPool CORE 25/50/75/100
 ## Navigation and forms
 
 The header has Pools (a switcher when there is more than one pool) and Account; Sign out
-is on the account page. Every app page starts with breadcrumbs, and the pool name has a
+is on the account page. On phones (below 768 px) Account, Admin and Sign out sit in one
+menu button next to Pools. Every app page starts with breadcrumbs, and the pool name has a
 gear linking to Settings. On phones (below 768 px) a pool's pages have a bottom bar
 (`src/components/pool-bottom-bar.tsx`): Today, Plan, Log (test, dose, event, scan),
 Maintenance, Settings.

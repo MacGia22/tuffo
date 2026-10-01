@@ -8,7 +8,7 @@ import { isAdmin } from "@/lib/auth/admin";
 import { requireUser } from "@/lib/auth/user";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Suspense } from "react";
-import { ChevronDownIcon } from "@/components/icons";
+import { ChevronDownIcon, MenuIcon } from "@/components/icons";
 import { MenuButton } from "@/components/log-menu";
 import { SavedNotice } from "@/components/saved-notice";
 
@@ -60,13 +60,28 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
               </Link>
             )}
             {isAdmin(user) ? (
-              <Link href="/app/admin" className={link}>
+              <Link href="/app/admin" className={`${link} hidden md:block`}>
                 Admin
               </Link>
             ) : null}
-            <Link href="/app/account" className={link} title={user.email ?? ""}>
+            <Link href="/app/account" className={`${link} hidden md:block`} title={user.email ?? ""}>
               Account
             </Link>
+            {/* Phones: Account, Admin and Sign out live in one menu. */}
+            <div className="md:hidden">
+              <MenuButton
+                label="Menu"
+                placement="below-end"
+                items={[
+                  { href: "/app/account", label: "Account" },
+                  ...(isAdmin(user) ? [{ href: "/app/admin", label: "Admin" }] : []),
+                  { href: "/auth/signout", label: "Sign out", post: true },
+                ]}
+                buttonClassName="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-lagoon/10 hover:text-foreground"
+              >
+                <MenuIcon className="h-5 w-5" />
+              </MenuButton>
+            </div>
           </nav>
         </div>
       </header>
