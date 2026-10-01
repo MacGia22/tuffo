@@ -278,12 +278,16 @@ The bottom of the settings page deletes the pool after its name is typed (cascad
 every row for that pool; a weather cell no pool uses stops being refreshed).
 
 `/app/pools/[id]/settings` edits the pool's name, volume, sanitizer, surface and cover (a
-change refits the model and plan), links to the location map, holds the salt cell form for
-salt pools, and one card per piece of equipment in `pool_equipment`: pump (common models
-listed in `src/lib/equipment.ts`, or another with its speed type), chlorine feeder (floater,
-inline, liquid dosing pump, controller, with its setting), filter and heater. "I replaced
-it" dates the old item and starts the new one; otherwise the current one is corrected in
-place. The pump schedule page starts in GPM for pumps usually set by flow (Pentair VSF).
+change refits the model and plan) and links to the location map. Every piece of equipment,
+the salt cell included, uses the same card: type, model, install date, a mini life bar, the
+next maintenance task as one chip (`nextTaskChip` in `src/lib/maintenance.ts`) and links to
+Maintenance, the pump schedule and the cell setting. Equipment lives in `pool_equipment`:
+pump (common models listed in `src/lib/equipment.ts`, or another with its speed type),
+chlorine feeder (floater, inline, liquid dosing pump, controller, with its setting), filter
+and heater; kinds not added yet sit in one "Add:" row. "I replaced it" dates the old item
+(a replaced cell becomes a dated `cell` row) and starts the new one; "Fix details" corrects
+the current one in place, and holds Remove (with a confirm).
+The pump schedule page starts in GPM for pumps usually set by flow (Pentair VSF).
 Feeders are recorded only; counting them in the chlorine model is a later step.
 
 ## Maintenance

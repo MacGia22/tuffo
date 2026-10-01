@@ -2,15 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PoolCrumbs } from "@/components/pool-crumbs";
-import { SaltCellForm } from "@/components/salt-cell-form";
 import { describeEquipment, EQUIPMENT_KINDS, KIND_LABELS, type EquipmentKind } from "@/lib/equipment";
 import { litersToDisplayVolume, type Units } from "@/lib/format";
 import { isUuid } from "@/lib/form-data";
 import { fromParam } from "@/lib/return-to";
-import { dueText, type TaskEquipment } from "@/lib/maintenance";
+import { healthItems, nextTaskChip, type TaskEquipment } from "@/lib/maintenance";
 import { loadPoolMaintenance } from "@/lib/maintenance-data";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { BasicsForm, DeletePoolForm, EquipmentCard } from "./settings-forms";
+import { cellRatedHours } from "@/lib/salt-cells";
+import { AddEquipmentRow, BasicsForm, CellCard, DeletePoolForm, EquipmentCard, type CardFacts } from "./settings-forms";
 
 export const metadata: Metadata = { title: "Pool settings" };
 
@@ -24,11 +24,13 @@ interface PoolRow {
   place_label: string | null;
   swg_cell_lb_per_day: number | string | null;
   swg_cell_model: string | null;
+  swg_cell_installed_on: string | null;
 }
 
 export interface EquipmentRow {
   id: string;
-  kind: EquipmentKind;
+  /** "cell" only for earlier salt cells; the current cell lives on the pool. */
+  kind: EquipmentKind | "cell";
   model: string | null;
   details: Record<string, unknown>;
   installed_on: string;
@@ -54,7 +56,7 @@ export default async function PoolSettingsPage({ params, searchParams }: PagePro
   const [{ data: pool }, { data: profile }, { data: equipment }] = await Promise.all([
     supabase
       .from("pools")
-      .select("id, name, volume_l, sanitizer, surface, covered, place_label, swg_cell_lb_per_day, swg_cell_model")
+      .select("id, name, volume_l, sanitizer, surface, covered, place_label, swg_cell_lb_per_day, swg_cell_model, swg_cell_installed_on")
       .eq("id", id)
       .maybeSingle<PoolRow>(),
     supabase.from("profiles").select("units").maybeSingle<{ units: Units }>(),
@@ -68,17 +70,52 @@ export default async function PoolSettingsPage({ params, searchParams }: PagePro
       .returns<EquipmentRow[]>(),
   ]);
   if (!pool) notFound();
-  // Upkeep per piece of equipment; fails open (no lines) before its migration.
-  const upkeepData = await loadPoolMaintenance(supabase, pool.id);
-  const maintenanceHref = `/app/pools/${pool.id}/maintenance`;
-  const upkeep = (equipment: TaskEquipment) =>
-    (upkeepData?.statuses ?? [])
-      .filter((s) => s.task.equipment === equipment)
-      .map((s) => `${s.task.label}: ${s.lastDone ? `last done ${day(s.lastDone)}, ` : ""}${dueText(s)}`);
   const units = profile?.units ?? "us";
   const rows = equipment ?? [];
   const volume = Math.round(litersToDisplayVolume(Number(pool.volume_l), units));
   const earlier = rows.filter((r) => r.removed_on !== null);
+  const settingsHref = `/app/pools/${pool.id}/settings`;
+  const maintenanceHref = `/app/pools/${pool.id}/maintenance`;
+  const pumpHref = `/app/pools/${pool.id}/pump?${fromParam(settingsHref)}`;
+  const swg = pool.sanitizer === "swg";
+
+  // Upkeep and life per piece of equipment; fails open (no chips or bars) before its migration.
+  const upkeep = await loadPoolMaintenance(supabase, pool.id, { cellHours: swg });
+  const current = EQUIPMENT_KINDS.flatMap((kind) => {
+    const row = rows.find((r) => r.kind === kind && r.removed_on === null);
+    return row ? [{ kind, row }] : [];
+  });
+  const cellInstalledOn = pool.swg_cell_installed_on ?? null;
+  const life = upkeep
+    ? healthItems({
+        today: upkeep.today,
+        cell:
+          swg && cellInstalledOn
+            ? {
+                installedOn: cellInstalledOn,
+                hoursUsed: upkeep.cell?.hours?.hours ?? null,
+                ratedHours: cellRatedHours(pool.swg_cell_model),
+              }
+            : null,
+        equipment: current.map(({ kind, row }) => ({
+          kind,
+          type: typeof row.details?.type === "string" ? row.details.type : null,
+          installedOn: row.installed_on,
+          label: kind,
+        })),
+      })
+    : [];
+  const facts = (equipment: TaskEquipment, lifeLabel: string, since: string | null, links: CardFacts["links"]): CardFacts => {
+    const item = life.find((l) => l.label === lifeLabel);
+    return {
+      since: since ? day(since) : null,
+      life: item ? { share: item.share, tone: item.tone, text: item.text } : null,
+      chip: upkeep ? nextTaskChip(upkeep.statuses, equipment, upkeep.today) : null,
+      links: [...links, { href: maintenanceHref, label: "Maintenance" }],
+    };
+  };
+  const missing = EQUIPMENT_KINDS.filter((kind) => !current.some((c) => c.kind === kind));
+  const cellLb = pool.swg_cell_lb_per_day === null ? null : Number(pool.swg_cell_lb_per_day);
 
   return (
     <>
@@ -106,10 +143,7 @@ export default async function PoolSettingsPage({ params, searchParams }: PagePro
       ) : null}
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-semibold">{isNew ? "Set up your pool" : "Pool settings"}</h1>
-        <p className="text-muted">
-          The pool and its equipment. When you replace a piece of equipment, Tuffo keeps the old one in the history with
-          its dates, so it knows what was running between your tests.
-        </p>
+        <p className="text-muted">The pool, its location and equipment. Replaced items stay in the history.</p>
       </div>
 
       <section aria-labelledby="basics" className="flex flex-col gap-3">
@@ -154,60 +188,41 @@ export default async function PoolSettingsPage({ params, searchParams }: PagePro
         <h2 id="equipment" className="text-xl font-semibold">
           Equipment
         </h2>
-        {pool.sanitizer === "swg" ? (
-          <div className="flex flex-col gap-2">
-            <h3 className="font-semibold">Salt cell</h3>
-            <SaltCellForm
-              poolId={pool.id}
-              current={{
-                model: pool.swg_cell_model ?? null,
-                lbPerDay: pool.swg_cell_lb_per_day === null ? null : Number(pool.swg_cell_lb_per_day),
-              }}
-            />
-            <p className="text-sm">
-              <Link
-                href={`/app/pools/${pool.id}/events/new?kind=cell_setting&${fromParam(`/app/pools/${pool.id}/settings`)}`}
-                className="font-semibold text-lagoon underline-offset-2 hover:underline"
-              >
-                Log a cell setting change
-              </Link>
-            </p>
-            {upkeep("cell").map((line) => (
-              <p key={line} className="text-sm">
-                {line}
-              </p>
-            ))}
-            <p className="text-sm">
-              <Link href={maintenanceHref} className="font-semibold text-lagoon underline-offset-2 hover:underline">
-                Maintenance and cell life
-              </Link>
-            </p>
-          </div>
+        {swg ? (
+          <CellCard
+            poolId={pool.id}
+            current={{ model: pool.swg_cell_model ?? null, lbPerDay: cellLb }}
+            installedOn={cellInstalledOn}
+            summary={
+              cellLb === null
+                ? null
+                : `${pool.swg_cell_model && pool.swg_cell_model !== "Other" ? pool.swg_cell_model : "Rated cell"}, ${cellLb} lb of chlorine a day at 100%`
+            }
+            facts={facts("cell", "Salt cell", cellInstalledOn, [
+              {
+                href: `/app/pools/${pool.id}/events/new?kind=cell_setting&${fromParam(settingsHref)}`,
+                label: "Cell setting",
+              },
+              { href: pumpHref, label: "Pump schedule" },
+            ])}
+          />
         ) : null}
-        {EQUIPMENT_KINDS.map((kind) => {
-          const current = rows.find((r) => r.kind === kind && r.removed_on === null) ?? null;
-          return (
-            <EquipmentCard
-              key={kind}
-              poolId={pool.id}
-              kind={kind}
-              current={
-                current
-                  ? {
-                      model: current.model,
-                      details: current.details,
-                      since: day(current.installed_on),
-                      installedOn: current.installed_on,
-                      summary: describeEquipment(kind, current.model, current.details),
-                    }
-                  : null
-              }
-              scheduleHref={kind === "pump" ? `/app/pools/${pool.id}/pump?${fromParam(`/app/pools/${pool.id}/settings`)}` : null}
-              upkeep={current ? upkeep(kind) : []}
-              maintenanceHref={maintenanceHref}
-            />
-          );
-        })}
+        {current.map(({ kind, row }) => (
+          <EquipmentCard
+            key={row.id}
+            poolId={pool.id}
+            kind={kind}
+            current={{
+              model: row.model,
+              details: row.details,
+              since: day(row.installed_on),
+              installedOn: row.installed_on,
+              summary: describeEquipment(kind, row.model, row.details),
+            }}
+            facts={facts(kind, kind, row.installed_on, kind === "pump" ? [{ href: pumpHref, label: "Pump schedule" }] : [])}
+          />
+        ))}
+        <AddEquipmentRow poolId={pool.id} kinds={missing} />
       </section>
 
       {isNew ? (
@@ -227,7 +242,10 @@ export default async function PoolSettingsPage({ params, searchParams }: PagePro
           <ul className="flex flex-col gap-1 text-sm">
             {earlier.map((r) => (
               <li key={r.id}>
-                {KIND_LABELS[r.kind]}: {describeEquipment(r.kind, r.model, r.details)} ({day(r.installed_on)} to{" "}
+                {r.kind === "cell"
+                  ? `Salt cell: ${r.model ?? "rated cell"}${typeof r.details?.lbPerDay === "number" ? `, ${r.details.lbPerDay} lb a day` : ""}`
+                  : `${KIND_LABELS[r.kind]}: ${describeEquipment(r.kind, r.model, r.details)}`}{" "}
+                ({day(r.installed_on)} to{" "}
                 {day(r.removed_on as string)})
               </li>
             ))}

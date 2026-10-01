@@ -88,9 +88,48 @@ export async function saveSaltCell(_prev: CellState, formData: FormData): Promis
   if (!choice.ok) return { error: choice.error };
 
   const supabase = await createSupabaseServerClient();
+  // Settings sends the install date and whether the cell was replaced; the pool page
+  // form sends neither and leaves the date alone.
+  const since = text(formData, "since");
+  const replaced = formData.get("replaced") === "on";
+  const update: Record<string, unknown> = { swg_cell_lb_per_day: choice.lbPerDay, swg_cell_model: choice.model };
+  if (since || replaced) {
+    const today = await poolToday(poolId);
+    if (!today) return { error: "Unknown pool." };
+    const on = since || today;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(on) || on > today) return { error: "Pick the day it was installed, up to today." };
+    update.swg_cell_installed_on = on;
+    if (replaced) {
+      const { data: old } = await supabase
+        .from("pools")
+        .select("swg_cell_model, swg_cell_lb_per_day, swg_cell_installed_on")
+        .eq("id", poolId)
+        .maybeSingle<{ swg_cell_model: string | null; swg_cell_lb_per_day: number | string | null; swg_cell_installed_on: string | null }>();
+      if (old && old.swg_cell_lb_per_day !== null) {
+        const from = old.swg_cell_installed_on ?? on;
+        if (on < from) return { error: "The new cell cannot start before the old one was installed." };
+        // The old cell stays in the equipment history with its dates.
+        const { error: historyError } = await supabase.from("pool_equipment").insert({
+          pool_id: poolId,
+          kind: "cell",
+          model: old.swg_cell_model,
+          details: { lbPerDay: Number(old.swg_cell_lb_per_day) },
+          installed_on: from,
+          removed_on: on,
+        });
+        if (historyError) {
+          return {
+            error: /pool_equipment|kind_check/.test(historyError.message)
+              ? "This is not available yet. Try again in a few minutes."
+              : `Could not save (${historyError.message}).`,
+          };
+        }
+      }
+    }
+  }
   const { data, error } = await supabase
     .from("pools")
-    .update({ swg_cell_lb_per_day: choice.lbPerDay, swg_cell_model: choice.model })
+    .update(update)
     .eq("id", poolId)
     .eq("sanitizer", "swg")
     .select("id");
@@ -100,6 +139,7 @@ export async function saveSaltCell(_prev: CellState, formData: FormData): Promis
   if (!data || data.length === 0) return { error: "Only salt pools have a cell." };
   recomputeAfterResponse(poolId);
   revalidatePath(`/app/pools/${poolId}`);
+  revalidatePath(`/app/pools/${poolId}/settings`);
   return { saved: true };
 }
 

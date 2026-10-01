@@ -110,7 +110,8 @@ migration must survive a second run.
 - `pool_equipment`: the pump, chlorine feeder, filter and heater of a pool (`kind`, `model`,
   `details` JSON, `installed_on`, `removed_on`); one current row per kind (partial unique
   index on `removed_on is null`); replacing dates the old row. Owner reads, inserts, updates
-  and deletes. The salt cell stays on `pools`.
+  and deletes. The current salt cell stays on `pools`; a replaced cell is kept here as a
+  dated `cell` row (`details.lbPerDay`), never as a current one.
 - `pool_maintenance`: upkeep done (`task` id from `src/lib/maintenance.ts`, `done_on`);
   `pool_pressure`: filter gauge readings (`kpa`, `read_on`, `clean` for the reading right
   after cleaning). Owner reads, inserts and deletes. `pools.maintenance_intervals` (JSON,
