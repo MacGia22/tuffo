@@ -19,6 +19,36 @@ const steps = [
   },
 ];
 
+const screens = [
+  {
+    name: "plan",
+    width: 1600,
+    height: 693,
+    alt: "The week's plan: today add 1 quart of liquid chlorine, with each day's amount, the chlorine the pool is expected to use, and a heavy-rain note on Friday.",
+  },
+  {
+    name: "trends",
+    width: 1600,
+    height: 1167,
+    alt: "Charts of the last 14 days: free chlorine staying in its target band with the plan's line ahead, pH, peak UV and rain.",
+  },
+];
+
+const faq = [
+  {
+    q: "Is Tuffo free?",
+    a: "Yes, during the beta. If that ever changes you will hear about it well before, and you can download everything you logged at any time from your account page.",
+  },
+  {
+    q: "Can I bring my Pool Math history?",
+    a: "Yes. In Pool Math, use Export All Test Logs (.csv), then Import CSV on your pool's page. Your tests come in with their dates; chemical additions are not in Pool Math's export.",
+  },
+  {
+    q: "What data does Tuffo keep?",
+    a: "Your email address, your pools (size, surface, sanitizer, equipment) and the tests, chemicals and events you log. A pool's location is kept only as a weather area about 3 km (2 miles) across and the town name you picked, never an address. Photos you scan are read once and not stored. There are no ads and no trackers. The full list is in the privacy notice, and you can download or delete everything from your account.",
+  },
+];
+
 export default function Home() {
   // Open: "Start free" goes straight to sign-in. Closed (SIGNUPS_OPEN=false): the waitlist.
   const open = serverEnv.signupsOpen();
@@ -90,13 +120,39 @@ export default function Home() {
           ))}
         </section>
 
+        <section aria-labelledby="see" className="flex flex-col gap-4">
+          <h2 id="see" className="text-2xl font-semibold">
+            What it looks like
+          </h2>
+          <figure className="flex flex-col gap-4 rounded-2xl border border-border bg-surface p-3 sm:p-5">
+            {screens.map((shot) => (
+              <picture key={shot.name}>
+                <source srcSet={`/screens/${shot.name}-dark.webp`} media="(prefers-color-scheme: dark)" />
+                {/* A static screenshot; plain img keeps the light/dark art direction simple. */}
+                <img
+                  src={`/screens/${shot.name}-light.webp`}
+                  width={shot.width}
+                  height={shot.height}
+                  alt={shot.alt}
+                  loading="lazy"
+                  className="h-auto w-full rounded-xl"
+                />
+              </picture>
+            ))}
+            <figcaption className="text-sm text-muted">
+              A pool&apos;s week: what to add each day from the forecast, then the last two weeks of free chlorine, pH,
+              sun and rain, with the plan ahead dashed. Demo data.
+            </figcaption>
+          </figure>
+        </section>
+
         <section className="rounded-2xl bg-navy px-6 py-10 text-white sm:px-10">
           <h2 className="text-2xl font-semibold">Why weather?</h2>
           <p className="mt-3 max-w-2xl text-white/80">
             Sunlight burns off chlorine, heat speeds everything up, and a heavy rain
-            dilutes stabilizer and calcium. Every calculator app treats each test as a
-            fresh start. Tuffo treats your pool as the same pool, under the sky it is
-            actually under, and learns how it behaves.
+            dilutes stabilizer and calcium. Tuffo reads each test together with your
+            pool&apos;s own history and the weather it actually had, and learns how your
+            pool uses chlorine.
           </p>
         </section>
 
@@ -118,6 +174,17 @@ export default function Home() {
             </Link>
             .
           </p>
+        </section>
+        <section aria-labelledby="faq" className="flex max-w-3xl flex-col gap-3">
+          <h2 id="faq" className="text-2xl font-semibold">
+            Questions
+          </h2>
+          {faq.map((item) => (
+            <details key={item.q} className="group rounded-2xl border border-border bg-surface p-4">
+              <summary className="cursor-pointer font-semibold">{item.q}</summary>
+              <p className="mt-2 text-muted">{item.a}</p>
+            </details>
+          ))}
         </section>
       </main>
 
