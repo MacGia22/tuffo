@@ -121,7 +121,7 @@ export function dayShares(fromIso: string, toIso: string, timeZone: string): { d
   return out.filter((d) => d.share > 0);
 }
 
-function weatherDrivers(day: ModelWeatherDay): WeatherDrivers {
+export function weatherDrivers(day: ModelWeatherDay): WeatherDrivers {
   const n = (v: number | null) => (v === null || v === undefined ? null : Number(v));
   return {
     uvIndexMax: n(day.uv_index_max),
@@ -132,7 +132,7 @@ function weatherDrivers(day: ModelWeatherDay): WeatherDrivers {
   };
 }
 
-function fcAdded(dose: ModelDose, liters: number): number {
+export function fcAdded(dose: ModelDose, liters: number): number {
   try {
     return effectsOf(dose.product_id, Number(dose.amount), liters).fc ?? 0;
   } catch {
@@ -147,7 +147,7 @@ export function cellPpmPerDay(pool: ModelPool): number | null {
   return (pool.swgCellLbPerDay * GRAMS_PER_POUND * 1000) / pool.volumeL;
 }
 
-function coverAt(atMs: number, pool: ModelPool, events: ModelEvent[]): boolean {
+export function coverAt(atMs: number, pool: ModelPool, events: ModelEvent[]): boolean {
   let covered = pool.covered;
   let latest = -Infinity;
   for (const e of events) {
@@ -160,7 +160,7 @@ function coverAt(atMs: number, pool: ModelPool, events: ModelEvent[]): boolean {
   return covered;
 }
 
-function cyaAt(atMs: number, readings: ModelReading[]): number {
+export function cyaAt(atMs: number, readings: ModelReading[]): number {
   let cya: number | null = null;
   let latest = -Infinity;
   for (const r of readings) {

@@ -24,6 +24,7 @@ import { baseToShelf, formatShelf, type BaseUnit } from "@/lib/dose-format";
 import { describeEvent } from "@/lib/events";
 import { formatDateTime, formatDay, formatTemperature, formatVolume, methodLabel, type Units } from "@/lib/format";
 import { isUuid } from "@/lib/form-data";
+import { loadPoolEstimate } from "@/lib/model/pool-estimate";
 import { chlorineUse } from "@/lib/model/usage";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { retryAllOnClockSkew } from "@/lib/supabase/retry";
@@ -190,7 +191,11 @@ async function loadPoolView(id: string) {
   const latest = allReadings[0];
   const previous = allReadings[1];
   const latestCya = allReadings.find((r) => r.cya !== null)?.cya ?? null;
-  const use = await loadChlorineUse(pool.id, latestCya === null ? null : Number(latestCya), pool.covered);
+  const [use, estimate] = await Promise.all([
+    loadChlorineUse(pool.id, latestCya === null ? null : Number(latestCya), pool.covered),
+    // Estimated FC since the last test and what Tuffo expected at recent tests; fails open.
+    loadPoolEstimate(createSupabaseAdminClient(), pool.id, now),
+  ]);
   const today = localDateRange(new Date(now).toISOString(), new Date(now).toISOString(), tz).to;
 
   // The 7-day plan, written by the server. A missing or old one is rebuilt after the
@@ -314,6 +319,8 @@ async function loadPoolView(id: string) {
           now,
           units,
           readings: allReadings.map((r) => ({ taken_at: r.taken_at, fc: r.fc, ph: r.ph })),
+          estimate: estimate?.sinceLastTest ?? null,
+          expected: estimate?.expectations ?? [],
           doses: allDoses.map((d) => ({ added_at: d.added_at, label: doseLabel(d, units) })),
           weather: weather.map((w) => ({
             date: w.date,
@@ -328,6 +335,7 @@ async function loadPoolView(id: string) {
           // A salt pool's plan without the cell's output has no meaningful FC line.
           plan: plan && planHasFcLine(plan.summary)
             ? {
+                continuous: plan.summary.kind === "swg",
                 days: plan.days.map((d) => {
                   const add = planAddLabel(d, units);
                   const w = forecastDays.find((f) => f.date === d.date);
@@ -393,14 +401,30 @@ async function loadPoolView(id: string) {
     };
   }
 
-  return { pool, units, tz, liters, allReadings, latest, advice, between, use, trend, activity, plan, today, saltStatus };
+  const estimateMiss = estimate?.miss ?? null;
+  return { pool, units, tz, liters, allReadings, latest, advice, between, use, trend, activity, plan, today, saltStatus, estimateMiss };
 }
 
 export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">) {
   const { id } = await params;
   if (!isUuid(id)) notFound();
-  const { pool, units, tz, liters, allReadings, latest, advice, between, use, trend, activity, plan, today, saltStatus } =
-    await loadPoolView(id);
+  const {
+    pool,
+    units,
+    tz,
+    liters,
+    allReadings,
+    latest,
+    advice,
+    between,
+    use,
+    trend,
+    activity,
+    plan,
+    today,
+    saltStatus,
+    estimateMiss,
+  } = await loadPoolView(id);
 
   const secondary =
     "rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold hover:border-lagoon";
@@ -541,6 +565,7 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
           today={today}
           poolId={pool.id}
           cellLevels={pool.sanitizer === "swg" ? levelsText(cellLevels(pool.swg_cell_model)) : null}
+          cellLowest={pool.sanitizer === "swg" ? (cellLevels(pool.swg_cell_model)?.[0] ?? null) : null}
         />
       ) : null}
 
@@ -555,6 +580,12 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
               Last {trend.days.length} days
             </h2>
             <p className="text-xs text-muted">Shaded bands are the targets for this pool. ▼ marks a logged dose.</p>
+            {estimateMiss ? (
+              <p className="text-xs text-muted">
+                Tuffo&apos;s estimates were within about {estimateMiss.ppm} ppm on your last {estimateMiss.count} tests
+                {estimateMiss.ppm > 1.5 ? "; it is still learning this pool" : ""}.
+              </p>
+            ) : null}
           </div>
           <TrendCharts data={trend} rainHref={pool.cell_id ? `/app/pools/${pool.id}/rain` : null} />
         </section>

@@ -101,6 +101,40 @@ describe("buildTrend", () => {
     expect(trend.forecast.map((p) => p.x).slice(1)).toEqual([today + 1, today + 1, today + 2]);
   });
 
+  it("draws a salt plan smoothly from the estimate at now", () => {
+    const trend = buildTrend({
+      timeZone: TZ,
+      now,
+      units: "us",
+      readings: [{ taken_at: "2026-09-25T12:00:00Z", fc: 8, ph: 7.6 }],
+      doses: [],
+      weather: [],
+      fcBand: { low: 3, high: 5 },
+      phBand: { low: 7.2, high: 7.8 },
+      estimate: [
+        { at: "2026-09-25T12:00:00Z", fc: 8 },
+        { at: "2026-09-26T04:00:00Z", fc: 7.2 },
+        { at: "2026-09-27T16:00:00Z", fc: 6 },
+      ],
+      expected: [{ at: "2026-09-25T12:00:00Z", expected: 9.1, measured: 8 }],
+      plan: {
+        continuous: true,
+        days: [
+          { date: "2026-09-27", fcAfterAdd: 9, fcEnd: 6.4, add: null, uv_index_max: 9, precipitation_mm: 0 },
+          { date: "2026-09-28", fcAfterAdd: 9.2, fcEnd: 6.8, add: null, uv_index_max: 9, precipitation_mm: 0 },
+        ],
+      },
+    });
+    const today = trend.days.findIndex((d) => d.date === "2026-09-27");
+    // From the estimate at now (6), straight to each day's end: no daily jump for a cell.
+    expect(trend.forecast.map((p) => p.fc)).toEqual([6, 6.4, 6.8]);
+    expect(trend.forecast.map((p) => p.x).slice(1)).toEqual([today + 1, today + 2]);
+    expect(trend.estimate.map((p) => p.fc)).toEqual([8, 7.2, 6]);
+    expect(trend.estimate[2].x).toBeCloseTo(trend.forecastFrom!, 5);
+    expect(trend.expected).toHaveLength(1);
+    expect(trend.expected[0]).toMatchObject({ expected: 9.1, measured: 8 });
+  });
+
   it("has no forecast without a plan", () => {
     const trend = buildTrend({ timeZone: TZ, now, units: "us", readings: [], doses: [], weather: [], fcBand: { low: 5, high: 7 }, phBand: { low: 7.2, high: 7.8 } });
     expect(trend.forecast).toEqual([]);

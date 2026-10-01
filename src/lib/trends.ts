@@ -50,6 +50,17 @@ export interface TrendData {
   forecast: TrendForecastPoint[];
   /** x where the forecast starts (now), or null without a plan. */
   forecastFrom: number | null;
+  /** Estimated free chlorine from the last test to now (no test in between), dotted. */
+  estimate: TrendForecastPoint[];
+  /** At each test, what Tuffo expected from the test before it. */
+  expected: TrendExpected[];
+}
+
+export interface TrendExpected {
+  x: number;
+  expected: number;
+  measured: number;
+  when: string;
 }
 
 const DAY_MS = 86_400_000;
@@ -130,8 +141,14 @@ export interface BuildTrendInput {
   weather: Array<{ date: string; uv_index_max: number | null; precipitation_mm: number | null; ownRain?: boolean }>;
   fcBand: { low: number; high: number };
   phBand: { low: number; high: number };
+  /** Estimated FC from the last test to now. */
+  estimate?: Array<{ at: string; fc: number }> | null;
+  /** What Tuffo expected at each test, from the one before. */
+  expected?: Array<{ at: string; expected: number; measured: number }>;
   /** The 7-day plan from today, with the forecast weather for each day. */
   plan?: {
+    /** A salt cell makes chlorine all day: the line runs smoothly between day ends. */
+    continuous?: boolean;
     days: Array<{
       date: string;
       fcAfterAdd: number;
@@ -169,16 +186,29 @@ export function buildTrend(input: BuildTrendInput): TrendData {
     };
   });
 
-  // The plan line: from now, after each day's addition and at the end of each day.
-  const forecast: TrendForecastPoint[] = [];
   const nowX = xFor(new Date(input.now).toISOString(), start, timeZone);
+  const inWindowX = (x: number) => x >= 0 && x <= count;
+
+  // The estimate since the last test, up to now.
+  const estimate: TrendForecastPoint[] = (input.estimate ?? [])
+    .map((p) => ({ x: Math.min(xFor(p.at, start, timeZone), nowX), fc: p.fc }))
+    .filter((p) => inWindowX(p.x));
+
+  // The plan line: from now, after each day's addition and at the end of each day; for a
+  // salt cell, straight from now through each day's end.
+  const forecast: TrendForecastPoint[] = [];
+  const continuous = Boolean(input.plan?.continuous);
+  const lastEstimate = estimate.length ? estimate[estimate.length - 1] : null;
+  if (continuous && planDays.length) {
+    forecast.push({ x: nowX, fc: lastEstimate?.fc ?? planDays[0].fcAfterAdd });
+  }
   planDays.forEach((p) => {
     const k = daysBetween(start, p.date);
-    forecast.push({ x: Math.max(k, nowX), fc: p.fcAfterAdd });
-    forecast.push({ x: k + 1, fc: p.fcEnd });
+    if (!continuous) forecast.push({ x: Math.max(k, nowX), fc: p.fcAfterAdd });
+    if (k + 1 > nowX) forecast.push({ x: k + 1, fc: p.fcEnd });
   });
 
-  const inWindow = (x: number) => x >= 0 && x <= count;
+  const inWindow = inWindowX;
   const points = sortedReadings
     .map((r) => ({ x: xFor(r.taken_at, start, timeZone), fc: r.fc, ph: r.ph, when: whenLabel(r.taken_at, timeZone) }))
     .filter((p) => inWindow(p.x) && (p.fc !== null || p.ph !== null));
@@ -197,5 +227,9 @@ export function buildTrend(input: BuildTrendInput): TrendData {
     hasWeather: days.some((d) => d.uv !== null || d.rainMm !== null),
     forecast,
     forecastFrom: forecast.length ? nowX : null,
+    estimate,
+    expected: (input.expected ?? [])
+      .map((e) => ({ x: xFor(e.at, start, timeZone), expected: e.expected, measured: e.measured, when: whenLabel(e.at, timeZone) }))
+      .filter((e) => inWindowX(e.x)),
   };
 }
