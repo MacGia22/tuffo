@@ -257,3 +257,22 @@ export function CellInstalledForm({ poolId, installedOn }: { poolId: string; ins
     </form>
   );
 }
+
+/** A task never logged: the day it was last done, so the reminders can start. */
+export function StartDateForm({ poolId, task, taskLabel, today }: { poolId: string; task: string; taskLabel: string; today: string }) {
+  const [state, action, pending] = useActionState(logMaintenance, initial);
+  return (
+    <form action={action} className="flex flex-wrap items-end gap-2">
+      <input type="hidden" name="pool_id" value={poolId} />
+      <input type="hidden" name="task" value={task} />
+      <label className={label}>
+        Last done
+        <input type="date" name="done_on" required max={today} defaultValue={today} className={`${field} w-44`} aria-label={`${taskLabel}: last done`} />
+      </label>
+      <button type="submit" disabled={pending} className={primary}>
+        {pending ? "Saving…" : "Set"}
+      </button>
+      <Status state={state} saved="Saved." poolId={poolId} undo={deleteMaintenance} />
+    </form>
+  );
+}

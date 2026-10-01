@@ -559,3 +559,59 @@ export function healthItems(input: {
   }
   return out;
 }
+
+/**
+ * The due date in one format for every card: a relative line ("in 5 days", "in 4 weeks",
+ * "in 15 months", "today", "3 days overdue") and the date as a second line ("Oct 31";
+ * with the year when it is not this year).
+ */
+export function dueParts(s: Pick<TaskStatus, "daysLeft" | "nextDue" | "pressureHigh">, today: string): {
+  relative: string;
+  date: string | null;
+} {
+  if (s.pressureHigh && (s.daysLeft === null || s.daysLeft >= 0)) return { relative: "now", date: "filter pressure is up" };
+  if (s.daysLeft === null || s.nextDue === null) return { relative: "not set", date: null };
+  const d = s.daysLeft;
+  const relative =
+    d < 0
+      ? `${-d} ${d === -1 ? "day" : "days"} overdue`
+      : d === 0
+        ? "today"
+        : d === 1
+          ? "tomorrow"
+          : d <= 13
+            ? `in ${d} days`
+            : d <= 56
+              ? `in ${Math.round(d / 7)} weeks`
+              : `in ${Math.max(2, Math.round(d / 30.44))} months`;
+  const sameYear = s.nextDue.slice(0, 4) === today.slice(0, 4);
+  const date = new Date(`${s.nextDue}T12:00:00Z`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+    timeZone: "UTC",
+  });
+  return { relative, date };
+}
+
+/** Tasks more than this many days out go under "Later". */
+export const LATER_DAYS = 90;
+
+/** The maintenance list: never logged first, then by urgency, then the far-off ones. */
+export function groupTasks(statuses: TaskStatus[]): { start: TaskStatus[]; soon: TaskStatus[]; later: TaskStatus[] } {
+  const start = statuses.filter((s) => s.state === "unknown" && !s.pressureHigh);
+  const rest = statuses.filter((s) => !start.includes(s));
+  return {
+    start,
+    soon: rest.filter((s) => s.daysLeft === null || s.daysLeft <= LATER_DAYS),
+    later: rest.filter((s) => s.daysLeft !== null && s.daysLeft > LATER_DAYS),
+  };
+}
+
+/** The card's status pill: Overdue, Due soon or OK; none before a start date. */
+export function statusTone(s: Pick<TaskStatus, "state">): Tone | null {
+  if (s.state === "overdue") return "critical";
+  if (s.state === "due" || s.state === "soon") return "warning";
+  if (s.state === "ok") return "good";
+  return null;
+}

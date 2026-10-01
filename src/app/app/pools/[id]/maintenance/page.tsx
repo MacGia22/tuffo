@@ -11,9 +11,12 @@ import {
   cellReplacementMonth,
   describeInterval,
   dueCalendar,
+  dueParts,
+  groupTasks,
+  statusTone,
+  type TaskStatus,
   intervalProgress,
   lifeSpan,
-  dueText,
   formatAge,
   hoursLife,
   lifeState,
@@ -27,8 +30,8 @@ import { loadPoolMaintenance } from "@/lib/maintenance-data";
 import { cellRatedHours } from "@/lib/salt-cells";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { deleteMaintenance, deletePressure } from "./actions";
-import { CellInstalledForm, DoneForm, IntervalForm, PressureForm } from "./maintenance-forms";
-import { DueStrip, HoursBar, IntervalBar, LifeBar, PressureChart, TONE_LABEL, TonePill } from "@/components/maintenance-visuals";
+import { CellInstalledForm, DoneForm, IntervalForm, PressureForm, StartDateForm } from "./maintenance-forms";
+import { DueStrip, HoursBar, IntervalBar, LifeBar, PressureChart, TonePill } from "@/components/maintenance-visuals";
 
 export const metadata: Metadata = { title: "Maintenance" };
 
@@ -85,6 +88,7 @@ export default async function MaintenancePage({ params }: PageProps<"/app/pools/
   }
 
   const filter = m.equipment.find((e) => e.kind === "filter") ?? null;
+  const groups = groupTasks(m.statuses);
   const pressureTasks = m.statuses.some((s) => s.task.pressure);
   const ratedHours = m.cell ? cellRatedHours(m.cell.model) : null;
   const cellUsed = m.cell?.hours && ratedHours ? hoursLife(m.cell.hours.hours, ratedHours) : null;
@@ -95,16 +99,10 @@ export default async function MaintenancePage({ params }: PageProps<"/app/pools/
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-semibold">Maintenance</h1>
         <p className="text-muted">
-          Routine upkeep for the equipment in{" "}
-          <Link href={settingsHref} className={link}>
-            Settings
-          </Link>
-          , at typical intervals. Change any of them to match your manuals and how your pool runs. For a reminder by
-          email, switch on maintenance reminders under{" "}
+          Upkeep at typical intervals; change any to fit your pool.{" "}
           <Link href="/app/account#alerts" className={link}>
-            Email alerts
+            Email reminders
           </Link>
-          .
         </p>
       </div>
 
@@ -122,52 +120,42 @@ export default async function MaintenancePage({ params }: PageProps<"/app/pools/
           </p>
         ) : (
           <>
-          <DueStrip days={dueCalendar(m.statuses, m.today)} />
-          <ul className="flex flex-col gap-3">
-            {m.statuses.map((s) => (
-              <li key={s.task.id} className={`flex flex-col gap-2 rounded-2xl border p-4 ${STATE_STYLE[s.state]}`}>
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h3 className="font-semibold">{s.task.label}</h3>
-                  <p className={`text-sm ${s.state === "overdue" ? "font-semibold text-red-700 dark:text-red-300" : ""}`}>{dueText(s)}</p>
-                </div>
-                {(() => {
-                  const progress = intervalProgress(s);
-                  if (!progress) return null;
-                  return (
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1">
-                        <IntervalBar
-                          share={progress.share}
-                          tone={progress.tone}
-                          text={`${Math.round(Math.min(progress.share, 1) * 100)}% of the interval gone; ${dueText(s)}`}
-                        />
+            <DueStrip days={dueCalendar(m.statuses, m.today)} />
+            {groups.start.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                <h3 className="font-semibold">Set a starting date</h3>
+                <p className="text-sm text-muted">When did you last do these? Reminders start from that day.</p>
+                <ul className="flex flex-col gap-3">
+                  {groups.start.map((s) => (
+                    <li key={s.task.id} className="flex flex-col gap-2 rounded-2xl border border-dashed border-border bg-surface p-4">
+                      <div className="flex items-start gap-3">
+                        <h4 className="min-w-0 flex-1 font-semibold">{s.task.label}</h4>
+                        <p className="shrink-0 text-right text-xs text-muted">{describeInterval(s.intervalDays)}</p>
                       </div>
-                      <TonePill tone={progress.tone} label={TONE_LABEL[progress.tone]} />
-                    </div>
-                  );
-                })()}
-                {s.nextDue ? <p className="text-xs text-muted">Next due {day(s.nextDue)}</p> : null}
-                <p className="text-sm">
-                  {s.lastDone ? `Last done ${day(s.lastDone)}` : "Not logged yet: if you did it recently, log the day"}
-                  {" · "}
-                  {describeInterval(s.intervalDays)}
-                  {s.intervalDays !== s.task.defaultDays
-                    ? " (your setting)"
-                    : s.task.typical === describeInterval(s.intervalDays)
-                      ? " (typical)"
-                      : ` (typical: ${s.task.typical})`}
-                </p>
-                <p className="text-xs text-muted">{s.task.how}</p>
-                <DoneForm poolId={pool.id} task={s.task.id} taskLabel={s.task.label} withDate />
-                <IntervalForm
-                  poolId={pool.id}
-                  task={s.task.id}
-                  days={s.intervalDays}
-                  defaultDays={s.task.defaultDays}
-                />
-              </li>
-            ))}
-          </ul>
+                      <StartDateForm poolId={pool.id} task={s.task.id} taskLabel={s.task.label} today={m.today} />
+                      <HowTo text={s.task.how} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {groups.soon.length > 0 ? (
+              <ul className="flex flex-col gap-3">
+                {groups.soon.map((s) => (
+                  <TaskCard key={s.task.id} s={s} poolId={pool.id} today={m.today} />
+                ))}
+              </ul>
+            ) : null}
+            {groups.later.length > 0 ? (
+              <details className="rounded-2xl border border-border bg-surface p-4">
+                <summary className="cursor-pointer font-semibold">Later ({groups.later.length})</summary>
+                <ul className="mt-3 flex flex-col gap-3">
+                  {groups.later.map((s) => (
+                    <TaskCard key={s.task.id} s={s} poolId={pool.id} today={m.today} />
+                  ))}
+                </ul>
+              </details>
+            ) : null}
           </>
         )}
       </section>
@@ -368,5 +356,53 @@ export default async function MaintenancePage({ params }: PageProps<"/app/pools/
         </section>
       ) : null}
     </>
+  );
+}
+
+function HowTo({ text }: { text: string }) {
+  return (
+    <details className="text-xs">
+      <summary className="cursor-pointer font-semibold text-lagoon">How to</summary>
+      <p className="mt-1 text-muted">{text}</p>
+    </details>
+  );
+}
+
+function TaskCard({ s, poolId, today }: { s: TaskStatus; poolId: string; today: string }) {
+  const due = dueParts(s, today);
+  const progress = intervalProgress(s);
+  const tone = statusTone(s);
+  return (
+    <li className={`flex flex-col gap-2 rounded-2xl border p-4 ${STATE_STYLE[s.state]}`}>
+      <div className="flex items-start gap-3">
+        <h4 className="min-w-0 flex-1 font-semibold">{s.task.label}</h4>
+        <div className="shrink-0 text-right">
+          <p className={`text-sm font-semibold ${s.state === "overdue" ? "text-red-700 dark:text-red-300" : ""}`}>{due.relative}</p>
+          {due.date ? <p className="text-xs text-muted">{due.date}</p> : null}
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        {progress ? (
+          <div className="flex-1">
+            <IntervalBar
+              share={progress.share}
+              tone={progress.tone}
+              text={`${Math.round(Math.min(progress.share, 1) * 100)}% of the interval gone; due ${due.relative}`}
+            />
+          </div>
+        ) : (
+          <div className="flex-1" />
+        )}
+        {tone ? <TonePill tone={tone} /> : null}
+      </div>
+      <p className="text-xs text-muted">
+        {s.lastDone ? `Last done ${day(s.lastDone)} · ` : ""}
+        {describeInterval(s.intervalDays)}
+        {s.intervalDays !== s.task.defaultDays ? " (your setting)" : ""}
+      </p>
+      <HowTo text={s.task.how} />
+      <DoneForm poolId={poolId} task={s.task.id} taskLabel={s.task.label} withDate />
+      <IntervalForm poolId={poolId} task={s.task.id} days={s.intervalDays} defaultDays={s.task.defaultDays} />
+    </li>
   );
 }

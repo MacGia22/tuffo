@@ -4,6 +4,9 @@ import {
   cellHoursUsed,
   cellReplacementMonth,
   dueCalendar,
+  dueParts,
+  groupTasks,
+  statusTone,
   healthItems,
   intervalProgress,
   lifeSpan,
@@ -289,5 +292,40 @@ describe("healthItems", () => {
     const byAge = healthItems({ today: "2026-10-01", cell: { installedOn: "2023-10-01", hoursUsed: null, ratedHours: null }, equipment: [] });
     // 3 years into a typical 3–7: in the replacement window.
     expect(byAge[0]).toMatchObject({ label: "Salt cell", tone: "warning", text: "in the usual replacement window" });
+  });
+});
+
+describe("card format", () => {
+  const today = "2026-10-01";
+  const st = (daysLeft: number | null, nextDue: string | null, pressureHigh = false) => ({ daysLeft, nextDue, pressureHigh });
+  it("says when, in one format", () => {
+    expect(dueParts(st(5, "2026-10-06"), today)).toEqual({ relative: "in 5 days", date: "Oct 6" });
+    expect(dueParts(st(30, "2026-10-31"), today)).toEqual({ relative: "in 4 weeks", date: "Oct 31" });
+    expect(dueParts(st(456, "2027-12-31"), today)).toEqual({ relative: "in 15 months", date: "Dec 31, 2027" });
+    expect(dueParts(st(0, today), today).relative).toBe("today");
+    expect(dueParts(st(1, "2026-10-02"), today).relative).toBe("tomorrow");
+    expect(dueParts(st(-12, "2026-09-19"), today)).toEqual({ relative: "12 days overdue", date: "Sep 19" });
+    expect(dueParts(st(-1, "2026-09-30"), today).relative).toBe("1 day overdue");
+    expect(dueParts(st(null, null, true), today)).toEqual({ relative: "now", date: "filter pressure is up" });
+  });
+
+  it("groups never-logged first and far-off tasks under Later", () => {
+    const statuses = maintenanceStatus({
+      pool: saltCartridge,
+      overrides: {},
+      done: [
+        { task: "cell_clean", doneOn: "2026-06-01" },
+        { task: "pump_basket", doneOn: "2026-09-29" },
+        { task: "pump_oring", doneOn: "2026-09-01" },
+      ],
+      pressure: null,
+      today,
+    });
+    const g = groupTasks(statuses);
+    expect(g.start.map((s) => s.task.id)).toEqual(["cartridge_rinse", "cartridge_replace"]);
+    expect(g.soon.map((s) => s.task.id)).toEqual(["cell_clean", "pump_basket"]);
+    expect(g.later.map((s) => s.task.id)).toEqual(["pump_oring"]);
+    expect(statusTone(g.soon[0])).toBe("critical");
+    expect(statusTone(g.start[0])).toBeNull();
   });
 });

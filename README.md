@@ -296,6 +296,11 @@ typical life. Tasks due within days show on the pool page with a Done button and
 settings cards. "Maintenance reminders" in the email alerts (`alert_settings.maintenance`)
 adds the tasks due or overdue, at most once a week per pool.
 
+Task cards share one due format: a relative line ("in 5 days", "in 4 weeks", "in 15
+months", "3 days overdue") with the date below it, and a status pill (Overdue, Due soon,
+OK) with an icon. Tasks never logged come first under "Set a starting date"; tasks more
+than 3 months out sit under a collapsed "Later (N)"; each card's "How to" is collapsed.
+
 The maintenance page draws: a 30-day strip with a dot on each day a task falls due
 (overdue tasks on today), a bar per task for the share of its interval gone by (good
 under 80%, warning to 100%, critical overdue, always with an icon and a word), the
