@@ -25,6 +25,9 @@ export const IMPORT_FIELDS = [
   { key: "borate", label: "Borates (ppm)" },
   { key: "water_temp", label: "Water temperature" },
   { key: "notes", label: "Notes" },
+  { key: "backwashed", label: "Backwashed (True/False)" },
+  { key: "filter_cleaned", label: "Cleaned filter (True/False)" },
+  { key: "vacuumed", label: "Vacuumed (True/False)" },
 ] as const;
 
 export type ImportField = (typeof IMPORT_FIELDS)[number]["key"];
@@ -32,6 +35,15 @@ export type Mapping = Partial<Record<ImportField, number>>;
 export type NumberField = "fc" | "cc" | "ph" | "ta" | "ch" | "cya" | "salt" | "borate";
 
 export const NUMBER_FIELDS: NumberField[] = ["fc", "cc", "ph", "ta", "ch", "cya", "salt", "borate"];
+
+/** Upkeep a row says was done that day (Pool Math's Backwashed, Cleaned Filter, Vacuumed). */
+export type UpkeepKind = "backwash" | "filter_clean" | "vacuum";
+
+const UPKEEP_FIELDS: { field: ImportField; kind: UpkeepKind }[] = [
+  { field: "backwashed", kind: "backwash" },
+  { field: "filter_cleaned", kind: "filter_clean" },
+  { field: "vacuumed", kind: "vacuum" },
+];
 
 /** The same limits as the log form. */
 const RANGES: Record<NumberField, { min: number; max: number; label: string }> = {
@@ -46,10 +58,11 @@ const RANGES: Record<NumberField, { min: number; max: number; label: string }> =
 };
 
 /**
- * Header names, lower-cased with punctuation and units removed. Pool Math's CSV header
- * row is not published; its share API names measurements fc, cc, cya, ch, ph, ta, salt,
- * bor and waterTemp, so those and the plain-English names are preset. Unknown columns
- * (TDS, CSI, flow rate, pressure, SWG %) are left out.
+ * Header names, lower-cased with punctuation and units removed. Pool Math's "Test Logs"
+ * export has Date, FC, pH, TA, CH, CYA, Salt, Temp, CSI, Backwashed, Cleaned Filter,
+ * Vacuumed and Notes (see __tests__/fixtures/poolmath-export.csv); its share API also
+ * names cc, bor and waterTemp. Unknown columns (TDS, CSI, flow rate, pressure, SWG %)
+ * are left out.
  */
 const ALIASES: Record<ImportField, string[]> = {
   when: ["timestamp", "date", "datetime", "date time", "logged", "logged at", "test date", "date tested", "when", "time"],
@@ -63,6 +76,9 @@ const ALIASES: Record<ImportField, string[]> = {
   borate: ["borates", "borate", "bor", "borates ppm"],
   water_temp: ["watertemp", "water temp", "water temperature", "temp", "temperature", "temp f", "temp c"],
   notes: ["notes", "note", "comment", "comments"],
+  backwashed: ["backwashed", "backwash"],
+  filter_cleaned: ["cleaned filter", "filter cleaned", "clean filter", "filter clean"],
+  vacuumed: ["vacuumed", "vacuum"],
 };
 
 function normalizeHeader(h: string): string {
@@ -109,6 +125,11 @@ export function parseImportNumber(raw: string | undefined): number | null {
   return cleaned !== "" && Number.isFinite(n) ? n : Number.NaN;
 }
 
+/** "True", "yes", "1", "x" → true; anything else (blank, "False") → false. */
+export function parseImportFlag(raw: string | undefined): boolean {
+  return /^(true|t|yes|y|1|x|✓)$/i.test((raw ?? "").trim());
+}
+
 export interface ImportOptions {
   mapping: Mapping;
   dateOrder: DateOrder;
@@ -124,6 +145,8 @@ export interface ImportRow {
   values: Partial<Record<NumberField, number>>;
   water_temp_c: number | null;
   notes: string | null;
+  /** Upkeep the row marks as done, in UPKEEP_FIELDS order. */
+  upkeep: UpkeepKind[];
 }
 
 export interface ImportProblem {
@@ -218,13 +241,9 @@ export function planImport(table: CsvTable, options: ImportOptions): ImportPlan 
     seen.add(key);
 
     const notes = (cell("notes") ?? "").slice(0, 2000) || null;
-    rows.push({ line, taken_at: takenAt, values, water_temp_c: waterTempC, notes });
+    const upkeep = UPKEEP_FIELDS.filter(({ field }) => parseImportFlag(cell(field))).map(({ kind }) => kind);
+    rows.push({ line, taken_at: takenAt, values, water_temp_c: waterTempC, notes, upkeep });
   });
 
   return { rows, problems, duplicatesInFile, overLimit };
-}
-
-/** Rows whose minute is not already logged for the pool. */
-export function withoutLogged(rows: ImportRow[], loggedMinutes: Set<string>): ImportRow[] {
-  return rows.filter((r) => !loggedMinutes.has(minuteKey(r.taken_at)));
 }

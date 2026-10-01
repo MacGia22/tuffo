@@ -1,13 +1,14 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseCsv } from "../csv";
 import {
   guessMapping,
   guessTempUnit,
   MAX_IMPORT_ROWS,
-  minuteKey,
+  parseImportFlag,
   parseImportNumber,
   planImport,
-  withoutLogged,
 } from "../readings";
 
 const now = Date.parse("2026-10-01T00:00:00Z");
@@ -66,6 +67,7 @@ describe("planImport", () => {
       values: { fc: 4.5, cc: 0, ph: 7.4, ta: 80, ch: 300, cya: 40 },
       water_temp_c: 28.9, // 84 °F
       notes: "after rain",
+      upkeep: [],
     });
     expect(plan.rows[1]).toMatchObject({ line: 4, taken_at: "2026-09-28T22:15:00.000Z", values: { fc: 3, cc: 0.5, ph: 7.6 } });
   });
@@ -93,8 +95,44 @@ describe("planImport", () => {
     expect(result.rows.length + result.duplicatesInFile).toBe(MAX_IMPORT_ROWS);
   });
 
-  it("skips minutes already logged for the pool", () => {
-    const logged = new Set([minuteKey("2026-09-27T12:30:40Z")]);
-    expect(withoutLogged(plan.rows, logged).map((r) => r.line)).toEqual([4]);
+});
+
+describe("Pool Math's Test Logs export", () => {
+  const csv = readFileSync(join(__dirname, "fixtures", "poolmath-export.csv"), "utf8");
+  const table = parseCsv(csv);
+  const mapping = guessMapping(table.headers);
+
+  it("maps its columns, leaving CSI out", () => {
+    expect(mapping).toEqual({
+      when: 0, fc: 1, ph: 2, ta: 3, ch: 4, cya: 5, salt: 6, water_temp: 7, backwashed: 9, filter_cleaned: 10, vacuumed: 11, notes: 12,
+    });
+  });
+
+  it("reads its 12-hour dates in the pool's time zone and skips a blank FC", () => {
+    const plan = planImport(table, { mapping, dateOrder: "mdy", tempUnit: "F", timeZone: tz, now });
+    expect(plan.problems).toEqual([]);
+    expect(plan.rows).toEqual([
+      {
+        line: 2,
+        taken_at: "2026-09-26T13:47:00.000Z", // 9:47 AM EDT
+        values: { ph: 7.4, ta: 80, ch: 250, cya: 50, salt: 2900 },
+        water_temp_c: null,
+        notes: null,
+        upkeep: [],
+      },
+    ]);
+  });
+
+  it("reads True in the upkeep columns", () => {
+    const marked = csv.replace('"False","False","False"', '"True","False","True"');
+    const plan = planImport(parseCsv(marked), { mapping, dateOrder: "mdy", tempUnit: "F", timeZone: tz, now });
+    expect(plan.rows[0].upkeep).toEqual(["backwash", "vacuum"]);
+  });
+});
+
+describe("parseImportFlag", () => {
+  it("reads true-ish values", () => {
+    expect(["True", "true", "yes", "1", "x"].map(parseImportFlag)).toEqual([true, true, true, true, true]);
+    expect(["False", "", "0", "no", undefined].map(parseImportFlag)).toEqual([false, false, false, false, false]);
   });
 });

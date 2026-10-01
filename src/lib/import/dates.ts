@@ -45,6 +45,14 @@ export function parseImportDate(raw: string, order: DateOrder = "mdy"): ParsedDa
   const value = raw.trim().replace(/\s+/g, " ");
   if (!value) return null;
 
+  // Pool Math: an ISO date with a 12-hour clock, "2026-09-26 09:47:03 AM".
+  const isoClock = value.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?\s*[ap]\.?m?\.?)$/i);
+  if (isoClock) {
+    const [, y, mo, d, time] = isoClock;
+    const t = parseTime(time);
+    return t ? wall(Number(y), Number(mo), Number(d), t.h, t.mi) : null;
+  }
+
   // ISO 8601, with or without an offset.
   const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?)?\s*(Z|[+-]\d{2}:?\d{2})?$/i);
   if (iso) {

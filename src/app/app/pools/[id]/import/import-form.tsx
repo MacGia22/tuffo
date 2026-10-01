@@ -20,10 +20,48 @@ import type { Units } from "@/lib/format";
 
 const select = "h-10 w-full rounded-xl border border-border bg-surface px-2 text-sm";
 
+interface Choices {
+  csv: string;
+  mapping: Mapping;
+  dateOrder: DateOrder;
+  tempUnit: "F" | "C";
+  importNearDuplicates: boolean;
+  logUpkeep: boolean;
+}
+
 interface Loaded {
   name: string;
   csv: string;
   table: CsvTable;
+}
+
+function plural(n: number, one: string, many = `${one}s`): string {
+  return `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
+}
+
+/** "2 backwashes, 1 filter cleaning (Hose off the filter cartridge), 3 vacuumings" and what happens to them. */
+function upkeepLines(u: ImportSummary["upkeep"]): string[] {
+  const marked = [
+    u.backwash ? plural(u.backwash, "backwash", "backwashes") : null,
+    u.filterClean ? plural(u.filterClean, "filter cleaning") : null,
+    u.vacuum ? plural(u.vacuum, "vacuuming") : null,
+  ].filter(Boolean);
+  const lines = [`The file marks ${marked.join(", ")} (days).`];
+  if (u.toLog) {
+    const as = [u.backwash ? "backwashes as events" : null, u.filterClean && u.filterTask ? `filter cleanings as "${u.filterTask}" done` : null]
+      .filter(Boolean)
+      .join(", ");
+    lines.push(`${plural(u.toLog, "entry", "entries")} to log (${as}).`);
+  }
+  if (u.alreadyLogged) lines.push(`${u.alreadyLogged} already logged that day, skipped.`);
+  if (u.notTracked) {
+    const why = [
+      u.filterClean && !u.filterTask ? "filter cleaning needs a cartridge or DE filter in the pool's equipment" : null,
+      u.vacuum ? "Tuffo has no vacuuming task" : null,
+    ].filter(Boolean);
+    lines.push(`${u.notTracked} skipped: ${why.join("; ")}.`);
+  }
+  return lines;
 }
 
 function describe(summary: ImportSummary): string[] {
@@ -40,17 +78,19 @@ export function ImportForm({ poolId, units, timeZone }: { poolId: string; units:
   const [mapping, setMapping] = useState<Mapping>({});
   const [dateOrder, setDateOrder] = useState<DateOrder>("mdy");
   const [tempUnit, setTempUnit] = useState<"F" | "C">(units === "us" ? "F" : "C");
+  const [importNearDuplicates, setImportNearDuplicates] = useState(false);
+  const [logUpkeep, setLogUpkeep] = useState(false);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<number | null>(null);
+  const [done, setDone] = useState<ImportSummary | null>(null);
 
   const preview = useMemo(
     () => (loaded ? planImport(loaded.table, { mapping, dateOrder, tempUnit, timeZone }).rows.slice(0, 8) : []),
     [loaded, mapping, dateOrder, tempUnit, timeZone],
   );
 
-  async function send(next: { csv: string; mapping: Mapping; dateOrder: DateOrder; tempUnit: "F" | "C" }, dryRun: boolean) {
+  async function send(next: Choices, dryRun: boolean) {
     setBusy(true);
     setError(null);
     try {
@@ -65,7 +105,7 @@ export function ImportForm({ poolId, units, timeZone }: { poolId: string; units:
         return;
       }
       setSummary(body);
-      if (!dryRun) setDone(body.imported);
+      if (!dryRun) setDone(body);
     } catch {
       setError("Could not reach Tuffo. Check your connection and try again.");
     } finally {
@@ -95,15 +135,21 @@ export function ImportForm({ poolId, units, timeZone }: { poolId: string; units:
     setMapping(guessed);
     setDateOrder(order);
     setTempUnit(unit);
-    await send({ csv, mapping: guessed, dateOrder: order, tempUnit: unit }, true);
+    setImportNearDuplicates(false);
+    setLogUpkeep(false);
+    await send({ csv, mapping: guessed, dateOrder: order, tempUnit: unit, importNearDuplicates: false, logUpkeep: false }, true);
   }
 
-  function change(next: Partial<{ mapping: Mapping; dateOrder: DateOrder; tempUnit: "F" | "C" }>) {
+  const choices = (): Omit<Choices, "csv"> => ({ mapping, dateOrder, tempUnit, importNearDuplicates, logUpkeep });
+
+  function change(next: Partial<Omit<Choices, "csv">>) {
     if (!loaded) return;
-    const merged = { mapping, dateOrder, tempUnit, ...next };
+    const merged = { ...choices(), ...next };
     if (next.mapping) setMapping(next.mapping);
     if (next.dateOrder) setDateOrder(next.dateOrder);
     if (next.tempUnit) setTempUnit(next.tempUnit);
+    if (next.importNearDuplicates !== undefined) setImportNearDuplicates(next.importNearDuplicates);
+    if (next.logUpkeep !== undefined) setLogUpkeep(next.logUpkeep);
     void send({ csv: loaded.csv, ...merged }, true);
   }
 
@@ -111,9 +157,17 @@ export function ImportForm({ poolId, units, timeZone }: { poolId: string; units:
     return (
       <div className="flex flex-col items-start gap-3 rounded-2xl border border-border bg-surface p-5">
         <p role="status" className="text-lg font-semibold">
-          Imported {done.toLocaleString("en-US")} {done === 1 ? "test" : "tests"}.
+          Imported {plural(done.imported, "test")}
+          {done.upkeepLogged ? ` and ${plural(done.upkeepLogged, "upkeep entry", "upkeep entries")}` : ""}.
         </p>
-        <p className="text-sm text-muted">They show in the history and the charts, marked as imported. Tuffo is relearning this pool&apos;s chlorine use from them.</p>
+        {done.imported ? (
+          <p className="text-sm text-muted">They show in the history and the charts, marked as imported. Tuffo is relearning this pool&apos;s chlorine use from them.</p>
+        ) : null}
+        {done.upkeepError ? (
+          <p role="alert" className="text-sm text-red-800">
+            {done.upkeepError}
+          </p>
+        ) : null}
         <Link href={`/app/pools/${poolId}`} className="rounded-xl bg-lagoon px-4 py-2.5 text-sm font-semibold text-white hover:bg-lagoon-deep">
           Back to the pool
         </Link>
@@ -124,6 +178,7 @@ export function ImportForm({ poolId, units, timeZone }: { poolId: string; units:
   const fmt = (iso: string) =>
     new Date(iso).toLocaleString("en-US", { timeZone, month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
   const cell = (v: number | undefined) => (v === undefined ? "—" : String(v));
+  const upkeepToLog = summary && logUpkeep ? summary.upkeep.toLog : 0;
 
   return (
     <div className="flex max-w-3xl flex-col gap-6">
@@ -229,6 +284,52 @@ export function ImportForm({ poolId, units, timeZone }: { poolId: string; units:
                   {line}
                 </p>
               ))}
+              {summary.nearDuplicates > 0 ? (
+                <div className="flex flex-col gap-1 rounded-xl border border-border bg-surface p-3">
+                  <p>
+                    {plural(summary.nearDuplicates, "row")} {summary.nearDuplicates === 1 ? "matches a test" : "match tests"} already logged on
+                    the same day with the same results, at another time. {summary.nearDuplicatesIncluded ? "They will be imported too." : "Skipped."}
+                  </p>
+                  <ul className="list-disc pl-5 text-muted">
+                    {summary.nearDuplicateLines.map((d) => (
+                      <li key={d.line}>
+                        Line {d.line}: same as the test logged {fmt(d.loggedAt)}
+                      </li>
+                    ))}
+                  </ul>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={importNearDuplicates}
+                      disabled={busy}
+                      onChange={(e) => change({ importNearDuplicates: e.target.checked })}
+                      className="size-4"
+                    />
+                    Import them anyway
+                  </label>
+                </div>
+              ) : null}
+              {summary.upkeep.backwash + summary.upkeep.filterClean + summary.upkeep.vacuum > 0 ? (
+                <div className="flex flex-col gap-1 rounded-xl border border-border bg-surface p-3">
+                  {upkeepLines(summary.upkeep).map((line) => (
+                    <p key={line} className="text-muted">
+                      {line}
+                    </p>
+                  ))}
+                  {summary.upkeep.toLog > 0 ? (
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={logUpkeep}
+                        disabled={busy}
+                        onChange={(e) => change({ logUpkeep: e.target.checked })}
+                        className="size-4"
+                      />
+                      Also log {plural(summary.upkeep.toLog, "upkeep entry", "upkeep entries")}
+                    </label>
+                  ) : null}
+                </div>
+              ) : null}
               {summary.problems.length > 0 ? (
                 <details className="text-muted">
                   <summary className="cursor-pointer">Rows left out</summary>
@@ -247,11 +348,17 @@ export function ImportForm({ poolId, units, timeZone }: { poolId: string; units:
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
-              disabled={busy || !summary || summary.ready === 0}
-              onClick={() => void send({ csv: loaded.csv, mapping, dateOrder, tempUnit }, false)}
+              disabled={busy || !summary || (summary.ready === 0 && upkeepToLog === 0)}
+              onClick={() => void send({ csv: loaded.csv, ...choices() }, false)}
               className="h-12 self-start rounded-xl bg-lagoon px-6 text-base font-semibold text-white hover:bg-lagoon-deep disabled:opacity-60"
             >
-              {busy ? "Working…" : summary && summary.ready > 0 ? `Import ${summary.ready.toLocaleString("en-US")} tests` : "Nothing to import"}
+              {busy
+                ? "Working…"
+                : summary && summary.ready > 0
+                  ? `Import ${plural(summary.ready, "test")}${upkeepToLog ? ` and ${plural(upkeepToLog, "upkeep entry", "upkeep entries")}` : ""}`
+                  : upkeepToLog
+                    ? `Log ${plural(upkeepToLog, "upkeep entry", "upkeep entries")}`
+                    : "Nothing to import"}
             </button>
             <CancelLink href={`/app/pools/${poolId}`} />
           </div>

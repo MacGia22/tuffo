@@ -22,6 +22,14 @@ describe("parseImportDate", () => {
     expect(parseImportDate("2026-09-27T08:30:00-04:00")).toEqual({ instant: "2026-09-27T12:30:00.000Z" });
   });
 
+  it("reads Pool Math's ISO dates with a 12-hour clock", () => {
+    expect(parseImportDate("2026-09-26 09:47:03 AM")).toEqual({ wall: "2026-09-26T09:47" });
+    expect(parseImportDate("2026-09-26 12:05:00 PM")).toEqual({ wall: "2026-09-26T12:05" });
+    expect(parseImportDate("2026-09-26 12:30:00 AM")).toEqual({ wall: "2026-09-26T00:30" });
+    expect(parseImportDate("2026-09-26 07:15:00 PM")).toEqual({ wall: "2026-09-26T19:15" });
+    expect(parseImportDate("2026-09-26 13:15:00 PM")).toBeNull();
+  });
+
   it("reads month names", () => {
     expect(parseImportDate("Sep 27, 2026 8:30 AM")).toEqual({ wall: "2026-09-27T08:30" });
     expect(parseImportDate("September 27, 2026 at 8:30 PM")).toEqual({ wall: "2026-09-27T20:30" });
