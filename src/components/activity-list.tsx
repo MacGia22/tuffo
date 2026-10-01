@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { deleteEntry } from "@/app/app/pools/[id]/actions";
-import { ConfirmButton } from "@/components/confirm-button";
+import { fromParam } from "@/lib/return-to";
 
 export interface ActivityItem {
   id: string;
@@ -10,40 +9,33 @@ export interface ActivityItem {
   notes: string | null;
 }
 
-/** Recent doses and events, newest first, each editable and removable. */
+/** Recent doses and events, newest first. A row opens its edit screen, where Remove is. */
 export function ActivityList({ poolId, items }: { poolId: string; items: ActivityItem[] }) {
+  const back = fromParam(`/app/pools/${poolId}#activity`);
   return (
     <section aria-labelledby="activity" className="flex flex-col gap-3">
       <h2 id="activity" className="text-xl font-semibold">
         Doses and events
       </h2>
-      <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
+      <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
         {items.map((item) => (
-          <li key={`${item.kind}-${item.id}`} className="flex items-start justify-between gap-3 px-4 py-3">
-            <div className="min-w-0">
-              <p className="text-sm">
-                <span className="font-semibold">{item.text}</span>
-              </p>
-              <p className="text-xs text-muted">
-                {item.when}
-                {item.notes ? ` · ${item.notes}` : ""}
-              </p>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <Link
-                href={`/app/pools/${poolId}/${item.kind === "dose" ? "doses" : "events"}/${item.id}/edit`}
-                aria-label={`Edit "${item.text}"`}
-                className="rounded-lg border border-border px-3 py-1.5 text-sm font-semibold hover:border-lagoon"
-              >
-                Edit
-              </Link>
-              <form action={deleteEntry}>
-                <input type="hidden" name="pool_id" value={poolId} />
-                <input type="hidden" name="kind" value={item.kind} />
-                <input type="hidden" name="id" value={item.id} />
-                <ConfirmButton question={`Remove "${item.text}"?`} label="Remove" />
-              </form>
-            </div>
+          <li key={`${item.kind}-${item.id}`}>
+            <Link
+              href={`/app/pools/${poolId}/${item.kind === "dose" ? "doses" : "events"}/${item.id}/edit?${back}`}
+              aria-label={`${item.text}, ${item.when}. Edit or remove`}
+              className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-lagoon/5 focus-visible:bg-lagoon/5 focus-visible:outline-none"
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold">{item.text}</span>
+                <span className="block text-xs text-muted">
+                  {item.when}
+                  {item.notes ? ` · ${item.notes}` : ""}
+                </span>
+              </span>
+              <span aria-hidden="true" className="shrink-0 text-lg text-muted">
+                ›
+              </span>
+            </Link>
           </li>
         ))}
       </ul>

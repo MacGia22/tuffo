@@ -263,7 +263,10 @@ Links into a form carry `?from=<page>`; the form keeps it in a hidden `return_to
 and Save and Cancel go back there (`src/lib/return-to.ts` accepts only paths under
 `/app`). A save adds `?saved=1`, or `?saved=<kind>.<id>` for a new test, dose, event or
 pump schedule, which the layout shows as "Saved · Undo" (`src/components/saved-notice.tsx`;
-Undo deletes that row with the person's own session). Logging maintenance or a filter
+Undo deletes that row with the person's own session). Doses and events are removed from their edit screen
+(a row in "Doses and events" opens it); the page then shows "Removed · Undo". The removed row
+is kept only in that browser tab (sessionStorage) and Undo puts it back with the same id
+(`src/lib/removed.ts`, `src/app/app/remove-actions.ts`). Logging maintenance or a filter
 pressure shows the same Undo in place. Forms that stay open on their page have a Cancel
 that puts them back as they were.
 
