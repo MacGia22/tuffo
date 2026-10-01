@@ -240,6 +240,11 @@ Status tiles show each measure of the latest test against the pool's target as L
 High (icon and word) with the target range, plus Salt for salt pools and combined chlorine
 when logged (`src/lib/tiles.ts`); a test over 7 days old gets a "Log a test" prompt.
 
+A "Set up N of 7" card (`src/lib/setup.ts`) sits at the top of a pool until everything is
+done or it is dismissed (remembered in the browser): location, first test, equipment, the
+salt cell's install date and pump schedule (salt pools), the filter's clean pressure and
+email alerts, each linking to where it is done.
+
 The pool page runs: status tiles, What to do now, the plan (a "Today:" line and the 7-day
 strip with today outlined), Maintenance due, trends, between tests and chlorine use,
 doses and events, test history. A sticky bar links to its sections (Today, Plan, Trends,
