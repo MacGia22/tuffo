@@ -270,7 +270,10 @@ Undo deletes that row with the person's own session). Tests, doses and events ar
 (a row in "Doses and events" or Edit in the test history opens it; on phones the test
 history is one card per test with each value marked in or out of the pool's range); the page then shows "Removed · Undo". The removed row
 is kept only in that browser tab (sessionStorage) and Undo puts it back with the same id
-(`src/lib/removed.ts`, `src/app/app/remove-actions.ts`). Logging maintenance or a filter
+(`src/lib/removed.ts`, `src/app/app/remove-actions.ts`). On the Maintenance page, "Done lately" and the recent
+pressure readings work the same way: tap a row to change its day (and the gauge value) or
+remove it, with Undo in place; a change adds the new row and then removes the old one, as
+owners can add and remove these rows but not update them. Logging maintenance or a filter
 pressure shows the same Undo in place. Forms that stay open on their page have a Cancel
 that puts them back as they were.
 

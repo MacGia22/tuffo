@@ -80,6 +80,56 @@ export async function deleteMaintenance(formData: FormData): Promise<void> {
   refresh(poolId);
 }
 
+/**
+ * Changes the day of a logged task. Rows are never edited in place (owners may add and
+ * remove, not update): the new row is added first, then the old one removed.
+ */
+export async function editMaintenance(poolId: string, id: string, doneOn: string): Promise<MaintenanceState> {
+  if (!isUuid(poolId) || !isUuid(id)) return { error: "Unknown entry." };
+  await requireUser(`/app/pools/${poolId}/maintenance`);
+  const today = await poolToday(poolId);
+  if (!today) return { error: "Unknown pool." };
+  if (!DATE.test(doneOn) || doneOn > today || doneOn < "2000-01-01") return { error: "Pick the day, up to today." };
+  const supabase = await createSupabaseServerClient();
+  const { data: old } = await supabase
+    .from("pool_maintenance")
+    .select("task")
+    .eq("id", id)
+    .eq("pool_id", poolId)
+    .maybeSingle<{ task: string }>();
+  if (!old) return { error: "It may already be gone." };
+  const { error } = await supabase.from("pool_maintenance").insert({ pool_id: poolId, task: old.task, done_on: doneOn });
+  if (error) return { error: unavailable(error.message) };
+  await supabase.from("pool_maintenance").delete().eq("id", id).eq("pool_id", poolId);
+  refresh(poolId);
+  return { saved: true };
+}
+
+/** Changes a pressure reading (day, value, clean): the new row first, then the old one removed. */
+export async function editPressure(
+  poolId: string,
+  id: string,
+  input: { readOn: string; pressure: string; clean: boolean; units: Units },
+): Promise<MaintenanceState> {
+  if (!isUuid(poolId) || !isUuid(id)) return { error: "Unknown reading." };
+  await requireUser(`/app/pools/${poolId}/maintenance`);
+  const value = input.pressure.trim() === "" ? NaN : Number(input.pressure.replace(/,/g, "."));
+  if (!Number.isFinite(value) || value < 0) return { error: "Enter the gauge reading." };
+  const kpa = Math.round(displayPressureToKpa(value, input.units) * 10) / 10;
+  if (kpa > 400) return { error: input.units === "us" ? "Pool filter gauges read up to about 60 psi." : "Pool filter gauges read up to about 4 bar." };
+  const today = await poolToday(poolId);
+  if (!today) return { error: "Unknown pool." };
+  if (!DATE.test(input.readOn) || input.readOn > today || input.readOn < "2000-01-01") return { error: "Pick the day, up to today." };
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("pool_pressure")
+    .insert({ pool_id: poolId, read_on: input.readOn, kpa, clean: input.clean });
+  if (error) return { error: unavailable(error.message) };
+  await supabase.from("pool_pressure").delete().eq("id", id).eq("pool_id", poolId);
+  refresh(poolId);
+  return { saved: true };
+}
+
 /** Stores a filter pressure reading, in kPa. */
 export async function logPressure(_prev: MaintenanceState, formData: FormData): Promise<MaintenanceState> {
   const poolId = text(formData, "pool_id");

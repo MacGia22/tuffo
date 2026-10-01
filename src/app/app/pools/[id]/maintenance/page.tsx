@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PoolCrumbs } from "@/components/pool-crumbs";
 import { describeEquipment, KIND_LABELS } from "@/lib/equipment";
-import { formatPressure, type Units } from "@/lib/format";
+import { formatPressure, kpaToDisplayPressure, type Units } from "@/lib/format";
 import { isUuid } from "@/lib/form-data";
 import { fromParam } from "@/lib/return-to";
 import {
@@ -29,7 +29,7 @@ import {
 import { loadPoolMaintenance } from "@/lib/maintenance-data";
 import { cellRatedHours } from "@/lib/salt-cells";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { deleteMaintenance, deletePressure } from "./actions";
+import { LogList } from "./log-list";
 import { DoneForm, IntervalForm, PressureForm, StartDateForm } from "./maintenance-forms";
 import { DueStrip, HoursBar, IntervalBar, LifeBar, PressureChart, TonePill } from "@/components/maintenance-visuals";
 
@@ -208,21 +208,21 @@ export default async function MaintenancePage({ params }: PageProps<"/app/pools/
           ) : null}
           <PressureForm poolId={pool.id} units={units} />
           {m.readings.length > 0 ? (
-            <ul className="flex flex-col gap-1 text-sm">
-              {m.readings.slice(0, 8).map((r) => (
-                <li key={r.id} className="flex flex-wrap items-center gap-2">
-                  {day(r.readOn)}: {formatPressure(r.kpa, units)}
-                  {r.clean ? <span className="text-muted">(clean)</span> : null}
-                  <form action={deletePressure}>
-                    <input type="hidden" name="pool_id" value={pool.id} />
-                    <input type="hidden" name="id" value={r.id} />
-                    <button type="submit" className="text-xs text-muted underline-offset-2 hover:underline">
-                      Remove
-                    </button>
-                  </form>
-                </li>
-              ))}
-            </ul>
+            <LogList
+              poolId={pool.id}
+              kind="pressure"
+              units={units}
+              today={m.today}
+              items={m.readings.slice(0, 8).map((r) => ({
+                id: r.id,
+                date: r.readOn,
+                text: `${day(r.readOn)}: ${formatPressure(r.kpa, units)}${r.clean ? " (clean)" : ""}`,
+                pressure: {
+                  value: String(units === "us" ? Math.round(kpaToDisplayPressure(r.kpa, units)) : Math.round(kpaToDisplayPressure(r.kpa, units) * 10) / 10),
+                  clean: r.clean,
+                },
+              }))}
+            />
           ) : null}
         </section>
       ) : null}
@@ -368,20 +368,17 @@ export default async function MaintenancePage({ params }: PageProps<"/app/pools/
           <h2 id="done" className="text-xl font-semibold">
             Done lately
           </h2>
-          <ul className="flex flex-col gap-1 text-sm">
-            {m.history.slice(0, 20).map((h) => (
-              <li key={h.id} className="flex flex-wrap items-center gap-2">
-                {day(h.doneOn)}: {taskById(h.task)?.label ?? h.task}
-                <form action={deleteMaintenance}>
-                  <input type="hidden" name="pool_id" value={pool.id} />
-                  <input type="hidden" name="id" value={h.id} />
-                  <button type="submit" className="text-xs text-muted underline-offset-2 hover:underline">
-                    Remove
-                  </button>
-                </form>
-              </li>
-            ))}
-          </ul>
+          <LogList
+            poolId={pool.id}
+            kind="maintenance"
+            units={units}
+            today={m.today}
+            items={m.history.slice(0, 20).map((h) => ({
+              id: h.id,
+              date: h.doneOn,
+              text: `${day(h.doneOn)}: ${taskById(h.task)?.label ?? h.task}`,
+            }))}
+          />
         </section>
       ) : null}
     </>
