@@ -2,20 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useId, useRef, useState } from "react";
-import { fromParam } from "@/lib/return-to";
-
-/** The four ways to log something for a pool, each returning to the current page. */
-export function logLinks(poolId: string, current: string) {
-  const from = fromParam(current);
-  const base = `/app/pools/${poolId}`;
-  return [
-    { href: `${base}/readings/new?${from}`, label: "Log a test" },
-    { href: `${base}/doses/new?${from}`, label: "Log a dose" },
-    { href: `${base}/events/new?${from}`, label: "Log an event" },
-    { href: `${base}/readings/new?${from}#scan`, label: "Scan a test" },
-  ];
-}
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 
 /** The current page with its query, for `?from=`. */
 export function useCurrentPath(): string {
@@ -46,6 +33,20 @@ export function MenuButton({
   const id = useId();
   const root = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
+  const list = useRef<HTMLUListElement>(null);
+
+  // Keep the open menu inside the screen: shift it back when it would overflow an edge.
+  useLayoutEffect(() => {
+    const el = list.current;
+    if (!open || !el) return;
+    el.style.transform = "";
+    const rect = el.getBoundingClientRect();
+    const gap = 8;
+    let shift = 0;
+    if (rect.left < gap) shift = gap - rect.left;
+    else if (rect.right > window.innerWidth - gap) shift = window.innerWidth - gap - rect.right;
+    el.style.transform = shift ? `translateX(${shift}px)` : "";
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -83,6 +84,7 @@ export function MenuButton({
       </button>
       {open ? (
         <ul
+          ref={list}
           id={id}
           className={`absolute z-40 flex min-w-48 flex-col rounded-xl border border-border bg-surface p-1 shadow-lg ${
             placement === "above"

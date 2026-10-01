@@ -64,6 +64,18 @@ export function PlanStrip({
   const risky = days.filter((d) => d.algaeRisk);
   const fcLine = planHasFcLine(summary);
   const peak = Math.max(0, ...days.map((d) => d.fcEnd));
+  // One line for today, above the week.
+  const first = days[0].date === today ? days[0] : null;
+  const firstAdd = first ? planAddLabel(first, units) : null;
+  const todayLine = !first
+    ? null
+    : swg
+      ? summary.swgPercent !== null
+        ? `salt cell at ${summary.swgPercent}%${first.algaeRisk ? "; test, free chlorine may run low" : ""}.`
+        : null
+      : firstAdd
+        ? `add ${firstAdd} of ${product ? product.name.toLowerCase() : "liquid chlorine"}${first.algaeRisk ? "; test first, it may run low" : ""}.`
+        : "nothing to add.";
 
   return (
     <section aria-labelledby="plan" className="flex flex-col gap-3">
@@ -78,6 +90,12 @@ export function PlanStrip({
           </a>
         </p>
       </div>
+
+      {todayLine ? (
+        <p className="text-lg">
+          <span className="font-semibold">Today:</span> {todayLine}
+        </p>
+      ) : null}
 
       {swg ? (
         <p className="rounded-2xl border border-border bg-surface p-4">
@@ -134,12 +152,13 @@ export function PlanStrip({
           return (
             <li
               key={d.date}
+              aria-current={d.date === today ? "date" : undefined}
               className={`flex flex-col gap-1 rounded-2xl border p-3 text-sm ${
-                d.algaeRisk ? "border-sun bg-sun/10" : "border-border bg-surface"
-              }`}
+                d.algaeRisk ? "border-sun bg-sun/10" : d.date === today ? "border-lagoon bg-lagoon/5" : "border-border bg-surface"
+              } ${d.date === today ? "ring-2 ring-lagoon/40" : ""}`}
             >
               <p className="text-xs font-semibold text-muted">
-                {d.date === today ? "Today" : label.day} · {label.date}
+                {d.date === today ? <span className="text-lagoon">Today</span> : label.day} · {label.date}
               </p>
               {swg ? null : (
                 <p className="font-display font-semibold">{add ? `Add ${add}` : "Nothing to add"}</p>

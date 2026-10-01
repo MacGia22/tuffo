@@ -35,7 +35,9 @@ import { loadOwnRain, withOwnRain } from "@/lib/weather/own-rain";
 import { localDateRange, summarizeBetween, type WeatherDay } from "@/lib/weather/summary";
 import { deleteEntry } from "./actions";
 import { DoneForm } from "./maintenance/maintenance-forms";
-import { GearIcon } from "@/components/icons";
+import { ChevronDownIcon, GearIcon, PlusIcon } from "@/components/icons";
+import { MenuButton } from "@/components/log-menu";
+import { logLinks } from "@/lib/log-links";
 import { dueTasks, dueText } from "@/lib/maintenance";
 import { loadPoolMaintenance } from "@/lib/maintenance-data";
 
@@ -433,9 +435,6 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
   const upkeep = await loadPoolMaintenance(await createSupabaseServerClient(), pool.id);
   const upkeepDue = upkeep ? dueTasks(upkeep.statuses) : [];
 
-  const secondary =
-    "rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold hover:border-lagoon";
-
   return (
     <>
       <PoolCrumbs poolId={pool.id} poolName={pool.name} />
@@ -443,7 +442,8 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
         urls={["/app", ...["readings", "doses", "events"].map((kind) => `/app/pools/${pool.id}/${kind}/new`)]}
       />
 
-      <div className="flex flex-col gap-4">
+
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-3xl font-semibold">{pool.name}</h1>
@@ -467,30 +467,59 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
             </Link>
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href={`/app/pools/${pool.id}/readings/new`}
-            className="rounded-xl bg-lagoon px-4 py-2.5 text-sm font-semibold text-white hover:bg-lagoon-deep"
+        <div className="flex items-center gap-2">
+          <MenuButton
+            label="Log"
+            placement="below-end"
+            items={logLinks(pool.id, `/app/pools/${pool.id}`)}
+            buttonClassName="flex items-center gap-1.5 rounded-xl bg-lagoon px-4 py-2.5 text-sm font-semibold text-white hover:bg-lagoon-deep"
           >
-            Log a test
-          </Link>
-          <Link href={`/app/pools/${pool.id}/doses/new`} className={secondary}>
-            Log a dose
-          </Link>
-          <Link href={`/app/pools/${pool.id}/events/new`} className={secondary}>
-            Log an event
-          </Link>
-          <Link href={`/app/pools/${pool.id}/import`} className={secondary}>
-            Import CSV
-          </Link>
-          <Link href={feedbackHref(`/app/pools/${pool.id}`)} className={`${secondary} sm:ml-auto`}>
-            Send feedback
-          </Link>
+            <PlusIcon className="h-5 w-5" />
+            Log
+            <ChevronDownIcon className="h-4 w-4" />
+          </MenuButton>
+          <MenuButton
+            label="More actions"
+            placement="below-end"
+            items={[
+              { href: `/app/pools/${pool.id}/import`, label: "Import CSV" },
+              { href: feedbackHref(`/app/pools/${pool.id}`), label: "Send feedback" },
+            ]}
+            buttonClassName="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-surface text-lg font-semibold hover:border-lagoon"
+          >
+            <span aria-hidden="true">⋯</span>
+          </MenuButton>
         </div>
       </div>
 
+      <nav
+        aria-label="On this page"
+        className="sticky top-0 z-20 -mx-5 -my-4 border-b border-border bg-background/90 px-5 py-2 backdrop-blur"
+      >
+        <ul className="flex gap-1 overflow-x-auto text-sm">
+          {[
+            { id: "today", label: "Today", show: Boolean(latest) },
+            { id: "plan", label: "Plan", show: Boolean(plan) },
+            { id: "trends", label: "Trends", show: Boolean(trend) },
+            { id: "maintenance", label: "Maintenance", show: upkeepDue.length > 0 },
+            { id: "history", label: "History", show: allReadings.length > 0 },
+          ]
+            .filter((s) => s.show)
+            .map((s) => (
+              <li key={s.id}>
+                <a
+                  href={`#${s.id}`}
+                  className="block whitespace-nowrap rounded-lg px-3 py-1.5 font-semibold text-muted hover:bg-lagoon/10 hover:text-foreground"
+                >
+                  {s.label}
+                </a>
+              </li>
+            ))}
+        </ul>
+      </nav>
+
       {latest ? (
-        <section aria-labelledby="latest" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <section id="today" aria-labelledby="latest" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <h2 id="latest" className="sr-only">
             Latest test
           </h2>
@@ -583,7 +612,7 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
       ) : null}
 
       {upkeepDue.length > 0 ? (
-        <section aria-labelledby="upkeep" className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4">
+        <section id="maintenance" aria-labelledby="upkeep" className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 id="upkeep" className="text-xl font-semibold">
               Maintenance due
@@ -606,10 +635,6 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
         </section>
       ) : null}
 
-      {between ? <BetweenTests summary={between} units={units} swg={pool.sanitizer === "swg"} /> : null}
-
-      {use ? <ChlorineUse use={use} units={units} swg={pool.sanitizer === "swg"} /> : null}
-
       {trend ? (
         <section aria-labelledby="trends" className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4 sm:p-5">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -627,6 +652,10 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
           <TrendCharts data={trend} rainHref={pool.cell_id ? `/app/pools/${pool.id}/rain` : null} />
         </section>
       ) : null}
+
+      {between ? <BetweenTests summary={between} units={units} swg={pool.sanitizer === "swg"} /> : null}
+
+      {use ? <ChlorineUse use={use} units={units} swg={pool.sanitizer === "swg"} /> : null}
 
       {activity.length > 0 ? <ActivityList poolId={pool.id} items={activity} /> : null}
 

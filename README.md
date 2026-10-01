@@ -236,6 +236,13 @@ gear linking to Settings. On phones (below 768 px) a pool's pages have a bottom 
 (`src/components/pool-bottom-bar.tsx`): Today, Plan, Log (test, dose, event, scan),
 Maintenance, Settings.
 
+The pool page runs: status tiles, What to do now, the plan (a "Today:" line and the 7-day
+strip with today outlined), Maintenance due, trends, between tests and chlorine use,
+doses and events, test history. A sticky bar links to its sections (Today, Plan, Trends,
+Maintenance, History); its header has one Log menu and a "⋯" menu (Import CSV, Send
+feedback). Menus open with a click, close on Escape or a click outside, and stay inside
+the screen.
+
 Links into a form carry `?from=<page>`; the form keeps it in a hidden `return_to` field,
 and Save and Cancel go back there (`src/lib/return-to.ts` accepts only paths under
 `/app`). A save adds `?saved=1`, or `?saved=<kind>.<id>` for a new test, dose, event or
