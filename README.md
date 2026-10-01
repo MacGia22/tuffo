@@ -329,6 +329,9 @@ plan and expectations beyond it are clamped to the edge with a chevron where the
 the scale (values in the table). The plan is a wide translucent line, the estimate a
 dotted one. "What Tuffo expected" markers and the estimate-accuracy line appear only
 once the pool has its own model (4 test pairs).
+On phones (below 768 px) the day's readout is a fixed row above the chart (each value with
+its legend swatch on one line) instead of a floating box over it; wider screens keep the
+box beside the crosshair.
 
 ## Rain at the pool
 
