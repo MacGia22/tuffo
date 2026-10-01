@@ -231,6 +231,54 @@ export function TrendCharts({
 
   const latest = (key: "fc" | "ph") => [...data.points].reverse().find((p) => p[key] !== null);
 
+  // The readout for the active day: one row per value, its legend swatch beside it.
+  const swatch = (className: string, extra: Record<string, number | string> = {}) => (
+    <svg width="12" height="4" aria-hidden="true" className="block">
+      <line x1="1" x2="11" y1="2" y2="2" className={className} strokeWidth={2} strokeLinecap="round" {...extra} />
+    </svg>
+  );
+  const tipTitle = activeDay
+    ? `${activeDay.label}${activeDay.forecast ? " · forecast" : ""}${singleTest ? ` · tested ${singleTest}` : ""}`
+    : "";
+  const tipRows: { key: string; swatch: React.ReactNode; value: string | null; label: string }[] = [];
+  if (activeDay) {
+    for (const p of activePoints) {
+      const at = singleTest ? "" : ` · ${timeOf(p.when)}`;
+      if (p.fc !== null) tipRows.push({ key: `fc${p.x}`, swatch: swatch("stroke-chart-chem"), value: `${fmt(p.fc, 1)} ppm`, label: `Free chlorine${at}` });
+      for (const e of activeExpected.filter((x) => x.x === p.x)) {
+        tipRows.push({ key: `ex${e.x}`, swatch: swatch("stroke-chart-chem", { strokeOpacity: 0.5 }), value: `≈${fmt(e.expected, 1)} ppm`, label: "Tuffo expected" });
+      }
+      if (p.ph !== null) tipRows.push({ key: `ph${p.x}`, swatch: swatch("stroke-chart-chem"), value: fmtPh(p.ph), label: `pH${at}` });
+    }
+    if (data.hasWeather) {
+      tipRows.push({ key: "uv", swatch: swatch("stroke-chart-uv"), value: activeDay.uv === null ? "—" : fmt(activeDay.uv, 1), label: "Peak UV" });
+      tipRows.push({
+        key: "rain",
+        swatch: swatch("stroke-chart-rain"),
+        value: activeDay.rainMm === null ? "—" : `${fmt(rainValue(activeDay.rainMm), rainDecimals)} ${rainUnit}`,
+        label: activeDay.ownRain ? "Rain at your pool" : "Rain",
+      });
+    }
+    if (activeEstimate) {
+      tipRows.push({
+        key: "est",
+        swatch: swatch("stroke-chart-chem", { strokeOpacity: 0.55, strokeDasharray: "1 4" }),
+        value: `≈${fmt(activeEstimate.fc, 1)} ppm`,
+        label: "Free chlorine, estimated",
+      });
+    }
+    activeDoses.forEach((d, i) => tipRows.push({ key: `d${i}`, swatch: null, value: "Added", label: d.label }));
+    if (activeDay.plan) {
+      tipRows.push({
+        key: "plan",
+        swatch: swatch("stroke-chart-chem", { strokeOpacity: 0.35, strokeWidth: 4 }),
+        value: `≈${fmt(activeDay.plan.fcEnd, 1)} ppm`,
+        label: "Free chlorine by evening, on the plan",
+      });
+      tipRows.push({ key: "planadd", swatch: null, value: "Plan", label: activeDay.plan.add ? `add ${activeDay.plan.add}` : "nothing to add" });
+    }
+  }
+
   return (
     <figure className="flex flex-col gap-3">
       <figcaption id={titleId} className="sr-only">
@@ -239,6 +287,25 @@ export function TrendCharts({
         {data.forecastFrom !== null ? ", and the free chlorine the 7-day plan expects for the days ahead" : ""}. Use the
         left and right arrow keys to read each day.
       </figcaption>
+      {/* Phones: a fixed readout above the chart instead of a floating box over it. */}
+      <div className="min-h-[4.5rem] rounded-xl border border-border bg-background px-3 py-2 text-xs md:hidden" aria-hidden="true">
+        {activeDay ? (
+          <>
+            <p className="font-semibold text-muted">{tipTitle}</p>
+            <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+              {tipRows.map((row) => (
+                <li key={row.key} className="inline-flex items-center gap-1 whitespace-nowrap">
+                  {row.swatch}
+                  {row.value ? <span className="font-semibold text-foreground tabular-nums">{row.value}</span> : null}
+                  <span className="text-muted">{row.label}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="py-3 text-muted">Tap or drag across the chart to read a day.</p>
+        )}
+      </div>
       <div
         ref={ref}
         role="group"
@@ -500,100 +567,20 @@ export function TrendCharts({
 
         {activeDay ? (
           <div
-            className="pointer-events-none absolute z-10 rounded-xl border border-border bg-surface p-3 text-sm shadow-lg"
+            className="pointer-events-none absolute z-10 hidden rounded-xl border border-border bg-surface p-3 text-sm shadow-lg md:block"
             style={tipStyle}
           >
-            <p className="mb-2 text-xs font-semibold text-muted">
-              {activeDay.label}
-              {activeDay.forecast ? " · forecast" : ""}
-              {singleTest ? ` · tested ${singleTest}` : ""}
-            </p>
+            <p className="mb-2 text-xs font-semibold text-muted">{tipTitle}</p>
             <ul className="flex flex-col gap-1">
-              {activePoints
-                .flatMap((p) => {
-                  const at = singleTest ? "" : ` · ${timeOf(p.when)}`;
-                  return [
-                    ...(p.fc !== null ? [{ key: `fc${p.x}`, value: `${fmt(p.fc, 1)} ppm`, label: `Free chlorine${at}` }] : []),
-                    ...activeExpected
-                      .filter((e) => e.x === p.x)
-                      .map((e) => ({ key: `ex${e.x}`, value: `≈${fmt(e.expected, 1)} ppm`, label: "Tuffo expected" })),
-                    ...(p.ph !== null ? [{ key: `ph${p.x}`, value: fmtPh(p.ph), label: `pH${at}` }] : []),
-                  ];
-                })
-                .map((row) => (
-                  <li key={row.key} className="flex items-baseline gap-2">
-                    <svg width="12" height="4" aria-hidden="true" className="shrink-0 self-center">
-                      <line x1="0" x2="12" y1="2" y2="2" className="stroke-chart-chem" strokeWidth={2} strokeLinecap="round" />
-                    </svg>
+              {tipRows.map((row) => (
+                <li key={row.key} className="flex items-baseline gap-2">
+                  {row.swatch ? <span className="shrink-0 self-center">{row.swatch}</span> : null}
+                  {row.value ? (
                     <span className="whitespace-nowrap font-semibold text-foreground tabular-nums">{row.value}</span>
-                    <span className="text-muted">{row.label}</span>
-                  </li>
-                ))}
-              {data.hasWeather ? (
-                <>
-                  <li className="flex items-baseline gap-2">
-                    <svg width="12" height="4" aria-hidden="true" className="shrink-0 self-center">
-                      <line x1="0" x2="12" y1="2" y2="2" className="stroke-chart-uv" strokeWidth={2} strokeLinecap="round" />
-                    </svg>
-                    <span className="whitespace-nowrap font-semibold text-foreground tabular-nums">
-                      {activeDay.uv === null ? "—" : fmt(activeDay.uv, 1)}
-                    </span>
-                    <span className="text-muted">Peak UV</span>
-                  </li>
-                  <li className="flex items-baseline gap-2">
-                    <svg width="12" height="4" aria-hidden="true" className="shrink-0 self-center">
-                      <line x1="0" x2="12" y1="2" y2="2" className="stroke-chart-rain" strokeWidth={2} strokeLinecap="round" />
-                    </svg>
-                    <span className="whitespace-nowrap font-semibold text-foreground tabular-nums">
-                      {activeDay.rainMm === null ? "—" : `${fmt(rainValue(activeDay.rainMm), rainDecimals)} ${rainUnit}`}
-                    </span>
-                    <span className="text-muted">{activeDay.ownRain ? "Rain at your pool" : "Rain"}</span>
-                  </li>
-                </>
-              ) : null}
-              {activeEstimate ? (
-                <li className="flex items-baseline gap-2">
-                  <svg width="12" height="4" aria-hidden="true" className="shrink-0 self-center">
-                    <line
-                      x1="1"
-                      x2="11"
-                      y1="2"
-                      y2="2"
-                      className="stroke-chart-chem"
-                      strokeOpacity={0.55}
-                      strokeWidth={2}
-                      strokeDasharray="1 4"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <span className="whitespace-nowrap font-semibold text-foreground tabular-nums">
-                    ≈{fmt(activeEstimate.fc, 1)} ppm
-                  </span>
-                  <span className="text-muted">Free chlorine, estimated</span>
-                </li>
-              ) : null}
-              {activeDoses.map((d, i) => (
-                <li key={`d${i}`} className="text-muted">
-                  <span className="font-semibold text-foreground">Added</span> {d.label}
+                  ) : null}
+                  <span className="text-muted">{row.label}</span>
                 </li>
               ))}
-              {activeDay.plan ? (
-                <>
-                  <li className="flex items-baseline gap-2">
-                    <svg width="12" height="4" aria-hidden="true" className="shrink-0 self-center">
-                      <line x1="1" x2="11" y1="2" y2="2" className="stroke-chart-chem" strokeOpacity={0.35} strokeWidth={4} strokeLinecap="round" />
-                    </svg>
-                    <span className="whitespace-nowrap font-semibold text-foreground tabular-nums">
-                      ≈{fmt(activeDay.plan.fcEnd, 1)} ppm
-                    </span>
-                    <span className="text-muted">Free chlorine by evening, on the plan</span>
-                  </li>
-                  <li className="text-muted">
-                    <span className="font-semibold text-foreground">Plan</span>{" "}
-                    {activeDay.plan.add ? `add ${activeDay.plan.add}` : "nothing to add"}
-                  </li>
-                </>
-              ) : null}
             </ul>
           </div>
         ) : null}
