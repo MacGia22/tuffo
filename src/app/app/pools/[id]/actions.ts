@@ -384,3 +384,47 @@ export async function removeEquipment(formData: FormData): Promise<void> {
     .lte("installed_on", today);
   revalidatePath(`/app/pools/${poolId}/settings`);
 }
+
+export interface DeleteState {
+  error?: string;
+}
+
+/**
+ * Deletes a pool and everything logged for it (tests, doses, events, plan, equipment,
+ * rain, alerts settings), after the owner types its name. Cannot be undone. A weather
+ * cell no other pool uses stops being refreshed.
+ */
+export async function deletePool(_prev: DeleteState, formData: FormData): Promise<DeleteState> {
+  const poolId = text(formData, "pool_id");
+  if (!isUuid(poolId)) return { error: "Unknown pool." };
+  await requireUser(`/app/pools/${poolId}/settings`);
+  const supabase = await createSupabaseServerClient();
+  const { data: pool } = await supabase
+    .from("pools")
+    .select("name, cell_id")
+    .eq("id", poolId)
+    .maybeSingle<{ name: string; cell_id: string | null }>();
+  if (!pool) return { error: "Unknown pool." };
+  if (text(formData, "confirm_name") !== pool.name.trim()) {
+    return { error: `Type the pool's name, ${pool.name.trim()}, to delete it.` };
+  }
+
+  const { data: removed, error } = await supabase.from("pools").delete().eq("id", poolId).select("id");
+  if (error) return { error: `Could not delete (${error.message}).` };
+  if (!removed || removed.length === 0) return { error: "Unknown pool." };
+
+  const cellId = pool.cell_id;
+  if (cellId) {
+    after(async () => {
+      try {
+        const admin = createSupabaseAdminClient();
+        const { count } = await admin.from("pools").select("id", { count: "exact", head: true }).eq("cell_id", cellId);
+        if (count === 0) await admin.from("weather_cells").update({ active: false }).eq("id", cellId);
+      } catch (err) {
+        console.error(`[pools] cell ${cellId} after delete: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    });
+  }
+  revalidatePath("/app");
+  redirect("/app");
+}

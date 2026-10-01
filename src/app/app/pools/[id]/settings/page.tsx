@@ -7,7 +7,7 @@ import { describeEquipment, EQUIPMENT_KINDS, KIND_LABELS, type EquipmentKind } f
 import { litersToDisplayVolume, type Units } from "@/lib/format";
 import { isUuid } from "@/lib/form-data";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { BasicsForm, EquipmentCard } from "./settings-forms";
+import { BasicsForm, DeletePoolForm, EquipmentCard } from "./settings-forms";
 
 export const metadata: Metadata = { title: "Pool settings" };
 
@@ -209,6 +209,13 @@ export default async function PoolSettingsPage({ params, searchParams }: PagePro
           </ul>
         </section>
       ) : null}
+
+      <section aria-labelledby="delete" className="flex flex-col gap-2">
+        <h2 id="delete" className="text-xl font-semibold">
+          Delete this pool
+        </h2>
+        <DeletePoolForm poolId={pool.id} name={pool.name} />
+      </section>
     </>
   );
 }

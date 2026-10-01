@@ -220,6 +220,8 @@ control offers (`levels` in `src/lib/salt-cells.ts`: CircuPool CORE 25/50/75/100
 
 Creating a pool lands on its settings page with `?new=1` ("Set up your pool": add the
 equipment or skip, "Done, go to the pool"); each card on `/app` also links to Settings.
+The bottom of the settings page deletes the pool after its name is typed (cascades to
+every row for that pool; a weather cell no pool uses stops being refreshed).
 
 `/app/pools/[id]/settings` edits the pool's name, volume, sanitizer, surface and cover (a
 change refits the model and plan), links to the location map, holds the salt cell form for
