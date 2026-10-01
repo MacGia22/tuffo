@@ -258,7 +258,10 @@ that puts them back as they were.
 ## Pool settings and equipment
 
 Creating a pool lands on its settings page with `?new=1` ("Set up your pool": add the
-equipment or skip, "Done, go to the pool"); each card on `/app` also links to Settings.
+equipment or skip, "Done, go to the pool"); each card on `/app` also links to Settings. The cards are a dashboard (`src/lib/pool-card.ts`):
+how old the last test is, free chlorine against its target (icon and word), today's plan
+action ("Add 1 qt" or "Cell 50%"), maintenance due or overdue, and whether alerts are on.
+The location is changed from Settings only.
 The bottom of the settings page deletes the pool after its name is typed (cascades to
 every row for that pool; a weather cell no pool uses stops being refreshed).
 
