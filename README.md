@@ -324,6 +324,12 @@ which runs from the first test of the calendar year (or January 1) and shows at 
 weeks; the chart never reaches back more than a year (`rangeStart` in `src/lib/trends.ts`).
 The choice is the `?range=` query on the pool page.
 
+The free chlorine panel is scaled to the tests and the target band; the estimate, the
+plan and expectations beyond it are clamped to the edge with a chevron where they leave
+the scale (values in the table). The plan is a wide translucent line, the estimate a
+dotted one. "What Tuffo expected" markers and the estimate-accuracy line appear only
+once the pool has its own model (4 test pairs).
+
 ## Rain at the pool
 
 The weather cell's rain is a model estimate for a few kilometers around; storms vary a

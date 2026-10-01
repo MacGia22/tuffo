@@ -4,7 +4,7 @@ import { feedbackHref } from "@/lib/feedback";
 import { WarmOffline } from "@/components/warm-offline";
 import { notFound } from "next/navigation";
 import { after } from "next/server";
-import { effectsOf } from "@/engine/server";
+import { effectsOf, PLAN_OWN_MODEL_PAIRS } from "@/engine/server";
 import { ActivityList, type ActivityItem } from "@/components/activity-list";
 import { AdvicePanel } from "@/components/advice-panel";
 import { BetweenTests } from "@/components/between-tests";
@@ -228,6 +228,8 @@ async function loadPoolView(id: string, range: TrendRange) {
     if (pool.cell_id && latestFcAt && planIsStale(plan, latestFcAt, now)) refreshPlanAfterResponse(pool.id);
   }
 
+  const ownModel = Math.max(use?.pairs ?? 0, plan?.summary.pairs ?? 0) >= PLAN_OWN_MODEL_PAIRS;
+
   // Weather for the chart window (and the between-tests box), plus today's forecast.
   let weather: Array<WeatherRow & { ownRain: boolean }> = [];
   let forecastDays: WeatherRow[] = [];
@@ -343,7 +345,8 @@ async function loadPoolView(id: string, range: TrendRange) {
           units,
           readings: allReadings.map((r) => ({ taken_at: r.taken_at, fc: r.fc, ph: r.ph })),
           estimate: estimate?.sinceLastTest ?? null,
-          expected: estimate?.expectations ?? [],
+          // Expected-vs-measured only once the pool has its own model (4 test pairs).
+          expected: ownModel ? (estimate?.expectations ?? []) : [],
           doses: allDoses.map((d) => ({ added_at: d.added_at, label: doseLabel(d, units) })),
           weather: weather.map((w) => ({
             date: w.date,
@@ -425,7 +428,7 @@ async function loadPoolView(id: string, range: TrendRange) {
     };
   }
 
-  const estimateMiss = estimate?.miss ?? null;
+  const estimateMiss = ownModel ? (estimate?.miss ?? null) : null;
   return {
     pool,
     units,

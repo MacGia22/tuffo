@@ -9,7 +9,7 @@ import type { TrendData } from "@/lib/trends";
  * Free chlorine, pH, peak UV and rain as four small multiples on one date axis:
  * one scale per panel (never two on one plot), a shared crosshair and tooltip, and
  * a table view underneath. With a 7-day plan, the days ahead are shaded and the free
- * chlorine the plan expects is drawn dashed on the same scale, over forecast weather. Marks follow the dataviz specs: 2px lines, 8px markers
+ * chlorine the plan expects is drawn as a wide translucent line on the same scale, over forecast weather. Marks follow the dataviz specs: 2px lines, 8px markers
  * with a surface ring, thin columns with rounded tops, hairline grid.
  */
 
@@ -111,16 +111,14 @@ export function TrendCharts({
   const center = (i: number) => LEFT + (i + 0.5) * day;
 
   // Scales, one per panel.
-  const fcValues = [
-    ...data.points.flatMap((p) => (p.fc === null ? [] : [p.fc])),
-    ...data.forecast.map((p) => p.fc),
-    ...data.estimate.map((p) => p.fc),
-    ...data.expected.map((e) => e.expected),
-  ];
+  // Free chlorine is scaled to the tests and the target band; estimates, the plan and
+  // expectations beyond it are clamped to the edge and marked with an arrow.
+  const fcValues = data.points.flatMap((p) => (p.fc === null ? [] : [p.fc]));
   const phValues = data.points.flatMap((p) => (p.ph === null ? [] : [p.ph]));
   const uvValues = data.days.flatMap((d) => (d.uv === null ? [] : [d.uv]));
   const rainValues = data.days.flatMap((d) => (d.rainMm === null ? [] : [rainValue(d.rainMm)]));
-  const fcTicks = ticks(0, Math.max(data.fcBand.high * 1.2, ...fcValues.map((v) => v * 1.1)), 3);
+  const fcLowest = Math.min(data.fcBand.low, ...fcValues);
+  const fcTicks = ticks(fcLowest < 3 ? 0 : Math.floor(fcLowest - 1), Math.max(data.fcBand.high * 1.15, ...fcValues.map((v) => v * 1.1)), 3);
   const phMin = Math.min(7, ...phValues.map((v) => v - 0.1));
   const phMax = Math.max(8, ...phValues.map((v) => v + 0.1));
   const phTicks = ticks(phMin, phMax, 3);
@@ -130,7 +128,7 @@ export function TrendCharts({
   const uvTicks = innerTicks(0, uvTop, 2);
   const rainTicks = innerTicks(0, rainTop, 2);
   const domain: Record<PanelKey, [number, number]> = {
-    fc: [0, fcTicks[fcTicks.length - 1]],
+    fc: [fcTicks[0], fcTicks[fcTicks.length - 1]],
     ph: [phTicks[0], phTicks[phTicks.length - 1]],
     uv: [0, uvTop],
     rain: [0, rainTop],
@@ -140,6 +138,30 @@ export function TrendCharts({
     return tops[key] + HEIGHTS[key] - ((v - lo) / (hi - lo || 1)) * HEIGHTS[key];
   };
   const tickSets: Record<PanelKey, number[]> = { fc: fcTicks, ph: phTicks, uv: uvTicks, rain: rainTicks };
+  const fcClamp = (v: number) => Math.min(domain.fc[1], Math.max(domain.fc[0], v));
+  const yFc = (v: number) => yAt("fc", fcClamp(v));
+  // One chevron per run of points beyond the scale, where the run leaves it, labelled
+  // with the run's furthest value.
+  const offScale: { x: number; value: number; up: boolean }[] = [];
+  for (const series of [data.estimate, data.forecast, data.expected.map((e) => ({ x: e.x, fc: e.expected }))]) {
+    let run: { x: number; value: number; up: boolean } | null = null;
+    for (const p of series) {
+      const up = p.fc > domain.fc[1];
+      const down = p.fc < domain.fc[0];
+      if (!up && !down) {
+        if (run) offScale.push(run);
+        run = null;
+        continue;
+      }
+      if (run && run.up === up) {
+        if (up ? p.fc > run.value : p.fc < run.value) run = { x: run.x, value: p.fc, up };
+      } else {
+        if (run) offScale.push(run);
+        run = { x: p.x, value: p.fc, up };
+      }
+    }
+    if (run) offScale.push(run);
+  }
 
   const labelEvery = Math.max(1, Math.ceil(46 / Math.max(day, 1)));
   const colWidth = Math.max(2, Math.min(12, day - 4));
@@ -166,12 +188,12 @@ export function TrendCharts({
 
   const forecastPath =
     data.forecast.length > 1
-      ? data.forecast.map((p, i) => `${i ? "L" : "M"}${xAt(p.x).toFixed(1)},${yAt("fc", p.fc).toFixed(1)}`).join("")
+      ? data.forecast.map((p, i) => `${i ? "L" : "M"}${xAt(p.x).toFixed(1)},${yFc(p.fc).toFixed(1)}`).join("")
       : null;
 
   const estimatePath =
     data.estimate.length > 1
-      ? data.estimate.map((p, i) => `${i ? "L" : "M"}${xAt(p.x).toFixed(1)},${yAt("fc", p.fc).toFixed(1)}`).join("")
+      ? data.estimate.map((p, i) => `${i ? "L" : "M"}${xAt(p.x).toFixed(1)},${yFc(p.fc).toFixed(1)}`).join("")
       : null;
 
   function lineFor(key: "fc" | "ph") {
@@ -360,8 +382,8 @@ export function TrendCharts({
                 key={`gap-${e.x}`}
                 x1={xAt(e.x)}
                 x2={xAt(e.x)}
-                y1={yAt("fc", e.expected)}
-                y2={yAt("fc", e.measured)}
+                y1={yFc(e.expected)}
+                y2={yFc(e.measured)}
                 className="stroke-chart-chem"
                 strokeOpacity={0.35}
                 strokeWidth={1}
@@ -372,7 +394,7 @@ export function TrendCharts({
               <circle
                 key={`exp-${e.x}`}
                 cx={xAt(e.x)}
-                cy={yAt("fc", e.expected)}
+                cy={yFc(e.expected)}
                 r={4}
                 className="fill-surface stroke-chart-chem"
                 strokeOpacity={0.7}
@@ -384,11 +406,29 @@ export function TrendCharts({
                 d={forecastPath}
                 fill="none"
                 className="stroke-chart-chem"
-                strokeWidth={2}
-                strokeDasharray="4 4"
+                strokeOpacity={0.35}
+                strokeWidth={5}
                 strokeLinejoin="round"
+                strokeLinecap="round"
               />
             ) : null}
+            {offScale.map((o) => {
+              const x = xAt(o.x);
+              const y = o.up ? tops.fc + 1 : tops.fc + HEIGHTS.fc - 1;
+              return (
+                <path
+                  key={`off-${o.x}-${o.up}`}
+                  d={o.up ? `M${x - 5},${y + 7}L${x},${y + 1}L${x + 5},${y + 7}` : `M${x - 5},${y - 7}L${x},${y - 1}L${x + 5},${y - 7}`}
+                  fill="none"
+                  className="stroke-chart-chem"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <title>{`Beyond the scale: up to about ${fmt(o.value, 1)} ppm`}</title>
+                </path>
+              );
+            })}
             {(["fc", "ph"] as const).flatMap((key) =>
               data.points
                 .filter((p) => p[key] !== null)
@@ -541,7 +581,7 @@ export function TrendCharts({
                 <>
                   <li className="flex items-baseline gap-2">
                     <svg width="12" height="4" aria-hidden="true" className="shrink-0 self-center">
-                      <line x1="0" x2="12" y1="2" y2="2" className="stroke-chart-chem" strokeWidth={2} strokeDasharray="3 3" />
+                      <line x1="1" x2="11" y1="2" y2="2" className="stroke-chart-chem" strokeOpacity={0.35} strokeWidth={4} strokeLinecap="round" />
                     </svg>
                     <span className="whitespace-nowrap font-semibold text-foreground tabular-nums">
                       ≈{fmt(activeDay.plan.fcEnd, 1)} ppm
@@ -618,9 +658,17 @@ export function TrendCharts({
         {data.forecast.length ? (
           <span className="inline-flex items-center gap-1.5">
             <svg width="16" height="4" aria-hidden="true">
-              <line x1="0" x2="16" y1="2" y2="2" className="stroke-chart-chem" strokeWidth={2} strokeDasharray="4 3" />
+              <line x1="2" x2="14" y1="2" y2="2" className="stroke-chart-chem" strokeOpacity={0.35} strokeWidth={4} strokeLinecap="round" />
             </svg>
             Free chlorine if you follow the plan
+          </span>
+        ) : null}
+        {offScale.length ? (
+          <span className="inline-flex items-center gap-1.5">
+            <svg width="12" height="8" aria-hidden="true">
+              <path d="M1,7L6,2L11,7" fill="none" className="stroke-chart-chem" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Beyond the scale (values in the table)
           </span>
         ) : null}
         {data.doses.length ? (
