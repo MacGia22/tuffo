@@ -305,6 +305,13 @@ month they run out at today's pump hours and setting. The pool page has a compac
 "Equipment health" row of the same bars. Status colours are `--status-*` in
 `globals.css`; each picture has a list or table view.
 
+## Trends range
+
+The trends card has a range selector: 14, 30 (the default) or 90 days, or "This season",
+which runs from the first test of the calendar year (or January 1) and shows at least two
+weeks; the chart never reaches back more than a year (`rangeStart` in `src/lib/trends.ts`).
+The choice is the `?range=` query on the pool page.
+
 ## Rain at the pool
 
 The weather cell's rain is a model estimate for a few kilometers around; storms vary a

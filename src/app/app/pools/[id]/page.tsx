@@ -29,7 +29,7 @@ import { chlorineUse } from "@/lib/model/usage";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { retryAllOnClockSkew } from "@/lib/supabase/retry";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { buildTrend, MAX_DAYS } from "@/lib/trends";
+import { buildTrend, rangeStart, parseRange, TREND_RANGES, type TrendRange } from "@/lib/trends";
 import { FRESH_HOURS, refreshCellIfStale } from "@/lib/weather/job";
 import { loadOwnRain, withOwnRain } from "@/lib/weather/own-rain";
 import { localDateRange, summarizeBetween, type WeatherDay } from "@/lib/weather/summary";
@@ -153,9 +153,11 @@ function fcAddedBy(dose: Dose, liters: number): number {
 }
 
 /** Everything the pool page shows, loaded and shaped per request. */
-async function loadPoolView(id: string) {
+async function loadPoolView(id: string, range: TrendRange) {
   const now = Date.now();
-  const since = new Date(now - (MAX_DAYS + 15) * DAY_MS).toISOString();
+  // Rows a little before the chart's window (the season can reach back to January).
+  const lookbackDays = range === "season" ? 380 : Number(range) + 15;
+  const since = new Date(now - lookbackDays * DAY_MS).toISOString();
   const supabase = await createSupabaseServerClient();
   const [{ data: pool }, { data: readings }, { data: doses }, { data: events }, { data: profile }] =
     await retryAllOnClockSkew(() =>
@@ -166,7 +168,7 @@ async function loadPoolView(id: string) {
           .select("id, taken_at, fc, cc, ph, ta, ch, cya, salt, water_temp_c, borate, method")
           .eq("pool_id", id)
           .order("taken_at", { ascending: false })
-          .limit(100)
+          .limit(lookbackDays > 60 ? 1000 : 100)
           .returns<Reading[]>(),
         supabase
           .from("doses")
@@ -198,6 +200,13 @@ async function loadPoolView(id: string) {
   const latest = allReadings[0];
   const previous = allReadings[1];
   const latestCya = allReadings.find((r) => r.cya !== null)?.cya ?? null;
+  // The chart's first day for the chosen range.
+  const yearStart = `${localDateRange(new Date(now).toISOString(), new Date(now).toISOString(), tz).to.slice(0, 4)}-01-01`;
+  const firstThisYear =
+    [...allReadings]
+      .filter((r) => localDateRange(r.taken_at, r.taken_at, tz).to >= yearStart)
+      .sort((a, b) => Date.parse(a.taken_at) - Date.parse(b.taken_at))[0]?.taken_at ?? null;
+  const windowStart = rangeStart(range, now, tz, firstThisYear);
   const [use, estimate] = await Promise.all([
     loadChlorineUse(pool.id, latestCya === null ? null : Number(latestCya), pool.covered),
     // Estimated FC since the last test and what Tuffo expected at recent tests; fails open.
@@ -224,7 +233,6 @@ async function loadPoolView(id: string) {
   let forecastDays: WeatherRow[] = [];
   let lastActualsAt: string | null = null;
   if (pool.cell_id) {
-    const windowStart = new Date(now - MAX_DAYS * DAY_MS).toISOString().slice(0, 10);
     const [{ data: daily }, { data: forecast }, { data: cellRow }, ownRain] = await Promise.all([
       supabase
         .from("weather_daily")
@@ -330,6 +338,7 @@ async function loadPoolView(id: string) {
     allReadings.length > 0 || weather.length > 0
       ? buildTrend({
           timeZone: tz,
+          start: windowStart,
           now,
           units,
           readings: allReadings.map((r) => ({ taken_at: r.taken_at, fc: r.fc, ph: r.ph })),
@@ -437,9 +446,10 @@ async function loadPoolView(id: string) {
   };
 }
 
-export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">) {
+export default async function PoolPage({ params, searchParams }: PageProps<"/app/pools/[id]">) {
   const { id } = await params;
   if (!isUuid(id)) notFound();
+  const range = parseRange((await searchParams).range);
   const {
     pool,
     units,
@@ -457,7 +467,7 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
     saltStatus,
     estimateMiss,
     now,
-  } = await loadPoolView(id);
+  } = await loadPoolView(id, range);
   // Upkeep due now or within days; fails open (nothing shown).
   const upkeep = await loadPoolMaintenance(await createSupabaseServerClient(), pool.id, { cellHours: true });
   const upkeepDue = upkeep ? dueTasks(upkeep.statuses) : [];
@@ -722,8 +732,26 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
         >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 id="trends" className="text-xl font-semibold">
-              Last {trend.days.length} days
+              {range === "season" ? "This season" : `Last ${range} days`}
             </h2>
+            <nav aria-label="Chart range" className="w-full sm:w-auto sm:order-last">
+              <ul className="inline-flex rounded-xl border border-border bg-background p-0.5 text-xs font-semibold">
+                {TREND_RANGES.map((r) => (
+                  <li key={r.value}>
+                    <Link
+                      href={`/app/pools/${pool.id}${r.value === "30" ? "" : `?range=${r.value}`}#trends`}
+                      scroll={false}
+                      aria-current={r.value === range ? "true" : undefined}
+                      className={`block rounded-lg px-2.5 py-1.5 ${
+                        r.value === range ? "bg-lagoon text-white" : "text-muted hover:text-foreground"
+                      }`}
+                    >
+                      {r.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
             <p className="text-xs text-muted">Shaded bands are the targets for this pool. ▼ marks a logged dose.</p>
             {estimateMiss ? (
               <p className="text-xs text-muted">

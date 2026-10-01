@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTrend, trendWindow, xFor } from "../trends";
+import { buildTrend, parseRange, rangeStart, trendWindow, xFor } from "../trends";
 
 const TZ = "America/New_York";
 const now = Date.parse("2026-09-27T16:00:00Z"); // noon in Florida
@@ -140,5 +140,24 @@ describe("buildTrend", () => {
     expect(trend.forecast).toEqual([]);
     expect(trend.forecastFrom).toBeNull();
     expect(trend.days.every((d) => !d.forecast)).toBe(true);
+  });
+});
+
+describe("ranges", () => {
+  it("reads the range and finds its first day", () => {
+    expect(parseRange("90")).toBe("90");
+    expect(parseRange("x")).toBe("30");
+    expect(rangeStart("14", now, TZ, null)).toBe("2026-09-14");
+    expect(rangeStart("90", now, TZ, null)).toBe("2026-06-30");
+    // Season: from the first test this year, or January 1.
+    expect(rangeStart("season", now, TZ, "2026-04-12T14:00:00Z")).toBe("2026-04-12");
+    expect(rangeStart("season", now, TZ, null)).toBe("2026-01-01");
+    // Early in January: still two weeks.
+    expect(rangeStart("season", Date.parse("2026-01-03T18:00:00Z"), TZ, null)).toBe("2025-12-21");
+  });
+
+  it("uses a chosen start in the window, capped to a year", () => {
+    expect(trendWindow(null, now, TZ, "2026-06-30")).toEqual({ start: "2026-06-30", end: "2026-09-27" });
+    expect(trendWindow(null, now, TZ, "2024-01-01").start).toBe("2025-09-27");
   });
 });
