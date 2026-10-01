@@ -139,6 +139,7 @@ export function DoneForm({
 
 export function PressureForm({ poolId, units }: { poolId: string; units: Units }) {
   const [state, action, pending] = useActionState(logPressure, initial);
+  const [otherDay, setOtherDay] = useState(false);
   return (
     <form action={action} className="flex flex-col gap-3">
       <input type="hidden" name="pool_id" value={poolId} />
@@ -146,30 +147,56 @@ export function PressureForm({ poolId, units }: { poolId: string; units: Units }
       <div className="flex flex-wrap items-end gap-3">
         <label className={label}>
           Gauge ({pressureUnitLabel(units)})
-          <input
-            name="pressure"
-            required
-            inputMode="decimal"
-            placeholder={units === "us" ? "14" : "1.0"}
-            className={`${field} w-28`}
-          />
+          <input name="pressure" required inputMode="decimal" className={`${field} w-28`} />
         </label>
-        <label className={label}>
-          Day (empty: today)
-          <input type="date" name="read_on" className={`${field} w-44`} />
-        </label>
-        <button type="submit" disabled={pending} className={primary}>
-          {pending ? "Saving…" : "Log pressure"}
-        </button>
-        <ResetButton className="h-10 text-sm text-muted underline-offset-2 hover:underline" />
+        {otherDay ? (
+          <label className={label}>
+            Day
+            <input type="date" name="read_on" autoFocus className={`${field} w-44`} />
+          </label>
+        ) : (
+          <p className="flex h-10 items-center gap-2 text-sm">
+            <span className="text-muted">Day:</span> Today
+            <span aria-hidden="true" className="text-muted">
+              ·
+            </span>
+            <button
+              type="button"
+              onClick={() => setOtherDay(true)}
+              aria-label="Change the day"
+              className="font-semibold text-lagoon underline-offset-2 hover:underline"
+            >
+              Change
+            </button>
+          </p>
+        )}
       </div>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" name="clean" className="h-4 w-4 accent-lagoon" />
-        Just cleaned or backwashed: this is the clean pressure
+        Just cleaned or backwashed
       </label>
-      <p className="text-xs text-muted">
-        Read it with the pump running at its usual speed; the same speed each time keeps readings comparable.
-      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="submit" disabled={pending} className={primary}>
+          {pending ? "Saving…" : "Log pressure"}
+        </button>
+        <ResetButton
+          onClick={() => setOtherDay(false)}
+          className="h-10 text-sm text-muted underline-offset-2 hover:underline"
+        />
+      </div>
+      <details className="text-xs text-muted">
+        <summary className="cursor-pointer list-none">
+          Read it with the pump at its usual speed.{" "}
+          <span aria-hidden="true" className="text-lagoon">
+            ⓘ
+          </span>
+          <span className="sr-only">More about reading the gauge</span>
+        </summary>
+        <p className="mt-1 max-w-md">
+          The same speed each time keeps readings comparable. Tick Just cleaned for the reading right after you clean
+          or backwash: Tuffo counts the rise from that clean pressure.
+        </p>
+      </details>
       <Status state={state} poolId={poolId} undo={deletePressure} />
     </form>
   );
