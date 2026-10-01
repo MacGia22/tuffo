@@ -107,7 +107,8 @@ export default function PrivacyPage() {
       <p>
         So the app works without signal, your device keeps copies of the app pages you open and any test, dose or event
         you log while offline, until it is sent. These stay on your device and are not shared. Signing out removes the
-        page copies; entries still waiting are sent the next time you sign in on that device.
+        page copies; entries still waiting are sent the next time you sign in on that device. When you remove a dose or
+        event, the browser tab keeps a copy for Undo until the tab is closed.
       </p>
 
       <h2>Why Tuffo uses it</h2>
