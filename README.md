@@ -172,6 +172,18 @@ most 6 attempts per user in 10 minutes, and a daily total across everyone as a s
 backstop. If the table is missing or a count fails, scanning stays open. The hard cap
 is the monthly spend limit set in the Anthropic console.
 
+## Estimate since the last test
+
+`src/lib/model/estimate.ts` replays free chlorine from a test: each local day's predicted
+use under that day's actual weather (the pool's fit, or typical-pool numbers), logged doses
+as steps, and what the salt cell made at the settings and pump hours in force; up to 10
+days, never below 0, none across a refill or for a salt pool with an unknown cell output.
+The pool page (`src/lib/model/pool-estimate.ts`, service key, fails open) draws it dotted
+from the last test to now, marks at each test what the estimate from the previous test
+expected (hollow circle, joined to the reading), and shows the typical miss over the last
+five tests. The plan starts from the same estimate at now, and a salt pool's plan line runs
+smoothly between day ends. Only numbers reach the browser, never coefficients.
+
 ## The 7-day plan
 
 `src/engine/plan.ts` simulates free chlorine day by day over the pool's weather forecast

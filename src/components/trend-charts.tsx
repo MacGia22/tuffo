@@ -111,7 +111,12 @@ export function TrendCharts({
   const center = (i: number) => LEFT + (i + 0.5) * day;
 
   // Scales, one per panel.
-  const fcValues = [...data.points.flatMap((p) => (p.fc === null ? [] : [p.fc])), ...data.forecast.map((p) => p.fc)];
+  const fcValues = [
+    ...data.points.flatMap((p) => (p.fc === null ? [] : [p.fc])),
+    ...data.forecast.map((p) => p.fc),
+    ...data.estimate.map((p) => p.fc),
+    ...data.expected.map((e) => e.expected),
+  ];
   const phValues = data.points.flatMap((p) => (p.ph === null ? [] : [p.ph]));
   const uvValues = data.days.flatMap((d) => (d.uv === null ? [] : [d.uv]));
   const rainValues = data.days.flatMap((d) => (d.rainMm === null ? [] : [rainValue(d.rainMm)]));
@@ -164,6 +169,11 @@ export function TrendCharts({
       ? data.forecast.map((p, i) => `${i ? "L" : "M"}${xAt(p.x).toFixed(1)},${yAt("fc", p.fc).toFixed(1)}`).join("")
       : null;
 
+  const estimatePath =
+    data.estimate.length > 1
+      ? data.estimate.map((p, i) => `${i ? "L" : "M"}${xAt(p.x).toFixed(1)},${yAt("fc", p.fc).toFixed(1)}`).join("")
+      : null;
+
   function lineFor(key: "fc" | "ph") {
     const pts = data.points.filter((p) => p[key] !== null);
     if (pts.length < 2) return null;
@@ -174,6 +184,12 @@ export function TrendCharts({
   const pickedDay = picked === null ? null : (data.days[picked] ?? null);
   const activePoints = active === null ? [] : data.points.filter((p) => Math.floor(p.x) === active);
   const activeDoses = active === null ? [] : data.doses.filter((d) => Math.floor(d.x) === active);
+  const activeExpected = active === null ? [] : data.expected.filter((e) => Math.floor(e.x) === active);
+  // After the last test: the estimate at the end of the active day (or now).
+  const activeEstimate =
+    active === null || activePoints.length
+      ? null
+      : ([...data.estimate].reverse().find((p) => p.x <= active + 1 && p.x >= active) ?? null);
   // Beside the crosshair when there is room; on narrow screens, pinned to the half of
   // the chart away from the finger so it never covers the point being read.
   const TIP = Math.min(240, w);
@@ -327,6 +343,42 @@ export function TrendCharts({
                 />
               ) : null;
             })}
+            {estimatePath ? (
+              <path
+                d={estimatePath}
+                fill="none"
+                className="stroke-chart-chem"
+                strokeOpacity={0.55}
+                strokeWidth={2}
+                strokeDasharray="1 5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            ) : null}
+            {data.expected.map((e) => (
+              <line
+                key={`gap-${e.x}`}
+                x1={xAt(e.x)}
+                x2={xAt(e.x)}
+                y1={yAt("fc", e.expected)}
+                y2={yAt("fc", e.measured)}
+                className="stroke-chart-chem"
+                strokeOpacity={0.35}
+                strokeWidth={1}
+                strokeDasharray="2 2"
+              />
+            ))}
+            {data.expected.map((e) => (
+              <circle
+                key={`exp-${e.x}`}
+                cx={xAt(e.x)}
+                cy={yAt("fc", e.expected)}
+                r={4}
+                className="fill-surface stroke-chart-chem"
+                strokeOpacity={0.7}
+                strokeWidth={1.5}
+              />
+            ))}
             {forecastPath ? (
               <path
                 d={forecastPath}
@@ -422,6 +474,9 @@ export function TrendCharts({
                   const at = singleTest ? "" : ` · ${timeOf(p.when)}`;
                   return [
                     ...(p.fc !== null ? [{ key: `fc${p.x}`, value: `${fmt(p.fc, 1)} ppm`, label: `Free chlorine${at}` }] : []),
+                    ...activeExpected
+                      .filter((e) => e.x === p.x)
+                      .map((e) => ({ key: `ex${e.x}`, value: `≈${fmt(e.expected, 1)} ppm`, label: "Tuffo expected" })),
                     ...(p.ph !== null ? [{ key: `ph${p.x}`, value: fmtPh(p.ph), label: `pH${at}` }] : []),
                   ];
                 })
@@ -455,6 +510,27 @@ export function TrendCharts({
                     <span className="text-muted">{activeDay.ownRain ? "Rain at your pool" : "Rain"}</span>
                   </li>
                 </>
+              ) : null}
+              {activeEstimate ? (
+                <li className="flex items-baseline gap-2">
+                  <svg width="12" height="4" aria-hidden="true" className="shrink-0 self-center">
+                    <line
+                      x1="1"
+                      x2="11"
+                      y1="2"
+                      y2="2"
+                      className="stroke-chart-chem"
+                      strokeOpacity={0.55}
+                      strokeWidth={2}
+                      strokeDasharray="1 4"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <span className="whitespace-nowrap font-semibold text-foreground tabular-nums">
+                    ≈{fmt(activeEstimate.fc, 1)} ppm
+                  </span>
+                  <span className="text-muted">Free chlorine, estimated</span>
+                </li>
               ) : null}
               {activeDoses.map((d, i) => (
                 <li key={`d${i}`} className="text-muted">
@@ -513,6 +589,32 @@ export function TrendCharts({
           </svg>
           Target range
         </span>
+        {data.estimate.length > 1 ? (
+          <span className="inline-flex items-center gap-1.5">
+            <svg width="16" height="4" aria-hidden="true">
+              <line
+                x1="1"
+                x2="15"
+                y1="2"
+                y2="2"
+                className="stroke-chart-chem"
+                strokeOpacity={0.55}
+                strokeWidth={2}
+                strokeDasharray="1 4"
+                strokeLinecap="round"
+              />
+            </svg>
+            Estimated since your last test
+          </span>
+        ) : null}
+        {data.expected.length ? (
+          <span className="inline-flex items-center gap-1.5">
+            <svg width="10" height="10" aria-hidden="true">
+              <circle cx="5" cy="5" r="3.5" className="fill-surface stroke-chart-chem" strokeOpacity={0.7} strokeWidth={1.5} />
+            </svg>
+            What Tuffo expected at the test
+          </span>
+        ) : null}
         {data.forecast.length ? (
           <span className="inline-flex items-center gap-1.5">
             <svg width="16" height="4" aria-hidden="true">
@@ -581,7 +683,12 @@ export function TrendCharts({
                     </td>
                     <td className="px-3 py-1.5 text-right tabular-nums">
                       {[
-                        ...pts.filter((p) => p.fc !== null).map((p) => fmt(p.fc as number, 1)),
+                        ...pts
+                          .filter((p) => p.fc !== null)
+                          .map((p) => {
+                            const e = data.expected.find((x) => x.x === p.x);
+                            return `${fmt(p.fc as number, 1)}${e ? ` (expected ≈${fmt(e.expected, 1)})` : ""}`;
+                          }),
                         ...(d.plan ? [`≈${fmt(d.plan.fcEnd, 1)} by evening`] : []),
                       ].join(" / ") || "—"}
                     </td>

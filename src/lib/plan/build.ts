@@ -19,6 +19,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { estimateStartFc, type StoredPlanDay, type StoredPlanSummary } from "./stored";
 import { loadOwnRain, withOwnRain } from "@/lib/weather/own-rain";
 import { cellLevels } from "@/lib/salt-cells";
+import { loadPoolEstimate } from "@/lib/model/pool-estimate";
 
 /**
  * Builds and stores a pool's 7-day plan with the service key: the pool's model (or the
@@ -177,13 +178,19 @@ export async function buildPlan(admin: SupabaseClient, poolId: string, now = Dat
   const days = rows.map((row) => ({ date: row.date, weather: weatherOf(row) }));
   const todayDrivers = dayDrivers(days[0].weather, { cya: cya ?? DEFAULT_CYA, covered: pool.covered, heavyUse: 0 });
   const daysSince = (now - Date.parse(latestFc.taken_at)) / DAY_MS;
-  const fcStart = estimateStartFc({
-    fc: Number(latestFc.fc),
-    addedPpm,
-    daysSince,
-    dailyLossPpm: todayDrivers ? predictLoss(coefficients, todayDrivers) : 0,
-    swg,
-  });
+  // FC now: the same day-by-day estimate the chart draws (weather, doses, the cell) when
+  // it reaches now; otherwise the simple carry-forward from the last test.
+  const series = (await loadPoolEstimate(admin, poolId, now))?.sinceLastTest ?? null;
+  const reachedNow = series && series.length > 0 && Date.parse(series[series.length - 1].at) >= now - 60_000;
+  const fcStart = reachedNow
+    ? series[series.length - 1].fc
+    : estimateStartFc({
+        fc: Number(latestFc.fc),
+        addedPpm,
+        daysSince,
+        dailyLossPpm: todayDrivers ? predictLoss(coefficients, todayDrivers) : 0,
+        swg,
+      });
 
   const lb = n(pool.swg_cell_lb_per_day);
   const plan = planWeek({

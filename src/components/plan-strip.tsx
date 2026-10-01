@@ -44,6 +44,7 @@ export function PlanStrip({
   today,
   poolId,
   cellLevels = null,
+  cellLowest = null,
 }: {
   plan: StoredPlan;
   units: Units;
@@ -51,6 +52,8 @@ export function PlanStrip({
   poolId?: string;
   /** The settings the cell's control offers, as words: "25%, 50%, 75% or 100%". */
   cellLevels?: string | null;
+  /** The cell's lowest setting, percent, when it has fixed ones. */
+  cellLowest?: number | null;
 }) {
   const { summary } = plan;
   const days = plan.days.filter((d) => d.date >= today).slice(0, 7);
@@ -60,6 +63,7 @@ export function PlanStrip({
   const lowDay = summary.lowWithoutChlorine ? weekday(summary.lowWithoutChlorine) : null;
   const risky = days.filter((d) => d.algaeRisk);
   const fcLine = planHasFcLine(summary);
+  const peak = Math.max(0, ...days.map((d) => d.fcEnd));
 
   return (
     <section aria-labelledby="plan" className="flex flex-col gap-3">
@@ -83,6 +87,14 @@ export function PlanStrip({
               <strong className="font-display text-lg">{summary.swgPercent}%</strong> this week{summary.cellHours ? ` (with the cell running ${summary.cellHours} h a day)` : ""}. It needs to make
               about {summary.swgNeedPpm?.toFixed(1)} ppm of free chlorine a day.
               {cellLevels ? ` Your cell sets ${cellLevels}; this is the lowest that keeps chlorine up all week.` : ""}
+              {cellLowest !== null && summary.swgPercent === cellLowest && peak > summary.fc.targetHigh ? (
+                <>
+                  {" "}
+                  Even at {cellLowest}% the cell makes more than this week should use, so free chlorine climbs to about{" "}
+                  {peak.toFixed(0)} ppm. If a test shows it above {summary.fc.targetHigh} ppm, you can switch the cell off
+                  for a day. If your tests keep coming in lower than Tuffo expected, it will learn that your pool uses more.
+                </>
+              ) : null}
               {summary.cellSetting !== summary.swgPercent && poolId ? (
                 <>
                   {" "}
