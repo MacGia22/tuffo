@@ -4,6 +4,9 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 
+const menuItem =
+  "block w-full rounded-lg px-3 py-2.5 text-left text-sm font-semibold hover:bg-lagoon/10 focus:bg-lagoon/10 focus:outline-none";
+
 /** The current page with its query, for `?from=`. */
 export function useCurrentPath(): string {
   const pathname = usePathname();
@@ -25,7 +28,8 @@ export function MenuButton({
 }: {
   label: string;
   buttonClassName: string;
-  items: { href: string; label: string }[];
+  /** Links, or a POST form (e.g. sign out) when `post` is set. */
+  items: { href: string; label: string; post?: boolean }[];
   placement?: "below" | "below-end" | "above";
   children: React.ReactNode;
 }) {
@@ -62,7 +66,7 @@ export function MenuButton({
     document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onKey);
     // First item gets focus so the menu works from the keyboard.
-    root.current?.querySelector<HTMLAnchorElement>("[data-menu-item]")?.focus();
+    root.current?.querySelector<HTMLElement>("[data-menu-item]")?.focus();
     return () => {
       document.removeEventListener("pointerdown", onDown);
       document.removeEventListener("keydown", onKey);
@@ -96,14 +100,17 @@ export function MenuButton({
         >
           {items.map((item) => (
             <li key={item.href}>
-              <Link
-                href={item.href}
-                data-menu-item
-                onClick={() => setOpen(false)}
-                className="block rounded-lg px-3 py-2.5 text-sm font-semibold hover:bg-lagoon/10 focus:bg-lagoon/10 focus:outline-none"
-              >
-                {item.label}
-              </Link>
+              {item.post ? (
+                <form action={item.href} method="post">
+                  <button type="submit" data-menu-item className={menuItem}>
+                    {item.label}
+                  </button>
+                </form>
+              ) : (
+                <Link href={item.href} data-menu-item onClick={() => setOpen(false)} className={menuItem}>
+                  {item.label}
+                </Link>
+              )}
             </li>
           ))}
         </ul>
