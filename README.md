@@ -460,6 +460,9 @@ Its message contains an example address, which should arrive as `[email]`.
 11:30 UTC (the Hobby plan allows daily crons; see "Email alerts"). The job takes every active weather cell, asks Open-Meteo for the days
 since that cell's last fetch (a month for a new cell, at most 92) and the next week, in
 one request per 40 cells, and upserts `weather_daily` (actuals) and `weather_forecast`.
+When a batch request fails, each of its cells is tried on its own, so one bad answer
+does not leave every cell stale; failures are logged as `[weather] nightly:` (and reach
+Sentry).
 It then refits every pool's chlorine model, rebuilds every 7-day plan and deletes photo-scan log rows older than a
 year. Trigger it by hand with
 `curl -H "Authorization: Bearer $CRON_SECRET" https://tuffo.app/api/jobs/weather`.

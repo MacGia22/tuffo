@@ -109,20 +109,41 @@ describe("runWeatherJob", () => {
     expect(pastDays).toEqual(["31", "2"]);
   });
 
-  it("keeps going when a batch fails", async () => {
+  it("retries a failed batch cell by cell, so one bad request does not leave every cell stale", async () => {
     const cells = Array.from({ length: 45 }, (_, i) => ({ id: `c${i}`, lat: i, lon: i, timezone: "UTC", last_actuals_at: YESTERDAY }));
-    const { client } = fakeAdmin(cells);
+    const { client, writes } = fakeAdmin(cells);
     let call = 0;
-    const fetchImpl = vi.fn(async () => {
+    const fetchImpl = vi.fn(async (input: string | URL | Request) => {
       call += 1;
       if (call === 1) return new Response("nope", { status: 500 });
-      return new Response(JSON.stringify(openMeteoBody(5)));
+      const count = new URL(String(input)).searchParams.get("latitude")!.split(",").length;
+      return new Response(JSON.stringify(openMeteoBody(count)));
     });
     const result = await runWeatherJob(client, { fetchImpl: fetchImpl as unknown as typeof fetch, now: NOW });
     expect(result.batches).toBe(2);
-    expect(result.failed).toBe(1);
+    expect(result.failed).toBe(0);
     expect(result.errors[0]).toMatch(/500/);
-    expect(result.forecastWritten).toBe(15);
+    // 1 failed batch of 40, 40 single-cell retries, 1 batch of 5: every cell gets 2 past days and 3 ahead.
+    expect(fetchImpl).toHaveBeenCalledTimes(42);
+    expect(result.actualsWritten).toBe(45 * 2);
+    expect(result.forecastWritten).toBe(45 * 3);
+    const stamped = (writes.weather_cells as { ids: string[] }[]).flatMap((w) => w.ids);
+    expect(new Set(stamped).size).toBe(45);
+  });
+
+  it("counts a batch as failed when a cell still fails on its own, and keeps the others", async () => {
+    const cells = Array.from({ length: 3 }, (_, i) => ({ id: `c${i}`, lat: i, lon: i, timezone: "UTC", last_actuals_at: YESTERDAY }));
+    const { client, writes } = fakeAdmin(cells);
+    const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+      const lats = new URL(String(input)).searchParams.get("latitude")!.split(",");
+      if (lats.includes("1.00")) return new Response("bad cell", { status: 400 });
+      return new Response(JSON.stringify(openMeteoBody(lats.length)));
+    });
+    const result = await runWeatherJob(client, { fetchImpl: fetchImpl as unknown as typeof fetch, now: NOW });
+    expect(result.failed).toBe(1);
+    expect(result.errors).toHaveLength(2);
+    const stamped = (writes.weather_cells as { ids: string[] }[]).flatMap((w) => w.ids);
+    expect(stamped.sort()).toEqual(["c0", "c2"]);
   });
 
   it("does nothing with no active cells", async () => {

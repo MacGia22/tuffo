@@ -131,6 +131,7 @@ export async function refreshCells(
     }))
     .sort((a, b) => b.need - a.need);
 
+  const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
   for (const batch of chunk(withNeed, BATCH)) {
     result.batches += 1;
     try {
@@ -145,8 +146,24 @@ export async function refreshCells(
       result.actualsWritten += written.actuals;
       result.forecastWritten += written.forecast;
     } catch (err) {
-      result.failed += 1;
-      result.errors.push(err instanceof Error ? err.message : String(err));
+      result.errors.push(message(err));
+      if (batch.length === 1) {
+        result.failed += 1;
+        continue;
+      }
+      // One failed request must not leave every cell in the batch stale: try each alone.
+      let failedCells = 0;
+      for (const { cell, need } of batch) {
+        try {
+          const written = await refreshBatch(admin, [cell], need, fetchedAt, options.fetchImpl);
+          result.actualsWritten += written.actuals;
+          result.forecastWritten += written.forecast;
+        } catch (cellErr) {
+          failedCells += 1;
+          result.errors.push(message(cellErr));
+        }
+      }
+      if (failedCells > 0) result.failed += 1;
     }
   }
   return result;
