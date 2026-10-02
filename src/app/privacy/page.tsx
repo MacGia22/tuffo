@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy notice" updated="October 1, 2026">
+    <LegalPage title="Privacy notice" updated="October 2, 2026">
       <p>
         Tuffo is a pool-care app: you log water tests, it shows what the weather did to your water and suggests what to
         add. This notice lists what Tuffo keeps about you, who else handles it, how long it stays, and how to take it
@@ -86,6 +86,21 @@ export default function PrivacyPage() {
         link that brought you (for example the name of a forum), only to invite you to the beta. It is deleted when you are invited or when you ask; if you are invited, the link label
         stays with your account, as described above. To slow down automated sign-ups, the
         server briefly counts requests per network address in memory; the address is not stored.
+      </p>
+      <h3>Link visits</h3>
+      <p>
+        When you open Tuffo from a link with a label (for example tuffo.app/?ref=pools), the server adds one to that
+        label&apos;s count for the day. Only the label, the date and the count are kept: no address, cookie or browser
+        details, nothing that identifies you or tells two visits apart.
+      </p>
+      <h3>The public forecast</h3>
+      <p>
+        The forecast page (tuffo.app/forecast) works without an account. The town or ZIP code you type goes to
+        Open-Meteo to find the town, and the forecast is fetched for its weather area (about 3 km, 2 miles, across).
+        Tuffo keeps nothing from it: no search, no address, nothing about you. The page&apos;s link holds the town name,
+        the weather area and the pool numbers you entered, never a precise location. Each forecast shown adds one to a
+        daily count, as with link visits above. To slow down automated use, the server briefly counts requests per
+        network address in memory; the address is not stored.
       </p>
       <h3>Technical logs</h3>
       <p>

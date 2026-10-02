@@ -57,7 +57,11 @@ separate from Resend's.
 A `?ref=` on a link to the home page (`tuffo.app/?ref=pools`) travels with **Start free**
 to `/login`; when that sign-in creates a new account, Supabase stores the label in the
 user's metadata (`signup_source`). Count new accounts by link in the SQL editor:
-`select raw_user_meta_data->>'signup_source' as source, count(*) from auth.users group by 1;` Supabase also needs the
+`select raw_user_meta_data->>'signup_source' as source, count(*) from auth.users group by 1;`
+The proxy also counts page loads from a labelled link (not `/app`, `/auth` or `/login`, not
+prefetches, not bots or link previews) in `ref_visits`, one row per label and UTC day,
+production only, with nothing about the visitor; a day takes at most 200 labels. Admin →
+Links shows 30-day visits next to sign-ups and accounts that have logged a test. Supabase also needs the
 site URL and redirect URLs (Authentication → URL Configuration): the production domain
 plus `https://*-mac-pool.vercel.app/**` for previews.
 
@@ -456,6 +460,9 @@ Its message contains an example address, which should arrive as `[email]`.
 11:30 UTC (the Hobby plan allows daily crons; see "Email alerts"). The job takes every active weather cell, asks Open-Meteo for the days
 since that cell's last fetch (a month for a new cell, at most 92) and the next week, in
 one request per 40 cells, and upserts `weather_daily` (actuals) and `weather_forecast`.
+When a batch request fails, each of its cells is tried on its own, so one bad answer
+does not leave every cell stale; failures are logged as `[weather] nightly:` (and reach
+Sentry).
 It then refits every pool's chlorine model, rebuilds every 7-day plan and deletes photo-scan log rows older than a
 year. Trigger it by hand with
 `curl -H "Authorization: Bearer $CRON_SECRET" https://tuffo.app/api/jobs/weather`.
@@ -512,9 +519,40 @@ resend after a lost reply is answered "already saved" and never makes a second r
 refused entry stays in the banner with its reason until discarded. Edits need a
 connection.
 
+## Public forecast
+
+`/forecast` works without signing in: type a town or ZIP (the same `PlacePicker`, through
+`findForecastPlaces`, limited per address) and it shows a typical pool's week there. The
+inputs live in the URL so a result can be shared:
+`/forecast?place=<label>&lat=<cell lat>&lon=<cell lon>&v=<liters>&cya=<n>&s=chlorine|salt`
+(plus `u=us|metric` when it differs from the place's default, and `ref` when the visitor came
+from a labelled link). Coordinates are always the 0.03° cell's center; a link with a finer
+point is redirected to its cell. Bad volume or CYA fall back to the defaults (15,000 gal /
+57,000 L, CYA 40) with a notice (`src/lib/forecast/params.ts`).
+
+- Weather: a cell Tuffo already tracks is read from `weather_forecast`; any other is fetched
+  from Open-Meteo (forecast only) and cached per cell for 3 hours with `unstable_cache`.
+  Anonymous lookups never write `weather_cells` or `weather_forecast`.
+- Plan: `planWeek()` with the population prior (cached for an hour, `DEFAULT_PRIOR` when it
+  cannot be read), `pairs = 0`, an uncovered plaster pool starting at the bottom of its
+  CYA-based band. Salt: a typical cell rated for 1.5× the pool with the pump on 12 h a day
+  (`src/lib/forecast/typical.ts`).
+- The page gets display values only (`src/lib/forecast/view.ts`): use to 0.5 ppm, liquid
+  chlorine 12.5% to 0.25 qt / 0.25 L, rain to 0.1 in / 1 mm. Tests check that no
+  coefficient or raw plan field reaches the payload.
+- 30 forecasts and 60 town searches per address per 10 minutes, in memory; the address
+  is never stored or logged. Each forecast shown to a person adds one to the `forecast`
+  label in the link-visit counts on the admin page.
+- "Track my pool, free" goes to `/login?ref=<incoming ref or forecast>` with `next` set to
+  `/app/pools/new?…`, which `prefillFromForecast()` turns into the new-pool form's values
+  (place and time zone, volume, sanitizer; CYA is shown as a note for the first test).
+- Indexable, with `rel=canonical` to `/forecast` for every result URL; in the sitemap.
+
 ## Landing page
 
-`/` has a product screenshot (the week's plan and the trends card, light and dark, as
+`/` opens with a town or ZIP box ("See your pool's week, no sign-up", the same form as
+`/forecast`): picking a town goes to its forecast, carrying the `?ref=` of the incoming
+link on to sign-up. "Start free" stays as the secondary button. Below, a product screenshot (the week's plan and the trends card, light and dark, as
 `public/screens/*.webp`, taken from the app with demo data and marked as such), a short
 FAQ (free, Pool Math import, what data is kept) and the About section. Retake the
 screenshots when the plan or chart look changes noticeably.

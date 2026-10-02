@@ -13,16 +13,21 @@ const input =
  * town to pick the one the pool is in (the town's own square by default). Adds hidden
  * lat and lon (the square's center, never the point tapped), timezone, place_label and
  * query fields to the surrounding form; the server keeps only the square, the label and
- * the time zone.
+ * the time zone. With `onPick` (the public forecast), picking a town hands over its own
+ * square straight away, with no map.
  */
 export function PlacePicker({
   find,
   initialQuery = "",
   initialPlace = null,
+  onPick,
+  autoFocus = false,
 }: {
   find: (query: string) => Promise<{ places: Place[]; error?: string }>;
   initialQuery?: string;
   initialPlace?: Place | null;
+  onPick?: (place: Place, cell: WeatherCell) => void;
+  autoFocus?: boolean;
 }) {
   const [query, setQuery] = useState(initialQuery);
   const [places, setPlaces] = useState<Place[]>([]);
@@ -34,6 +39,7 @@ export function PlacePicker({
   function setPlace(p: Place) {
     setPlaceState(p);
     setCell(cellFor(p.lat, p.lon));
+    onPick?.(p, cellFor(p.lat, p.lon));
   }
 
   /** Keyboard alternative to tapping: move the picked square one step. */
@@ -59,7 +65,7 @@ export function PlacePicker({
   return (
     <>
       <input type="hidden" name="query" value={query} />
-      {place && cell ? (
+      {place && cell && !onPick ? (
         <>
           <input type="hidden" name="lat" value={cell.lat} />
           <input type="hidden" name="lon" value={cell.lon} />
@@ -79,6 +85,8 @@ export function PlacePicker({
             }
           }}
           placeholder="33710 or St. Petersburg, FL"
+          autoFocus={autoFocus}
+          enterKeyHint="search"
           className={input}
         />
         <button
@@ -111,7 +119,7 @@ export function PlacePicker({
           })}
         </ul>
       ) : null}
-      {place && cell ? (
+      {place && cell && !onPick ? (
         <div className="flex flex-col gap-2">
           <p className="text-sm">
             Using weather for <span className="font-semibold">{place.label}</span> ({place.timezone}). The shaded square
