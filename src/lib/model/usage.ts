@@ -25,12 +25,12 @@ export interface ChlorineUse {
 
 export function chlorineUse(
   stored: { coefficients: unknown; sample_count: number } | null,
-  pool: { cya: number | null; covered: boolean },
+  pool: { cya: number | null; covered: boolean; sunShare?: number },
 ): ChlorineUse | null {
   if (!stored || stored.sample_count < MIN_PAIRS_TO_SHOW) return null;
   const parsed = parseStoredCoefficients(stored.coefficients);
   if (!parsed) return null;
-  const drivers = dayDrivers(REFERENCE_SUNNY_DAY, { cya: pool.cya ?? DEFAULT_CYA, covered: pool.covered, heavyUse: 0 });
+  const drivers = dayDrivers(REFERENCE_SUNNY_DAY, { cya: pool.cya ?? DEFAULT_CYA, covered: pool.covered, heavyUse: 0, sunShare: pool.sunShare });
   if (!drivers) return null;
   return {
     sunnyDayPpm: Math.round(predictLoss(parsed.coefficients, drivers) * 10) / 10,

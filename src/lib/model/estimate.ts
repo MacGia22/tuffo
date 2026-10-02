@@ -103,7 +103,7 @@ export function estimateFcSeries(input: EstimateInput): EstimatePoint[] | null {
   const known = new Map<string, number>();
   for (const { date } of dayShares(new Date(t0).toISOString(), new Date(t1).toISOString(), pool.timezone)) {
     const day = weatherByDate.get(date);
-    const drivers = day ? dayDrivers(day, { cya, covered, heavyUse: 0 }) : null;
+    const drivers = day ? dayDrivers(day, { cya, covered, heavyUse: 0, sunShare: pool.sunShare }) : null;
     if (drivers) known.set(date, predictLoss(coefficients, drivers));
   }
   const fallback = known.size

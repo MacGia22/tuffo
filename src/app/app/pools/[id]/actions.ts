@@ -19,6 +19,7 @@ import { refreshCellIfStale } from "@/lib/weather/job";
 import { isRainDate, rainFromForm } from "@/lib/weather/own-rain";
 import { localDateRange } from "@/lib/weather/summary";
 import type { Units } from "@/lib/format";
+import { readEnclosure } from "@/lib/enclosure";
 
 export interface LogState {
   error?: string;
@@ -339,6 +340,28 @@ export async function savePoolBasics(_prev: SettingsState, formData: FormData): 
   revalidatePath(`/app/pools/${poolId}`);
   revalidatePath(`/app/pools/${poolId}/settings`);
   revalidatePath("/app");
+  return { saved: true };
+}
+
+/** The screen enclosure and the share of the sun through it; the model and plan follow. */
+export async function saveEnclosure(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
+  const poolId = text(formData, "pool_id");
+  if (!isUuid(poolId)) return { error: "Unknown pool." };
+  await requireUser(`/app/pools/${poolId}/settings`);
+  const input = readEnclosure(text(formData, "enclosure"), text(formData, "sun_pct"));
+  if (!input.ok) return { error: input.error };
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("pools")
+    .update({ enclosure: input.enclosure, enclosure_sun_pct: input.sunPct })
+    .eq("id", poolId)
+    .select("id");
+  if (error) return { error: `Could not save (${error.message}).` };
+  if (!data || data.length === 0) return { error: "Unknown pool." };
+  recomputeAfterResponse(poolId);
+  revalidatePath(`/app/pools/${poolId}`);
+  revalidatePath(`/app/pools/${poolId}/settings`);
   return { saved: true };
 }
 

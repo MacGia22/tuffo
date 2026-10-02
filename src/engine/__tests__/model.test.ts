@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  sunShareFrom,
   cyaShield,
   dayDrivers,
   DEFAULT_PRIOR,
@@ -218,3 +219,13 @@ describe("stored coefficients", () => {
     expect(parseStoredCoefficients({ version: 1, beta: { ...TRUE, sun: "x" } })).toBeNull();
   });
 });
+
+describe("sunShareFrom", () => {
+  it("turns the enclosure percent into the model's sun share", () => {
+    expect(sunShareFrom(null)).toBe(1);
+    expect(sunShareFrom(70)).toBe(0.7);
+    expect(sunShareFrom(150)).toBe(1);
+    expect(sunShareFrom(1)).toBe(0.05);
+  });
+});
+

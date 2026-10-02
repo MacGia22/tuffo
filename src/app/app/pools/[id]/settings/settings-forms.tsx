@@ -17,11 +17,13 @@ import {
   SURFACES,
   type EquipmentKind,
 } from "@/lib/equipment";
+import { ENCLOSURES, suggestedSunPct, type EnclosureKind } from "@/lib/enclosure";
 import type { Units } from "@/lib/format";
 import type { Tone } from "@/lib/maintenance";
 import {
   deletePool,
   removeEquipment,
+  saveEnclosure,
   saveEquipment,
   savePoolBasics,
   type DeleteState,
@@ -106,6 +108,74 @@ export function BasicsForm({
           {pending ? "Saving…" : "Save"}
         </button>
         <ResetButton />
+      </div>
+      <Status state={state} />
+    </form>
+  );
+}
+
+/**
+ * A screen enclosure ("pool cage") shades the water: the kind suggests the share of the
+ * sun that gets through, and the owner can type their own.
+ */
+export function EnclosureForm({
+  poolId,
+  current,
+}: {
+  poolId: string;
+  current: { enclosure: EnclosureKind | null; sunPct: number | null };
+}) {
+  const [state, action, pending] = useActionState(saveEnclosure, initial);
+  const [kind, setKind] = useState<EnclosureKind | "none">(current.enclosure ?? "none");
+  const [pct, setPct] = useState(current.sunPct === null ? "" : String(current.sunPct));
+  const suggested = kind === "none" ? null : suggestedSunPct(kind);
+  return (
+    <form action={action} className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4">
+      <input type="hidden" name="pool_id" value={poolId} />
+      <div className="flex flex-wrap gap-3">
+        <label className={label}>
+          Screen enclosure (pool cage)
+          <select
+            name="enclosure"
+            value={kind}
+            onChange={(e) => {
+              const next = e.target.value as EnclosureKind | "none";
+              setKind(next);
+              setPct(next === "none" ? "" : String(suggestedSunPct(next)));
+            }}
+            className={field}
+          >
+            <option value="none">None</option>
+            {ENCLOSURES.map((e) => (
+              <option key={e.value} value={e.value}>
+                {e.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        {kind !== "none" ? (
+          <label className={label}>
+            Sun that gets through (%)
+            <input
+              name="sun_pct"
+              inputMode="numeric"
+              value={pct}
+              onChange={(e) => setPct(e.target.value)}
+              placeholder={String(suggested)}
+              className={`${field} w-28`}
+            />
+          </label>
+        ) : null}
+      </div>
+      <p className="text-xs text-muted">
+        {kind === "none"
+          ? "A screen over the pool blocks part of the sun, the main thing that uses up chlorine. Rain still gets through."
+          : `About ${suggested}% is typical for this screen. Change it if your pool is more or less shaded; Tuffo also learns from your tests.`}
+      </p>
+      <div className="flex items-center gap-4">
+        <button type="submit" disabled={pending} className={save}>
+          {pending ? "Saving…" : "Save"}
+        </button>
       </div>
       <Status state={state} />
     </form>

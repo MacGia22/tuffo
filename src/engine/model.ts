@@ -64,6 +64,13 @@ export interface PoolState {
   covered: boolean;
   /** Heavy-use events logged that day. */
   heavyUse: number;
+  /** Share of the sun a screen enclosure lets through, 0–1 (1 without one). */
+  sunShare?: number;
+}
+
+/** A pool's screen-enclosure percent as the model's sun share: 1 without one. */
+export function sunShareFrom(percent: number | null | undefined): number {
+  return typeof percent === "number" && Number.isFinite(percent) ? Math.min(1, Math.max(0.05, percent / 100)) : 1;
 }
 
 /** The drivers for one day, or null when the weather for it is unknown. */
@@ -72,7 +79,7 @@ export function dayDrivers(day: WeatherDrivers, state: PoolState): Drivers | nul
   if (dose === null || day.tmaxC === null) return null;
   return {
     base: 1,
-    sun: dose * cyaShield(state.cya) * (state.covered ? COVER_SUN_SHARE : 1),
+    sun: dose * cyaShield(state.cya) * (state.covered ? COVER_SUN_SHARE : 1) * (state.sunShare ?? 1),
     heat: Math.max(0, day.tmaxC - HEAT_BASE_C),
     rain: Math.max(0, day.rainMm ?? 0) / 10,
     use: Math.max(0, state.heavyUse),

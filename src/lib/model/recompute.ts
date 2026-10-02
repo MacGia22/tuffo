@@ -23,6 +23,7 @@ import {
 } from "./observations";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { loadOwnRain, withOwnRain } from "@/lib/weather/own-rain";
+import { loadSunShare } from "@/lib/model/sun-share";
 
 /**
  * Loads a pool's log with the service key, fits its chlorine model and stores the result
@@ -106,6 +107,7 @@ export async function loadPoolLog(admin: SupabaseClient, poolId: string, now = D
     volumeL: Number(pool.volume_l),
     sanitizer: pool.sanitizer,
     covered: pool.covered,
+    sunShare: await loadSunShare(admin, poolId),
     swgCellLbPerDay: pool.swg_cell_lb_per_day === null ? null : Number(pool.swg_cell_lb_per_day),
     timezone: pool.timezone ?? "UTC",
   };

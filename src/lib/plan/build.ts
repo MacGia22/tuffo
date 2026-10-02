@@ -20,6 +20,7 @@ import { dayShareLeft, estimateStartFc, type StoredPlanDay, type StoredPlanSumma
 import { loadOwnRain, withOwnRain } from "@/lib/weather/own-rain";
 import { cellLevels } from "@/lib/salt-cells";
 import { loadPoolEstimate } from "@/lib/model/pool-estimate";
+import { loadSunShare } from "@/lib/model/sun-share";
 
 /**
  * Builds and stores a pool's 7-day plan with the service key: the pool's model (or the
@@ -178,7 +179,8 @@ export async function buildPlan(admin: SupabaseClient, poolId: string, now = Dat
   // Today's rain at the pool, when the owner logged it, in place of the cell's forecast.
   const rows = withOwnRain(forecast, await loadOwnRain(admin, poolId, today));
   const days = rows.map((row) => ({ date: row.date, weather: weatherOf(row) }));
-  const todayDrivers = dayDrivers(days[0].weather, { cya: cya ?? DEFAULT_CYA, covered: pool.covered, heavyUse: 0 });
+  const sunShare = await loadSunShare(admin, poolId);
+  const todayDrivers = dayDrivers(days[0].weather, { cya: cya ?? DEFAULT_CYA, covered: pool.covered, heavyUse: 0, sunShare });
   const daysSince = (now - Date.parse(latestFc.taken_at)) / DAY_MS;
   // FC now: the same day-by-day estimate the chart draws (weather, doses, the cell) when
   // it reaches now; otherwise the simple carry-forward from the last test.
@@ -203,6 +205,7 @@ export async function buildPlan(admin: SupabaseClient, poolId: string, now = Dat
       surfaceAreaM2: n(pool.surface_area_m2),
       swg,
       covered: pool.covered,
+      sunShare,
       surface: pool.surface,
       // What the cell makes a day at 100% with the pump hours it runs now.
       cellPpmPerDay: swg && lb && lb > 0 && cellHours ? ((lb * GRAMS_PER_POUND * 1000) / volumeL) * (cellHours / 24) : null,

@@ -2,7 +2,7 @@ import "server-only";
 
 import { notFound } from "next/navigation";
 import { after } from "next/server";
-import { effectsOf, PLAN_OWN_MODEL_PAIRS } from "@/engine/server";
+import { effectsOf, PLAN_OWN_MODEL_PAIRS, sunShareFrom } from "@/engine/server";
 import type { ActivityItem } from "@/components/activity-list";
 import { planAddLabel } from "@/lib/plan/add-label";
 import { canSeePlan } from "@/lib/entitlements";
@@ -37,6 +37,9 @@ export interface Pool {
   sanitizer: "chlorine" | "swg";
   surface: "plaster" | "vinyl" | "fiberglass";
   covered: boolean;
+  /** Present once the enclosure migration has run (the pool row is read with "*"). */
+  enclosure?: string | null;
+  enclosure_sun_pct?: number | null;
   cell_id: string | null;
   place_label: string | null;
   timezone: string | null;
@@ -82,14 +85,14 @@ export interface PoolEvent {
  * service key, and only after the signed-in user's own query has returned the pool.
  * Fails open: the page shows without it.
  */
-async function loadChlorineUse(poolId: string, cya: number | null, covered: boolean) {
+async function loadChlorineUse(poolId: string, cya: number | null, covered: boolean, sunShare: number) {
   try {
     const { data } = await createSupabaseAdminClient()
       .from("pool_models")
       .select("coefficients, sample_count")
       .eq("pool_id", poolId)
       .maybeSingle<{ coefficients: unknown; sample_count: number }>();
-    return chlorineUse(data ?? null, { cya, covered });
+    return chlorineUse(data ?? null, { cya, covered, sunShare });
   } catch (err) {
     console.error(`[model] read ${poolId}: ${err instanceof Error ? err.message : String(err)}`);
     return null;
@@ -177,7 +180,7 @@ export async function loadPoolView(id: string, range: TrendRange, options: { tre
       .sort((a, b) => Date.parse(a.taken_at) - Date.parse(b.taken_at))[0]?.taken_at ?? null;
   const windowStart = rangeStart(range, now, tz, firstThisYear, southern);
   const [use, estimate] = await Promise.all([
-    loadChlorineUse(pool.id, latestCya === null ? null : Number(latestCya), pool.covered),
+    loadChlorineUse(pool.id, latestCya === null ? null : Number(latestCya), pool.covered, sunShareFrom(pool.enclosure_sun_pct)),
     // Estimated FC since the last test and what Tuffo expected at recent tests; fails open.
     loadPoolEstimate(createSupabaseAdminClient(), pool.id, now),
   ]);
