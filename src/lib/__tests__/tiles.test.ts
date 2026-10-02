@@ -97,6 +97,21 @@ describe("waterTiles", () => {
     expect(tile({ readings }, "cya")).toMatchObject({ value: 70, state: "ok", note: null });
   });
 
+  it("works the change out from the values as shown", () => {
+    const pair = (a: number, b: number, key: "fc" | "ph") => [
+      { taken_at: "2026-09-29T16:00:00Z", [key]: a },
+      { taken_at: "2026-09-30T16:00:00Z", [key]: b },
+    ];
+    // 7.4 → 7.45 is +0.05 (the raw difference is 0.0499…).
+    expect(tile({ readings: pair(7.4, 7.45, "ph") }, "ph").note).toBe("+0.05 since Sep 29");
+    expect(tile({ readings: pair(7.45, 7.5, "ph") }, "ph").note).toBe("+0.05 since Sep 29");
+    expect(tile({ readings: pair(7.5, 7.5, "ph") }, "ph").note).toBe("No change since Sep 29");
+    // FC shown to one decimal: 3.0 → 3.1, and 3.0 → 3.05 (shown as 3.0) is no change.
+    expect(tile({ readings: pair(3, 3.1, "fc") }, "fc").note).toBe("+0.1 since Sep 29");
+    expect(tile({ readings: pair(3, 3.05, "fc") }, "fc")).toMatchObject({ valueText: "3.0", note: "No change since Sep 29" });
+    expect(tile({ readings: pair(3.05, 3.15, "fc") }, "fc").note).toBe("+0.1 since Sep 29");
+  });
+
   it("prefers something added in the last 7 days over the change", () => {
     const readings = [
       { taken_at: "2026-09-18T16:00:00Z", cya: 40 },
@@ -122,6 +137,9 @@ describe("waterTiles", () => {
     // Chlorine added after that test: the action is done, say so.
     const doses = [{ productId: "liquid-chlorine-12.5", group: "Chlorine", addedAt: "2026-09-30T20:00:00Z", amountText: "1 qt" }];
     expect(tile({ readings: low, doses }, "fc").note).toBe("1 qt added Sep 30");
+    // Logged in the same minute as the test: still after it, as the advice counts it.
+    const sameMinute = [{ ...doses[0], addedAt: "2026-09-30T16:00:00Z" }];
+    expect(tile({ readings: low, doses: sameMinute }, "fc").note).toBe("1 qt added Sep 30");
     expect(tile({ readings: [{ taken_at: "2026-09-30T16:00:00Z", fc: 26 }] }, "fc")).toMatchObject({
       state: "too-high",
       chip: "Too high",
@@ -134,6 +152,10 @@ describe("waterTiles", () => {
     expect(tile({ readings }, "fc")).toMatchObject({ state: "old", chip: "32 days ago", note: "Retest today", valueText: "4.0" });
     expect(tile({ readings }, "ch")).toMatchObject({ state: "old", chip: "32 days ago", note: "Retest this month" });
     expect(tile({ readings: [{ taken_at: "2026-09-02T16:00:00Z", ch: 300 }] }, "ch").state).toBe("ok");
+    // Counted in the pool's days, as the test card counts them: Thursday 8 PM to Friday 8 AM a week on.
+    const thursday = [{ taken_at: "2026-09-25T00:00:00Z", fc: 4 }];
+    expect(tile({ readings: thursday, now: Date.parse("2026-10-02T12:00:00Z") }, "fc").chip).toBe("8 days ago");
+    expect(testAge("2026-09-25T00:00:00Z", Date.parse("2026-10-02T12:00:00Z"), "America/New_York").text).toBe("8 days ago");
   });
 
   it("maps products to the measure they are for", () => {
@@ -148,10 +170,12 @@ describe("waterTiles", () => {
 describe("waterLine", () => {
   it("joins whatever was logged, with a true minus sign", () => {
     expect(waterLine({ temp: "84 °F", cc: 0, csi: { value: -0.24, verdict: "balanced" } })).toBe(
-      "Water 84 °F · CC 0.0 · CSI \u22120.2 (balanced)",
+      "Water 84 °F · CC 0.0 · CSI \u22120.24 (balanced)",
     );
     expect(waterLine({ temp: null, cc: 0.4, csi: null })).toBe("CC 0.4");
-    expect(waterLine({ temp: null, cc: null, csi: { value: 0.02, verdict: "balanced" } })).toBe("CSI 0.0 (balanced)");
+    expect(waterLine({ temp: null, cc: null, csi: { value: 0.004, verdict: "balanced" } })).toBe("CSI 0.00 (balanced)");
+    // Rounded and verdict agree: −0.62 corrosive, −0.58 balanced (one decimal showed both as −0.6).
+    expect(waterLine({ temp: null, cc: null, csi: { value: -0.619, verdict: "corrosive" } })).toBe("CSI \u22120.62 (corrosive)");
     expect(waterLine({ temp: null, cc: null, csi: null })).toBeNull();
     expect(signed(0.35, 1)).toBe("+0.4");
   });

@@ -35,6 +35,14 @@ describe("bandAdvice", () => {
     );
   });
 
+  it("salt: with the cell already off, says to keep it off", () => {
+    // FC 20 at CYA 70 holds above the floor all week with the cell off: the plan's setting is 0%.
+    const off = plan("swg", 20, 0, [day("2026-10-01", 18.1), day("2026-10-02", 16.3)]);
+    expect(bandAdvice(off, today, null)?.text).toBe(
+      "Free chlorine is above the 7 ppm target with the cell off: keep it off, and test before you turn it back on.",
+    );
+  });
+
   it("flags a low day first", () => {
     const p = plan("manual", 4, null, [day("2026-10-01", 4, 900), day("2026-10-02", 2.5, 900, true)]);
     expect(bandAdvice(p, today, null)).toEqual({

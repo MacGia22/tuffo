@@ -6,7 +6,7 @@ import { publicEnv, serverEnv } from "@/lib/env";
 import type { Units } from "@/lib/format";
 import { parseStoredPlan, type StoredPlan } from "@/lib/plan/stored";
 import { dueText } from "@/lib/maintenance";
-import { loadPoolMaintenance } from "@/lib/maintenance-data";
+import { loadPoolMaintenance, poolLocalDate } from "@/lib/maintenance-data";
 import { dueAlerts, type PoolAlertSettings, type PoolAlertState, type SentAlert } from "./decide";
 import { renderAlertEmail } from "./email";
 import { sendEmail } from "./send";
@@ -41,7 +41,7 @@ interface SettingsRow {
   test_after_days: number;
   weekly: boolean;
   maintenance?: boolean;
-  pools: { name: string; owner_id: string } | null;
+  pools: { name: string; owner_id: string; timezone: string | null } | null;
 }
 
 export function dailyLimit(): number {
@@ -60,7 +60,7 @@ export async function runAlertsJob(admin: SupabaseClient, now = Date.now()): Pro
   const siteUrl = publicEnv.siteUrl();
   const planAllowed = await canSeePlan();
 
-  const columns = "pool_id, algae, test_reminder, test_after_days, weekly, pools(name, owner_id)";
+  const columns = "pool_id, algae, test_reminder, test_after_days, weekly, pools(name, owner_id, timezone)";
   let { data: settings, error } = await admin
     .from("alert_settings")
     .select(`${columns}, maintenance`)
@@ -77,8 +77,10 @@ export async function runAlertsJob(admin: SupabaseClient, now = Date.now()): Pro
   if (error) throw new Error(`alert_settings: ${error.message}`);
 
   const byOwner = new Map<string, PoolAlertSettings[]>();
+  const poolTodays: Record<string, string> = {};
   for (const row of settings ?? []) {
     if (!row.pools) continue;
+    poolTodays[row.pool_id] = poolLocalDate(row.pools.timezone, now);
     const list = byOwner.get(row.pools.owner_id) ?? [];
     list.push({
       poolId: row.pool_id,
@@ -107,7 +109,8 @@ export async function runAlertsJob(admin: SupabaseClient, now = Date.now()): Pro
     }
     try {
       const poolIds = pools.map((p) => p.poolId);
-      const since = new Date(now - 14 * DAY_MS).toISOString().slice(0, 10);
+      // All the history kept, so "once per gap" holds for a gap longer than two weeks.
+      const since = new Date(now - ALERT_LOG_DAYS * DAY_MS).toISOString().slice(0, 10);
       const [{ data: sentRows }, { data: todayRow }, { data: planRows }, lastTests] = await Promise.all([
         admin.from("alert_log").select("pool_id, kind, sent_on").eq("user_id", userId).gte("sent_on", since),
         admin.from("alert_emails").select("sent_on").eq("user_id", userId).eq("sent_on", today).maybeSingle(),
@@ -142,6 +145,7 @@ export async function runAlertsJob(admin: SupabaseClient, now = Date.now()): Pro
         const plan = plans[poolId];
         return {
           poolId,
+          today: poolTodays[poolId],
           lastTestAt,
           maintenanceDue: maintenanceDue.get(poolId) ?? [],
           plan: plan
@@ -172,7 +176,7 @@ export async function runAlertsJob(admin: SupabaseClient, now = Date.now()): Pro
       }
 
       const unsubscribeUrl = `${siteUrl}/alerts/unsubscribe?t=${unsubscribeToken(userId, null, secret)}`;
-      const email = renderAlertEmail(due, { units: profile?.units ?? "us", siteUrl, plans, unsubscribeUrl });
+      const email = renderAlertEmail(due, { units: profile?.units ?? "us", siteUrl, plans, unsubscribeUrl, todays: poolTodays });
       try {
         await sendEmail({
           apiKey,

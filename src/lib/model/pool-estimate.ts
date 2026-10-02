@@ -53,7 +53,8 @@ export async function loadPoolEstimate(admin: SupabaseClient, poolId: string, no
         .select("taken_at, fc, cya")
         .eq("pool_id", poolId)
         .gte("taken_at", since)
-        .order("taken_at")
+        // The newest 500: a monitor logging often must not lose its latest tests.
+        .order("taken_at", { ascending: false })
         .limit(500)
         .returns<ModelReading[]>(),
       admin
@@ -74,6 +75,20 @@ export async function loadPoolEstimate(admin: SupabaseClient, poolId: string, no
       admin.from("pool_models").select("coefficients").eq("pool_id", poolId).maybeSingle<{ coefficients: unknown }>(),
     ]);
     if (!pool) return null;
+    // The stabilizer test in force at the start of the window, however old: it sets the use.
+    const { data: olderCya } = await admin
+      .from("readings")
+      .select("taken_at, cya")
+      .eq("pool_id", poolId)
+      .lt("taken_at", since)
+      .not("cya", "is", null)
+      .order("taken_at", { ascending: false })
+      .limit(1)
+      .maybeSingle<{ taken_at: string; cya: number }>();
+    const allReadings: ModelReading[] = [
+      ...(olderCya ? [{ taken_at: olderCya.taken_at, fc: null, cya: olderCya.cya }] : []),
+      ...(readings ?? []),
+    ];
     const timezone = pool.timezone ?? "UTC";
     const modelPool: ModelPool = {
       volumeL: Number(pool.volume_l),
@@ -118,8 +133,8 @@ export async function loadPoolEstimate(admin: SupabaseClient, poolId: string, no
       pumpSchedules = data ?? [];
     }
 
-    const input = { pool: modelPool, coefficients, readings: readings ?? [], doses: doses ?? [], events: events ?? [], weather, pumpSchedules };
-    const tests = (readings ?? [])
+    const input = { pool: modelPool, coefficients, readings: allReadings, doses: doses ?? [], events: events ?? [], weather, pumpSchedules };
+    const tests = allReadings
       .filter((r) => r.fc !== null)
       .map((r) => ({ at: r.taken_at, fc: Number(r.fc) }))
       .sort((a, b) => Date.parse(a.at) - Date.parse(b.at));

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { requireUser } from "@/lib/auth/user";
 import { displayVolumeToLiters, type Units } from "@/lib/format";
+import { isTimeZone } from "@/lib/form-data";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { cellFor } from "@/lib/weather/cells";
@@ -70,7 +71,7 @@ export async function createPool(_prev: CreatePoolState, formData: FormData): Pr
   const lon = num(formData, "lon");
   const timezone = text(formData, "timezone");
   const placeLabel = text(formData, "place_label");
-  if (lat === null || lon === null || !timezone || !placeLabel) {
+  if (lat === null || lon === null || !isTimeZone(timezone) || !placeLabel) {
     return fail("Search for your ZIP code or town and pick it from the list, so Tuffo knows which weather to use.");
   }
 

@@ -14,6 +14,12 @@ describe("parseCsv", () => {
   });
 
   it("handles an empty file", () => {
-    expect(parseCsv("")).toEqual({ headers: [], rows: [] });
+    expect(parseCsv("")).toEqual({ headers: [], rows: [], lines: [] });
+  });
+
+  it("knows the file line each row starts on, past blank lines and quoted line breaks", () => {
+    const table = parseCsv('Date,FC,Notes\n\n9/27/2026,3,"two\r\nlines"\r\n9/28/2026,4,\n\n\n9/29/2026,5,x');
+    expect(table.rows.map((r) => r[1])).toEqual(["3", "4", "5"]);
+    expect(table.lines).toEqual([3, 5, 8]);
   });
 });

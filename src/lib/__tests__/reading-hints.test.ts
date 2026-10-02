@@ -58,6 +58,8 @@ describe("rangeHint", () => {
   it("stays quiet for normal or empty values", () => {
     expect(rangeHint("ph", "7.5", "us")).toBeNull();
     expect(rangeHint("fc", "", "us")).toBeNull();
+    // A shock (SLAM) level is real: 40% of CYA 70 is 28 ppm.
+    expect(rangeHint("fc", "28", "us")).toBeNull();
     expect(rangeHint("water_temp", "29", "metric")).toBeNull();
     expect(rangeHint("cya", "abc", "us")).toBeNull();
   });

@@ -33,12 +33,16 @@ export function cellFor(lat: number, lon: number): WeatherCell {
   return { id: `${cellLat.toFixed(2)},${cellLon.toFixed(2)}`, lat: cellLat, lon: cellLon };
 }
 
-/** The cell's square as [[south, west], [north, east]], for drawing it on a map. */
-export function cellBounds(cell: Pick<WeatherCell, "lat" | "lon">): [[number, number], [number, number]] {
+/**
+ * The cell's square as [[south, west], [north, east]], for drawing it on a map; with
+ * `nearLon`, on that side of 180° (the cell at −179.97 drawn at 180.03 next to a town at 179.97).
+ */
+export function cellBounds(cell: Pick<WeatherCell, "lat" | "lon">, nearLon?: number): [[number, number], [number, number]] {
   const h = CELL_DEGREES / 2;
+  const lon = nearLon === undefined ? cell.lon : lonNear(cell.lon, nearLon);
   return [
-    [cell.lat - h, cell.lon - h],
-    [cell.lat + h, cell.lon + h],
+    [cell.lat - h, lon - h],
+    [cell.lat + h, lon + h],
   ];
 }
 
@@ -59,15 +63,29 @@ export function cellsInView(south: number, west: number, north: number, east: nu
   for (let i = lat0; i <= lat1; i++) {
     for (let j = lon0; j <= lon1; j++) {
       const lat = i * CELL_DEGREES;
-      const lon = j * CELL_DEGREES;
-      if (lat < -90 || lat > 90 || lon < -180 || lon > 180) continue;
-      out.push(cellFor(lat, lon));
+      if (lat < -90 || lat > 90) continue;
+      // A view past 180° shows the cells on the other side.
+      out.push(cellFor(lat, wrapLon(j * CELL_DEGREES)));
     }
   }
   return out;
 }
 
-/** Whether a cell is within `degrees` of a point in both directions (the picked town). */
+/** A longitude moved by whole turns to the side of 180° nearest `nearLon` (−179.97 near 179.97 is 180.03). */
+export function lonNear(lon: number, nearLon: number): number {
+  return lon + 360 * Math.round((nearLon - lon) / 360);
+}
+
+/** A longitude in [-180, 180), e.g. 181.5 → -178.5 (a map scrolled past the antimeridian). */
+export function wrapLon(lon: number): number {
+  return ((((lon + 180) % 360) + 360) % 360) - 180;
+}
+
+/**
+ * Whether a cell is within `degrees` of a point in both directions (the picked town). A
+ * hair of slack for floating point, and longitudes compared across the antimeridian.
+ */
 export function cellNear(cell: Pick<WeatherCell, "lat" | "lon">, point: { lat: number; lon: number }, degrees = 0.3): boolean {
-  return Math.abs(cell.lat - point.lat) <= degrees && Math.abs(cell.lon - point.lon) <= degrees;
+  const dLon = Math.abs(wrapLon(cell.lon - point.lon));
+  return Math.abs(cell.lat - point.lat) <= degrees + 1e-9 && dLon <= degrees + 1e-9;
 }

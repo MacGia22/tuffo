@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { CellMap } from "@/components/cell-map";
-import { CELL_DEGREES, cellFor, cellNear, type WeatherCell } from "@/lib/weather/cells";
+import { CELL_DEGREES, cellFor, cellNear, wrapLon, type WeatherCell } from "@/lib/weather/cells";
 import type { Place } from "@/lib/weather/geocode";
 
 const input =
@@ -45,7 +45,10 @@ export function PlacePicker({
   /** Keyboard alternative to tapping: move the picked square one step. */
   function nudge(dLat: number, dLon: number) {
     if (!place || !cell) return;
-    const next = cellFor(cell.lat + dLat * CELL_DEGREES, cell.lon + dLon * CELL_DEGREES);
+    const lat = cell.lat + dLat * CELL_DEGREES;
+    if (Math.abs(lat) > 90) return;
+    // West of −180 is 180 again.
+    const next = cellFor(lat, wrapLon(cell.lon + dLon * CELL_DEGREES));
     if (cellNear(next, place)) setCell(next);
   }
 

@@ -7,7 +7,6 @@ import {
   predictLoss,
   REFERENCE_SUNNY_DAY,
   planWeek,
-  targetsFor,
   type Coefficients,
   type PlanForecastDay,
 } from "@/engine/server";
@@ -16,7 +15,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { cellFor } from "@/lib/weather/cells";
 import { fetchCellsWeather } from "@/lib/weather/open-meteo";
 import type { ForecastInput } from "./params";
-import { TYPICAL_CELL_HOURS, TYPICAL_CELL_SIZE, typicalCellPpmPerDay } from "./typical";
+import { TYPICAL_CELL_HOURS, TYPICAL_CELL_SIZE, typicalCellPpmPerDay, typicalStartFc } from "./typical";
 import { buildForecastView, type ForecastView, type ForecastWeatherDay } from "./view";
 
 /**
@@ -52,23 +51,33 @@ function n(value: unknown): number | null {
   return Number.isFinite(v) ? v : null;
 }
 
-/** Open-Meteo, forecast only, cached per cell for 3 hours across instances. */
+/** Open-Meteo, forecast only, for one cell. */
+async function fetchFresh(lat: number, lon: number): Promise<ForecastWeather> {
+  const [cell] = await fetchCellsWeather([{ lat, lon }], { pastDays: 0, forecastDays: DAYS + 1 });
+  return {
+    timezone: cell.timezone,
+    days: cell.forecast.map((d) => ({
+      date: d.date,
+      uvIndexMax: d.uv_index_max,
+      tmaxC: d.tmax_c,
+      rainMm: d.precipitation_mm,
+      sunshineHours: d.sunshine_s === null ? null : d.sunshine_s / 3600,
+      shortwaveMj: d.shortwave_mj_m2,
+    })),
+  };
+}
+
+/**
+ * The same, cached per cell for 3 hours across instances. The UTC day is part of the
+ * key: a stale entry is served while it refreshes in the background, so without it a
+ * cell nobody looked up for a week would come back with last week's days.
+ */
 const fetchCellForecast = unstable_cache(
-  async (lat: number, lon: number): Promise<ForecastWeather> => {
-    const [cell] = await fetchCellsWeather([{ lat, lon }], { pastDays: 0, forecastDays: DAYS + 1 });
-    return {
-      timezone: cell.timezone,
-      days: cell.forecast.map((d) => ({
-        date: d.date,
-        uvIndexMax: d.uv_index_max,
-        tmaxC: d.tmax_c,
-        rainMm: d.precipitation_mm,
-        sunshineHours: d.sunshine_s === null ? null : d.sunshine_s / 3600,
-        shortwaveMj: d.shortwave_mj_m2,
-      })),
-    };
+  async (lat: number, lon: number, utcDay: string): Promise<ForecastWeather> => {
+    void utcDay;
+    return fetchFresh(lat, lon);
   },
-  ["forecast-cell-weather-v1"],
+  ["forecast-cell-weather-v2"],
   { revalidate: CACHE_SECONDS },
 );
 
@@ -122,10 +131,14 @@ export async function loadForecastWeather(lat: number, lon: number, now = Date.n
   const cell = cellFor(lat, lon);
   const stored = await storedForecast(cell.id, now);
   if (stored) return stored;
-  const fetched = await fetchCellForecast(cell.lat, cell.lon);
-  // The cache can hold yesterday: start from today in the cell's time zone.
-  const today = localDate(now, fetched.timezone);
-  return { ...fetched, days: fetched.days.filter((d) => d.date >= today).slice(0, DAYS) };
+  const fetched = await fetchCellForecast(cell.lat, cell.lon, new Date(now).toISOString().slice(0, 10));
+  // The cache can hold yesterday: start from today in the cell's time zone, and fetch
+  // afresh if that leaves less than the week.
+  const fromToday = (w: ForecastWeather) => w.days.filter((d) => d.date >= localDate(now, w.timezone)).slice(0, DAYS);
+  const days = fromToday(fetched);
+  if (days.length >= DAYS - 1) return { ...fetched, days };
+  const fresh = await fetchFresh(cell.lat, cell.lon);
+  return { ...fresh, days: fromToday(fresh) };
 }
 
 /** The population prior, cached for an hour; the default prior when it cannot be read. */
@@ -164,7 +177,7 @@ export async function buildPublicForecast(input: ForecastInput, now = Date.now()
       rainMm: d.rainMm,
     },
   }));
-  const fcStart = targetsFor({ swg, surface: "plaster", cya: input.cya }).fc.targetLow;
+  const fcStart = typicalStartFc(swg, input.cya);
   const plan = planWeek({
     coefficients,
     pairs: 0,

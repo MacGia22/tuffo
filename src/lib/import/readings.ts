@@ -181,7 +181,7 @@ export function planImport(table: CsvTable, options: ImportOptions): ImportPlan 
   }
 
   table.rows.slice(0, MAX_IMPORT_ROWS).forEach((cells, i) => {
-    const line = i + 2;
+    const line = table.lines?.[i] ?? i + 2;
     const cell = (field: ImportField) => (mapping[field] === undefined ? undefined : cells[mapping[field]!]);
 
     const rawWhen = cell("when") ?? "";

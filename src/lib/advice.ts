@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  DEFAULT_CYA,
   doseFor,
   doseForPh,
   effectsOf,
@@ -8,6 +9,7 @@ import {
   saturationVerdict,
   targetsFor,
   type Dose,
+  type SaturationVerdict,
   type Targets,
 } from "@/engine/server";
 import { catalogProduct } from "@/lib/catalog";
@@ -55,6 +57,26 @@ export interface LoggedDose {
   amountText: string;
   /** When, in the pool's time zone: "Sep 27". */
   dateText: string;
+  /** When it was added (ISO); without it, the dose counts as after every test. */
+  addedAt?: string;
+}
+
+/** Measures that drift over weeks and are tested monthly, often not with the latest test. */
+export type SlowMeasure = "ta" | "ch" | "cya" | "salt";
+/** Measures whose value can come from a test other than the latest. */
+export type AdviceMeasure = "fc" | "ph" | SlowMeasure;
+
+/**
+ * Where the reading's values come from: each measure from its newest test (combined
+ * chlorine with free chlorine), which need not be the latest test.
+ */
+export interface AdviceContext {
+  /** When the latest test was taken (ISO). */
+  testedAt?: string;
+  /** When a measure's value was tested, when that was before the latest test. */
+  valueTestedAt?: Partial<Record<AdviceMeasure, string>>;
+  /** Values past their retest age: they still set targets and doses, without a card of their own. */
+  stale?: Partial<Record<AdviceMeasure, boolean>>;
 }
 
 /**
@@ -73,10 +95,15 @@ export interface Advice {
   targets: Targets;
   assumptions: string[];
   items: Recommendation[];
+  /** The saturation index the card shows, for the line under the tiles; null without pH, TA and CH. */
+  csi: { value: number; verdict: SaturationVerdict; assumedTemp: boolean } | null;
 }
 
-const DEFAULT_CYA = 30;
 const DEFAULT_TA = 80;
+/** Combined chlorine above this is worth acting on (0.5 itself is fine). */
+const CC_MAX = 0.5;
+/** The temperature the saturation index assumes without a reading, °C. */
+const DEFAULT_TEMP_C = 27;
 
 function listDoses(doses: LoggedDose[], withName: boolean): string {
   const parts = doses.map((d) => {
@@ -96,13 +123,19 @@ function retestNote(measure: Recommendation["measure"], what: string, value: str
 }
 
 /**
- * `since` holds the products logged after this test. Their effect on chlorine and pH
- * is unknown until the next test, so those cards ask for a retest instead of a dose.
- * Stabilizer, calcium and salt add up predictably and nothing uses them up in a day or
- * two, so they are counted: the card shows the level with the addition and never offers
- * the same dose again.
+ * `since` holds the products logged after the tests the values come from (see
+ * `context`). Their effect on chlorine and pH is unknown until the next test, so those
+ * cards ask for a retest instead of a dose. Stabilizer, calcium and salt add up
+ * predictably and nothing uses them up in a day or two, so they are counted: the card
+ * shows the level with the addition and never offers the same dose again.
  */
-export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[] = [], cell?: CellSetting): Advice {
+export function adviseFor(
+  pool: AdvicePool,
+  r: AdviceReading,
+  since: LoggedDose[] = [],
+  cell?: CellSetting,
+  context: AdviceContext = {},
+): Advice {
   const assumptions: string[] = [];
   const cya = r.cya ?? DEFAULT_CYA;
   if (r.cya === null) assumptions.push(`No stabilizer (CYA) test yet; targets assume ${DEFAULT_CYA} ppm.`);
@@ -113,10 +146,17 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[
   const targets = targetsFor({ swg, surface: pool.surface, cya });
   const items: Recommendation[] = [];
   const L = pool.volumeL;
-  const inGroup = (...groups: string[]) =>
-    since.filter((d) => groups.includes(catalogProduct(d.productId)?.group ?? ""));
-  const chlorineSince = inGroup("Chlorine");
-  const phSince = inGroup("Lower pH", "Raise pH or alkalinity");
+  // A dose counts for a value when it was added after the test that value comes from (one
+  // logged at the test's own moment came after it: test, then dose).
+  const after = (iso: string | undefined) => (d: LoggedDose) =>
+    !iso || !d.addedAt || Date.parse(d.addedAt) >= Date.parse(iso);
+  const testedAt = (m: AdviceMeasure) => context.valueTestedAt?.[m] ?? context.testedAt;
+  const sinceTest = (m: AdviceMeasure) => since.filter(after(testedAt(m)));
+  const inGroup = (doses: LoggedDose[], ...groups: string[]) =>
+    doses.filter((d) => groups.includes(catalogProduct(d.productId)?.group ?? ""));
+  const chlorineSince = inGroup(sinceTest("fc"), "Chlorine");
+  const phSince = inGroup(sinceTest("ph"), "Lower pH", "Raise pH or alkalinity");
+  const taPhSince = inGroup(sinceTest("ta"), "Lower pH", "Raise pH or alkalinity");
   const effectOf = (d: LoggedDose, measure: "cya" | "ch" | "salt") => {
     try {
       return effectsOf(d.productId, d.amount, L)[measure] ?? 0;
@@ -124,15 +164,17 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[
       return 0;
     }
   };
-  const raising = (measure: "cya" | "ch" | "salt") => since.filter((d) => effectOf(d, measure) > 0);
+  const raising = (measure: "cya" | "ch" | "salt") => sinceTest(measure).filter((d) => effectOf(d, measure) > 0);
   const added = (doses: LoggedDose[], measure: "cya" | "ch" | "salt") =>
     doses.reduce((sum, d) => sum + effectOf(d, measure), 0);
   /** "Counts your 10 lb from Sep 27." Names the product when it is not the obvious one. */
   const countsYour = (doses: LoggedDose[], obvious: string[]) =>
     `Counts your ${listDoses(doses, doses.some((d) => !obvious.includes(d.productId)))}.`;
   const cyaSince = raising("cya");
-  const chSince = raising("ch");
+  // Calcium products only: cal-hypo adds a little calcium with every dose, not worth a card.
+  const chSince = inGroup(raising("ch"), "Calcium");
   const saltSince = raising("salt");
+  const card = (m: AdviceMeasure) => !context.stale?.[m];
 
   // Salt pools: where to set the cell, when the plan knows.
   const setting = cell?.percent !== null && cell?.percent !== undefined ? cell.percent : null;
@@ -145,7 +187,9 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[
       : "";
 
   // Free chlorine
-  if (r.fc !== null && chlorineSince.length > 0) {
+  if (!card("fc")) {
+    // Past its retest age: the test card asks for a test instead.
+  } else if (r.fc !== null && chlorineSince.length > 0) {
     items.push(retestNote("fc", "free chlorine", `${r.fc.toFixed(1)} ppm`, chlorineSince));
   } else if (r.fc !== null) {
     const { min, targetLow, targetHigh, slam } = targets.fc;
@@ -206,8 +250,8 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[
     }
   }
 
-  // Combined chlorine
-  if (r.cc !== null && r.cc >= 0.5) {
+  // Combined chlorine (from the free chlorine test)
+  if (card("fc") && r.cc !== null && r.cc > CC_MAX) {
     items.push({
       measure: "cc",
       severity: r.cc >= 1 ? "act" : "watch",
@@ -219,14 +263,18 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[
     });
   }
 
-  // pH
-  if (r.ph !== null && phSince.length > 0) {
+  // pH. The TA a pH dose changes (soda ash raises it, acid lowers it) is counted on the TA card.
+  let taFromPhDose = 0;
+  if (!card("ph")) {
+    // Past its retest age.
+  } else if (r.ph !== null && phSince.length > 0) {
     items.push(retestNote("ph", "pH", r.ph.toFixed(2), phSince));
   } else if (r.ph !== null) {
     const { low, high, ideal } = targets.ph;
     const waterReading = { pH: r.ph, ta, cya: r.cya ?? undefined, borate: r.borate ?? undefined };
     if (r.ph > high) {
       const dose = doseForPh("muriatic-acid-31.45", { ...waterReading, liters: L, targetPh: ideal });
+      taFromPhDose = dose.effects.ta ?? 0;
       items.push({
         measure: "ph",
         severity: "act",
@@ -236,6 +284,7 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[
       });
     } else if (r.ph < low) {
       const dose = doseForPh("soda-ash", { ...waterReading, liters: L, targetPh: ideal });
+      if (ta <= targets.ta.high) taFromPhDose = dose.effects.ta ?? 0;
       items.push({
         measure: "ph",
         severity: "act",
@@ -257,19 +306,34 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[
   }
 
   // Total alkalinity
-  if (r.ta !== null) {
+  if (r.ta !== null && card("ta")) {
     const { low, high } = targets.ta;
-    if ((r.ta < low || r.ta > high + 30) && phSince.length > 0) {
-      items.push(retestNote("ta", "alkalinity", `${Math.round(r.ta)} ppm`, phSince));
+    if ((r.ta < low || r.ta > high + 30) && taPhSince.length > 0) {
+      items.push(retestNote("ta", "alkalinity", `${Math.round(r.ta)} ppm`, taPhSince));
     } else if (r.ta < low) {
-      const dose = doseFor("baking-soda", low + 10 - r.ta, L);
-      items.push({
-        measure: "ta",
-        severity: "watch",
-        title: `Alkalinity ${Math.round(r.ta)} ppm is low`,
-        detail: `Raise it toward ${low + 10} ppm with baking soda; low TA lets pH swing.`,
-        dose,
-      });
+      const aim = low + 10;
+      const withPhDose = r.ta + taFromPhDose;
+      const product = taFromPhDose > 0 ? "soda ash" : "acid";
+      if (taFromPhDose !== 0 && withPhDose >= aim) {
+        items.push({
+          measure: "ta",
+          severity: "watch",
+          title: `Alkalinity ${Math.round(r.ta)} ppm is low`,
+          detail: `The ${product} for pH brings it to about ${Math.round(withPhDose)} ppm; retest it a day after.`,
+        });
+      } else {
+        const dose = doseFor("baking-soda", aim - withPhDose, L);
+        items.push({
+          measure: "ta",
+          severity: "watch",
+          title: `Alkalinity ${Math.round(r.ta)} ppm is low`,
+          detail:
+            taFromPhDose === 0
+              ? `Raise it toward ${aim} ppm with baking soda; low TA lets pH swing.`
+              : `Raise it toward ${aim} ppm with baking soda, counting the ${product} for pH (about ${Math.round(withPhDose)} ppm after it); low TA lets pH swing.`,
+          dose,
+        });
+      }
     } else if (r.ta > high + 30) {
       items.push({
         measure: "ta",
@@ -284,7 +348,9 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[
   // the test itself was out of range or the addition took it too high (cal-hypo adds a
   // little calcium with every dose, which is not worth a card on its own).
   const chNow = r.ch === null ? null : r.ch + added(chSince, "ch");
-  if (r.ch !== null && chNow !== null && chSince.length > 0 && (r.ch < targets.ch.low || chNow > targets.ch.high + 100)) {
+  if (!card("ch")) {
+    // Past its retest age: the retest is the advice, not a dose from an old number.
+  } else if (r.ch !== null && chNow !== null && chSince.length > 0 && (r.ch < targets.ch.low || chNow > targets.ch.high + 100)) {
     const { low, high } = targets.ch;
     const counted = countsYour(chSince, ["calcium-chloride-77", "calcium-chloride-97"]);
     const plaster = pool.surface === "plaster";
@@ -314,15 +380,19 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[
     );
   } else if (r.ch !== null) {
     const { low, high } = targets.ch;
-    if (r.ch < low) {
-      const dose = doseFor("calcium-chloride-77", low + 50 - r.ch, L);
+    // Cal-hypo logged since the test (the only calcium here) is taken off the dose.
+    const fromCalHypo = added(raising("ch"), "ch");
+    const short = low + 50 - r.ch - fromCalHypo;
+    if (r.ch < low && short > 0) {
+      const dose = doseFor("calcium-chloride-77", short, L);
+      const counted = fromCalHypo >= 1 ? ` The dose counts about ${Math.round(fromCalHypo)} ppm from the cal-hypo added since.` : "";
       items.push({
         measure: "ch",
         severity: pool.surface === "plaster" ? "act" : "ok",
         title: `Calcium ${Math.round(r.ch)} ppm is low`,
         detail:
           pool.surface === "plaster"
-            ? `Raise it to about ${low + 50} ppm with calcium chloride to protect the plaster.`
+            ? `Raise it to about ${low + 50} ppm with calcium chloride to protect the plaster.${counted}`
             : "Not a problem for a vinyl or fiberglass pool.",
         dose: pool.surface === "plaster" ? dose : undefined,
       });
@@ -337,7 +407,9 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[
   }
 
   // Stabilizer
-  if (r.cya !== null && cyaSince.length > 0) {
+  if (!card("cya")) {
+    // Past its retest age: it still sets the chlorine targets above.
+  } else if (r.cya !== null && cyaSince.length > 0) {
     const { low, high } = targets.cya;
     const cyaNow = r.cya + added(cyaSince, "cya");
     const counted = countsYour(cyaSince, ["cyanuric-acid"]);
@@ -386,7 +458,9 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[
 
   // Salt (SWG only). Salt logged since the test is counted, as for calcium.
   const saltNow = r.salt === null ? null : r.salt + added(saltSince, "salt");
-  if (
+  if (!card("salt")) {
+    // Past its retest age.
+  } else if (
     swg &&
     r.salt !== null &&
     saltNow !== null &&
@@ -440,6 +514,7 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[
   }
 
   // Saturation index
+  let csiResult: Advice["csi"] = null;
   if (r.ph !== null && r.ta !== null && r.ch !== null) {
     const csi = saturationIndex({
       pH: r.ph,
@@ -447,11 +522,16 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[
       ch: r.ch,
       cya: r.cya ?? undefined,
       borate: r.borate ?? undefined,
-      tempC: r.waterTempC ?? 27,
+      tempC: r.waterTempC ?? DEFAULT_TEMP_C,
       salt: r.salt ?? undefined,
     });
     const verdict = saturationVerdict(csi);
-    if (r.waterTempC === null) assumptions.push("No water temperature; the saturation index assumes 27 °C (80 °F).");
+    csiResult = { value: csi, verdict, assumedTemp: r.waterTempC === null };
+  }
+  // A card only while pH, TA and CH are all current (the line under the tiles still shows it).
+  if (csiResult && card("ph") && card("ta") && card("ch")) {
+    const { value: csi, verdict } = csiResult;
+    if (r.waterTempC === null) assumptions.push("No water temperature; the saturation index assumes 27 °C (81 °F).");
     items.push({
       measure: "csi",
       severity: verdict === "balanced" ? "ok" : pool.surface === "plaster" ? "watch" : "ok",
@@ -467,5 +547,5 @@ export function adviseFor(pool: AdvicePool, r: AdviceReading, since: LoggedDose[
 
   const order: Record<Severity, number> = { act: 0, watch: 1, ok: 2 };
   items.sort((a, b) => order[a.severity] - order[b.severity]);
-  return { targets, assumptions, items };
+  return { targets, assumptions, items, csi: csiResult };
 }

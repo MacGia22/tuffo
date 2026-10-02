@@ -3,7 +3,7 @@
 import "leaflet/dist/leaflet.css";
 import { useEffect, useRef } from "react";
 import type { Map as LeafletMap, LayerGroup, Rectangle } from "leaflet";
-import { cellBounds, cellFor, cellNear, cellsInView, type WeatherCell } from "@/lib/weather/cells";
+import { cellBounds, cellFor, cellNear, cellsInView, lonNear, wrapLon, type WeatherCell } from "@/lib/weather/cells";
 
 /**
  * A map of the weather grid around the picked town: each square is one weather cell,
@@ -40,7 +40,7 @@ export function CellMap({
     void import("leaflet").then((L) => {
       if (cancelled || !box.current) return;
       const m = L.map(box.current, {
-        center: [first.current.lat, first.current.lon],
+        center: [first.current.lat, lonNear(first.current.lon, lon)],
         zoom: 12,
         minZoom: 10,
         maxZoom: 16,
@@ -60,15 +60,15 @@ export function CellMap({
         const cells = cellsInView(b.getSouth(), b.getWest(), b.getNorth(), b.getEast());
         for (const c of cells ?? []) {
           if (!cellNear(c, town)) continue;
-          L.rectangle(cellBounds(c), { color: lagoon, weight: 1, opacity: 0.5, fill: false, interactive: false }).addTo(grid!);
+          L.rectangle(cellBounds(c, lon), { color: lagoon, weight: 1, opacity: 0.5, fill: false, interactive: false }).addTo(grid!);
         }
       };
       m.on("moveend", drawGrid);
       m.on("click", (e) => {
-        const c = cellFor(e.latlng.lat, e.latlng.lng);
+        const c = cellFor(e.latlng.lat, wrapLon(e.latlng.lng));
         if (cellNear(c, town)) pick.current(c);
       });
-      selected.current = L.rectangle(cellBounds(first.current), {
+      selected.current = L.rectangle(cellBounds(first.current, lon), {
         color: lagoon,
         weight: 2,
         fillColor: lagoon,
@@ -87,10 +87,10 @@ export function CellMap({
   }, [lat, lon]);
 
   useEffect(() => {
-    selected.current?.setBounds(cellBounds(cell));
+    selected.current?.setBounds(cellBounds(cell, lon));
     // Keep the picked square in view when it is moved with the buttons.
-    map.current?.panInside([cell.lat, cell.lon], { padding: [40, 40] });
-  }, [cell]);
+    map.current?.panInside([cell.lat, lonNear(cell.lon, lon)], { padding: [40, 40] });
+  }, [cell, lon]);
 
   return (
     <div

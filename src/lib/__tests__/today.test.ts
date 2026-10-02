@@ -17,6 +17,10 @@ describe("testStatus", () => {
       due: true,
     });
     expect(testStatus("2026-10-01T13:00:00Z", "Drop kit", now, TZ).title).toBe("Tested 3 hours ago");
+    // Calendar days in the pool's zone: Thu 8:00 AM read on Sat 7:00 AM is 2 days ago, not "yesterday".
+    expect(testStatus("2026-10-01T12:00:00Z", "Drop kit", Date.parse("2026-10-03T11:00:00Z"), TZ).title).toBe("Tested 2 days ago");
+    // 11 PM yesterday, read at 1 AM: yesterday.
+    expect(testStatus("2026-10-02T03:00:00Z", "Drop kit", Date.parse("2026-10-02T05:00:00Z"), TZ).title).toBe("Tested yesterday");
   });
 });
 
@@ -70,6 +74,18 @@ describe("todayActions", () => {
     });
     expect(actions[1].why).toBe("At 50% free chlorine climbs above 5 ppm by Friday.");
     expect(actions[3].task).toEqual({ id: "clean-filter", label: "Clean the filter" });
+  });
+
+  it("puts a task due for high filter pressure with today's, whatever its calendar date", () => {
+    const actions = todayActions({
+      ...base,
+      retests: [{ key: "cya", label: "Stabilizer", lastTestedOn: "2026-09-04", dueOn: "2026-10-04" }],
+      maintenance: [{ id: "backwash", label: "Backwash the filter", daysLeft: 21, nextDue: "2026-10-22", relative: "now", pressureHigh: true }],
+    });
+    expect(actions.map((a) => [a.title, a.pill, a.why])).toEqual([
+      ["Backwash the filter", "Today", "Due now: the filter pressure is up."],
+      ["Test stabilizer", "Around Oct 4", expect.any(String)],
+    ]);
   });
 
   it("says nothing about a cell already at the plan's setting", () => {
@@ -142,5 +158,27 @@ describe("weekCards", () => {
       tests: {},
     });
     expect(manual[0].actions).toEqual(["Add 1 qt"]);
+    // A salt plan without the cell's output: no FC line to show.
+    const unknownCell = weekCards({
+      today: "2026-10-01",
+      units: "us",
+      forecast: [],
+      plan: { kind: "swg", loggedPercent: null, days: [{ date: "2026-10-01", fcEnd: null, algaeRisk: false, add: null, cellPercent: null }] },
+      tests: {},
+    });
+    expect(unknownCell[0].fc).toBeNull();
+  });
+
+  it("never shows rain as 0.0 in or 0 mm, and calls it dry by the chart's rule", () => {
+    const card = (mm: number, chance: number | null, units: "us" | "metric") =>
+      weekCards({ today: "2026-10-01", units, forecast: [{ date: "2026-10-01", uv_index_max: null, precipitation_mm: mm, precipitation_probability: chance }], plan: null, tests: {} })[0].rain;
+    expect(card(1, 10, "us")).toBe("0.04 in · 10%");
+    expect(card(0.4, 10, "metric")).toBe("0.4 mm · 10%");
+    expect(card(0.2, 10, "metric")).toBe("Dry");
+    expect(card(0.2, 40, "us")).toBe("0.01 in · 40%");
+    // A chance with no amount (common in the forecast) gives the chance alone.
+    expect(card(0, 40, "us")).toBe("40% chance");
+    expect(card(0.1, 40, "us")).toBe("< 0.01 in · 40%");
+    expect(card(0, 40, "metric")).toBe("40% chance");
   });
 });

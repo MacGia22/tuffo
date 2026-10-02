@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_PRIOR, FEATURES, planWeek, type PlanForecastDay } from "@/engine";
 import type { ForecastInput } from "../params";
-import { typicalCellPpmPerDay } from "../typical";
+import { typicalCellPpmPerDay, typicalStartFc } from "../typical";
 import {
   buildForecastView,
   chlorineUseLevel,
@@ -129,7 +129,7 @@ function viewFor(over: Partial<ForecastInput> = {}) {
     coefficients: DEFAULT_PRIOR.mean,
     pairs: 0,
     pool: { volumeL: i.volumeL, surfaceAreaM2: null, swg, covered: false, surface: "plaster", cellPpmPerDay: swg ? typicalCellPpmPerDay(i.volumeL) : null },
-    water: { fc: swg ? 3 : 5, cya: i.cya, ch: null, salt: null },
+    water: { fc: typicalStartFc(swg, i.cya), cya: i.cya, ch: null, salt: null },
     days,
   });
   if (!plan) throw new Error("no plan");
@@ -169,6 +169,30 @@ describe("buildForecastView", () => {
     expect(view.salt?.needPpm).toBe(roundTo(plan.swgNeedPpm ?? 0, 0.5));
     expect(view.salt?.percent).toBe(plan.swgPercent);
     expect(view.salt?.cell).toBe("a typical cell");
+  });
+
+  it("starts a salt pool at the plan's floor, so the setting matches the daily need", () => {
+    // Salt, CYA 40: target 3–4.5, floor max(2 + 1, 3 − 1) + 0.5 = 3.5. Chlorine, CYA 40: the bottom of 5–7.
+    expect(typicalStartFc(true, 40)).toBe(3.5);
+    expect(typicalStartFc(false, 40)).toBe(5);
+    const { plan } = viewFor({ sanitizer: "salt" });
+    const cell = typicalCellPpmPerDay(input.volumeL);
+    // From the floor, the setting only has to cover the week's use, not catch up 0.5 ppm on day one.
+    const fromBottom = planWeek({
+      coefficients: DEFAULT_PRIOR.mean,
+      pairs: 0,
+      pool: { volumeL: input.volumeL, surfaceAreaM2: null, swg: true, covered: false, surface: "plaster", cellPpmPerDay: cell },
+      water: { fc: 3, cya: 40, ch: null, salt: null },
+      days,
+    })!;
+    expect(plan.swgPercent!).toBeLessThan(fromBottom.swgPercent!);
+    // The lowest 5% step whose output covers the mean need, give or take the week's day-to-day swing.
+    expect(plan.swgPercent!).toBeLessThanOrEqual(Math.ceil((plan.swgNeedPpm! / cell) * 20) * 5 + 10);
+  });
+
+  it("shows a spa's volume as typed, not rounded to 100", () => {
+    expect(viewFor({ volumeL: 450 * 3.785411784 }).view.volume).toBe("450 gal");
+    expect(viewFor({ volumeL: 15_140 * 3.785411784 }).view.volume).toBe("15,100 gal");
   });
 
   it("uses liters and mm for metric", () => {

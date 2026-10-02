@@ -26,8 +26,12 @@ export interface BetweenSummary {
   notes: string[];
   /** Averages over the days with data; null when no weather rows exist. */
   avgUvMax: number | null;
+  /** Unrounded, so a °F conversion rounds only once. */
   avgTmaxC: number | null;
+  /** Total sunshine over the days that have it, h. */
   sunshineHours: number | null;
+  /** Days that have a sunshine figure. */
+  sunshineDays: number;
   rainMm: number | null;
   /** Days with at least WET_DAY_MM of rain. */
   wetDays: number;
@@ -65,8 +69,9 @@ export function summarizeBetween(
     days,
     fcLossPerDay: fcLossPerDay === null ? null : Math.round(fcLossPerDay * 100) / 100,
     avgUvMax: mean(uv) === null ? null : Math.round((mean(uv) as number) * 10) / 10,
-    avgTmaxC: mean(tmax) === null ? null : Math.round((mean(tmax) as number) * 10) / 10,
+    avgTmaxC: mean(tmax),
     sunshineHours: sun.length ? Math.round((sun.reduce((a, b) => a + b, 0) / 3600) * 10) / 10 : null,
+    sunshineDays: sun.length,
     rainMm: rain.length ? Math.round(rain.reduce((a, b) => a + b, 0) * 10) / 10 : null,
     wetDays: rain.filter((v) => v >= WET_DAY_MM).length,
     daysWithWeather: weather.length,

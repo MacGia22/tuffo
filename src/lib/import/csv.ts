@@ -7,6 +7,8 @@
 export interface CsvTable {
   headers: string[];
   rows: string[][];
+  /** The line in the file where each row starts (blank lines and quoted line breaks counted). */
+  lines?: number[];
 }
 
 function detectDelimiter(text: string): string {
@@ -20,9 +22,12 @@ export function parseCsv(input: string): CsvTable {
   const text = input.replace(/^﻿/, "");
   const delimiter = detectDelimiter(text);
   const records: string[][] = [];
+  const starts: number[] = [];
   let field = "";
   let record: string[] = [];
   let quoted = false;
+  let line = 1;
+  let start = 1;
 
   for (let i = 0; i < text.length; i += 1) {
     const c = text[i];
@@ -35,6 +40,7 @@ export function parseCsv(input: string): CsvTable {
           quoted = false;
         }
       } else {
+        if (c === "\n" || (c === "\r" && text[i + 1] !== "\n")) line += 1;
         field += c;
       }
     } else if (c === '"' && field === "") {
@@ -46,8 +52,11 @@ export function parseCsv(input: string): CsvTable {
       if (c === "\r" && text[i + 1] === "\n") i += 1;
       record.push(field);
       records.push(record);
+      starts.push(start);
       record = [];
       field = "";
+      line += 1;
+      start = line;
     } else {
       field += c;
     }
@@ -55,9 +64,16 @@ export function parseCsv(input: string): CsvTable {
   if (field !== "" || record.length > 0) {
     record.push(field);
     records.push(record);
+    starts.push(start);
   }
 
-  const nonEmpty = records.filter((r) => r.some((cell) => cell.trim() !== ""));
-  const [header = [], ...rows] = nonEmpty;
-  return { headers: header.map((h) => h.trim()), rows: rows.map((r) => r.map((cell) => cell.trim())) };
+  const nonEmpty = records
+    .map((cells, i) => ({ cells, line: starts[i] }))
+    .filter((r) => r.cells.some((cell) => cell.trim() !== ""));
+  const [header, ...rows] = nonEmpty;
+  return {
+    headers: (header?.cells ?? []).map((h) => h.trim()),
+    rows: rows.map((r) => r.cells.map((cell) => cell.trim())),
+    lines: rows.map((r) => r.line),
+  };
 }

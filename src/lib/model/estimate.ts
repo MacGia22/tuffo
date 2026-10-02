@@ -1,4 +1,5 @@
 import { cellPpmBetween, dayDrivers, predictLoss, type Coefficients } from "@/engine/server";
+import { instantInZone } from "@/lib/form-data";
 import {
   cellPpmPerDay,
   coverAt,
@@ -45,17 +46,19 @@ export interface EstimateInput {
   pumpSchedules?: ModelPumpSchedule[];
 }
 
-/** Local midnights strictly between two instants, as instants. */
+/**
+ * Local midnights strictly between two instants, as instants: the real start of each
+ * local day, so a 23- or 25-hour day across a daylight-saving change ends where it should.
+ */
 function midnights(fromMs: number, toMs: number, timeZone: string): number[] {
-  const out: number[] = [];
   const shares = dayShares(new Date(fromMs).toISOString(), new Date(toMs).toISOString(), timeZone);
-  // Each day boundary sits where a day's share ends: walk the shares in order.
-  let t = fromMs;
-  for (let i = 0; i < shares.length - 1; i += 1) {
-    t += shares[i].share * DAY_MS;
-    out.push(Math.round(t));
-  }
-  return out;
+  return shares
+    .slice(1)
+    .map((s) => {
+      const r = instantInZone(`${s.date}T00:00`, timeZone, Infinity);
+      return r.ok && r.iso ? Date.parse(r.iso) : NaN;
+    })
+    .filter((t) => t > fromMs && t < toMs);
 }
 
 /**
@@ -69,11 +72,16 @@ export function estimateFcSeries(input: EstimateInput): EstimatePoint[] | null {
   const t0 = Date.parse(input.start.at);
   const t1 = Math.min(Date.parse(input.end), t0 + MAX_ESTIMATE_DAYS * DAY_MS);
   if (!(t1 > t0)) return null;
+  // Anything logged at the test's own moment came after it (test, then dose).
   const inside = (iso: string) => {
     const t = Date.parse(iso);
-    return t > t0 && t <= t1;
+    return t >= t0 && t <= t1;
   };
-  if (input.events.some((e) => inside(e.occurred_at) && (e.kind === "refill" || e.kind === "drain_refill"))) return null;
+  // No estimate across a refill; one logged with the next test came after that test.
+  const refilled = input.events.some(
+    (e) => (e.kind === "refill" || e.kind === "drain_refill") && inside(e.occurred_at) && Date.parse(e.occurred_at) < t1,
+  );
+  if (refilled) return null;
 
   const cell = cellPpmPerDay(pool);
   if (cell === null) return null;
@@ -87,16 +95,15 @@ export function estimateFcSeries(input: EstimateInput): EstimatePoint[] | null {
   const cya = cyaAt(t0, input.readings);
   const covered = coverAt(t0, pool, input.events);
   const weatherByDate = new Map(input.weather.map((w) => [w.date, weatherDrivers(w)]));
-  const busy = new Map<string, number>();
-  for (const e of input.events) {
-    if (e.kind !== "heavy_use" || !inside(e.occurred_at)) continue;
-    const date = dayShares(e.occurred_at, e.occurred_at, pool.timezone)[0]?.date;
-    if (date) busy.set(date, (busy.get(date) ?? 0) + 1);
-  }
+  // A heavy-use event costs its full share (the fit's "use" per event) when it happens,
+  // not spread over its day, so a party an hour after a test counts whole.
+  const busy = input.events
+    .filter((e) => e.kind === "heavy_use" && inside(e.occurred_at))
+    .map((e) => ({ t: Date.parse(e.occurred_at), ppm: -Math.max(0, coefficients.use) }));
   const known = new Map<string, number>();
   for (const { date } of dayShares(new Date(t0).toISOString(), new Date(t1).toISOString(), pool.timezone)) {
     const day = weatherByDate.get(date);
-    const drivers = day ? dayDrivers(day, { cya, covered, heavyUse: busy.get(date) ?? 0 }) : null;
+    const drivers = day ? dayDrivers(day, { cya, covered, heavyUse: 0 }) : null;
     if (drivers) known.set(date, predictLoss(coefficients, drivers));
   }
   const fallback = known.size
@@ -104,10 +111,13 @@ export function estimateFcSeries(input: EstimateInput): EstimatePoint[] | null {
     : Math.max(0, coefficients.base);
   const dailyLoss = (date: string) => known.get(date) ?? fallback;
 
-  const doses = input.doses
-    .filter((d) => inside(d.added_at))
-    .map((d) => ({ t: Date.parse(d.added_at), ppm: fcAdded(d, pool.volumeL) }))
-    .filter((d) => d.ppm > 0);
+  const doses = [
+    ...input.doses
+      .filter((d) => inside(d.added_at))
+      .map((d) => ({ t: Date.parse(d.added_at), ppm: fcAdded(d, pool.volumeL) }))
+      .filter((d) => d.ppm > 0),
+    ...busy,
+  ];
   const breaks = [...new Set([...midnights(t0, t1, pool.timezone), ...doses.map((d) => d.t), t1])]
     .filter((t) => t > t0 && t <= t1)
     .sort((a, b) => a - b);
@@ -116,6 +126,12 @@ export function estimateFcSeries(input: EstimateInput): EstimatePoint[] | null {
   let fc = Math.max(0, input.start.fc);
   let at = t0;
   const points: EstimatePoint[] = [{ at: new Date(t0).toISOString(), fc: round(fc) }];
+  // A dose logged at the test's own moment: on top of the test.
+  const atStart = doses.filter((d) => d.t === t0).reduce((sum, d) => sum + d.ppm, 0);
+  if (atStart !== 0) {
+    fc = Math.max(0, fc + atStart);
+    points.push({ at: new Date(t0).toISOString(), fc: round(fc) });
+  }
   for (const t of breaks) {
     const from = new Date(at).toISOString();
     const to = new Date(t).toISOString();
@@ -129,8 +145,8 @@ export function estimateFcSeries(input: EstimateInput): EstimatePoint[] | null {
     fc = Math.max(0, fc + made - used);
     points.push({ at: to, fc: round(fc) });
     const added = doses.filter((d) => d.t === t).reduce((sum, d) => sum + d.ppm, 0);
-    if (added > 0) {
-      fc += added;
+    if (added !== 0) {
+      fc = Math.max(0, fc + added);
       points.push({ at: to, fc: round(fc) });
     }
     at = t;

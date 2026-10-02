@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { ticks } from "@/lib/chart-scale";
+import { chanceOnly, formatRainAmount, isDry } from "@/lib/format";
 import { fcForDay, type TrendData, type TrendDay } from "@/lib/trends";
 import { uvLevel, UV_LEVEL_LABEL, UV_LEVELS, type UvLevel } from "@/lib/uv";
 
@@ -70,7 +71,6 @@ export function TrendChart({
   const us = data.units === "us";
   const toRain = (mm: number) => (us ? mm / 25.4 : mm);
   const rainUnit = us ? "in" : "mm";
-  const rainDecimals = us ? 2 : 0;
   const tempText = (c: number) => (us ? `${Math.round((c * 9) / 5 + 32)} °F` : `${Math.round(c)} °C`);
 
   // Rows, top to bottom.
@@ -97,7 +97,10 @@ export function TrendChart({
   // Free chlorine: 0 to a round tick above the target, the tests and the plan.
   const measured = data.points.flatMap((p) => (p.fc === null ? [] : [p.fc]));
   const planned = data.forecast.map((p) => p.fc);
-  const fcTicks = ticks(0, Math.max(data.fcBand.high, ...measured, ...planned, data.fcMin ?? 0), 4);
+  // Everything drawn on the panel fits: the estimate band and "what Tuffo expected" too.
+  const estimated = data.estimate.map((p) => p.fc + p.spread);
+  const expected = data.expected.map((e) => e.expected);
+  const fcTicks = ticks(0, Math.max(data.fcBand.high, ...measured, ...planned, ...estimated, ...expected, data.fcMin ?? 0), 4);
   const fcTop = fcTicks[fcTicks.length - 1];
   const yFc = (v: number) => top.fc + FC_H - (Math.min(Math.max(v, 0), fcTop) / fcTop) * FC_H;
 
@@ -186,9 +189,11 @@ export function TrendChart({
   const rainText =
     day?.rainMm === null || day?.rainMm === undefined
       ? null
-      : toRain(day.rainMm) < (us ? 0.01 : 0.5) && (day.rainChance ?? 0) < 30
+      : isDry(day.rainMm, day.rainChance)
         ? "dry"
-        : `${toRain(day.rainMm).toFixed(rainDecimals)} ${rainUnit}${day.rainChance !== null ? ` · ${Math.round(day.rainChance)}% chance` : ""}${day.ownRain ? " at your pool" : ""}`;
+        : chanceOnly(day.rainMm, day.rainChance)
+          ? `${Math.round(day.rainChance!)}% chance`
+          : `${formatRainAmount(day.rainMm, data.units)}${day.rainChance !== null ? ` · ${Math.round(day.rainChance)}% chance` : ""}${day.ownRain ? " at your pool" : ""}`;
 
   return (
     <figure className="flex flex-col gap-3">
@@ -454,7 +459,7 @@ export function TrendChart({
                       />
                       {labelled.has(i) && col >= 10 ? (
                         <text x={center(i)} y={rainBase - h - 3} textAnchor="middle" className="fill-foreground text-[10px] font-semibold tabular-nums">
-                          {value.toFixed(us ? (value >= 1 ? 1 : 2) : 0)}
+                          {us ? value.toFixed(value >= 1 ? 1 : 2) : value.toFixed(value < 1 ? 1 : 0)}
                         </text>
                       ) : null}
                     </g>
@@ -590,7 +595,7 @@ export function TrendChart({
                       <td className="px-3 py-1.5 text-right tabular-nums">{p.length ? fPh(p[p.length - 1].ph as number) : "—"}</td>
                       <td className="px-3 py-1.5 text-right tabular-nums">{d.uv === null ? "—" : `${Math.round(d.uv)} · ${UV_LEVEL_LABEL[uvLevel(d.uv)]}`}</td>
                       <td className="px-3 py-1.5 text-right tabular-nums">
-                        {d.rainMm === null ? "—" : toRain(d.rainMm).toFixed(rainDecimals)}
+                        {d.rainMm === null ? "—" : formatRainAmount(d.rainMm, data.units).replace(/ (in|mm)$/, "")}
                         {d.rainChance !== null ? <span className="text-muted"> · {Math.round(d.rainChance)}%</span> : null}
                         {d.ownRain ? <span className="text-muted"> (your pool)</span> : null}
                       </td>

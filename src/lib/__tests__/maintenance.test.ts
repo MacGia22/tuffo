@@ -163,6 +163,61 @@ describe("maintenanceStatus", () => {
     expect(rinse("2026-10-01")).toMatchObject({ pressureHigh: false, state: "ok" });
   });
 
+  it("starts a replaced item's upkeep from its install date", () => {
+    const sand: MaintenancePool = { ...saltCartridge, filterType: "sand" };
+    const by = Object.fromEntries(
+      maintenanceStatus({
+        pool: sand,
+        overrides: {},
+        // The old filter's sand was changed in 2019, and it was backwashed in August.
+        done: [
+          { task: "sand_replace", doneOn: "2019-06-01" },
+          { task: "sand_backwash", doneOn: "2026-08-20" },
+        ],
+        pressure: null,
+        today,
+        installedOn: { filter: "2026-09-15" },
+      }).map((s) => [s.task.id, s]),
+    );
+    // A new filter (Sep 15) comes with new sand: next change ~2032, not 489 days overdue.
+    expect(by.sand_replace.lastDone).toBe("2026-09-15");
+    expect(by.sand_replace.state).toBe("ok");
+    // The old filter's backwash doesn't count for the new one.
+    expect(by.sand_backwash).toMatchObject({ lastDone: null, state: "unknown" });
+  });
+
+  it("does not take an old filter's install as its last new cartridge", () => {
+    const cartridge = (installed: string) =>
+      maintenanceStatus({ pool: saltCartridge, overrides: {}, done: [], pressure: null, today, installedOn: { filter: installed } }).find(
+        (s) => s.task.id === "cartridge_replace",
+      )!;
+    // Installed 400 days ago: its first cartridge is due in 140 days (540-day interval).
+    expect(cartridge("2025-08-27")).toMatchObject({ lastDone: "2025-08-27", daysLeft: 140, state: "ok" });
+    // Installed three years ago: the cartridge may have been changed since; ask, not "556 days overdue".
+    expect(cartridge("2023-10-01")).toMatchObject({ lastDone: null, state: "unknown" });
+  });
+
+  it("puts a task due from high pressure on today in the calendar and the groups", () => {
+    const pressure = pressureStatus([
+      { readOn: "2026-09-21", kpa: 70, clean: true },
+      { readOn: "2026-10-01", kpa: 130, clean: false },
+    ]);
+    const sand: MaintenancePool = { ...saltCartridge, filterType: "sand" };
+    const statuses = maintenanceStatus({
+      pool: sand,
+      overrides: { sand_backwash: 120 },
+      done: [{ task: "sand_backwash", doneOn: "2026-09-20" }],
+      pressure,
+      today,
+    });
+    const backwash = statuses.find((s) => s.task.id === "sand_backwash")!;
+    expect(backwash).toMatchObject({ pressureHigh: true, state: "due" });
+    expect(dueCalendar(statuses, today)[0].tasks.map((t) => t.label)).toContain(backwash.task.label);
+    const groups = groupTasks(statuses);
+    expect(groups.soon).toContain(backwash);
+    expect(groups.later).not.toContain(backwash);
+  });
+
   it("ignores completions logged for a later day", () => {
     const s = maintenanceStatus({
       pool: saltCartridge,
@@ -172,6 +227,23 @@ describe("maintenanceStatus", () => {
       today,
     }).find((x) => x.task.id === "cell_clean");
     expect(s?.lastDone).toBeNull();
+  });
+});
+
+describe("cellHoursUsed, changes on the same day", () => {
+  it("uses the later of two changes logged the same day (they arrive oldest first)", () => {
+    // 10 h a day for 20 days; 50% set, then corrected to 80% the same day: 20 × 10 × 0.8 = 160 h.
+    expect(
+      cellHoursUsed({
+        installedOn: "2026-09-01",
+        today: "2026-09-21",
+        schedules: [{ from: "2026-09-01", hours: 10 }],
+        settings: [
+          { at: "2026-09-01", percent: 50 },
+          { at: "2026-09-01", percent: 80 },
+        ],
+      })?.hours,
+    ).toBe(160);
   });
 });
 
@@ -228,6 +300,9 @@ describe("life", () => {
     expect(ageYears("2020-10-01", "2026-10-01")).toBeCloseTo(6, 1);
     expect(formatAge(ageYears("2026-03-01", "2026-10-01"))).toBe("7 months");
     expect(formatAge(1.1)).toBe("1 year");
+    // 360 days rounds to 12 months, which reads as a year.
+    expect(formatAge(ageYears("2025-10-06", "2026-10-01"))).toBe("1 year");
+    expect(formatAge(0.95)).toBe("11 months");
     expect(formatAge(3.4)).toBe("3.5 years");
     expect(lifeState(6, [8, 12])).toBe("fine");
     expect(lifeState(9, [8, 12])).toBe("late");
@@ -363,6 +438,8 @@ describe("installDateFrom", () => {
   it("refuses a future day, a bad day or nothing", () => {
     expect(installDateFrom("2026-10-02", "", "2026-10-01")).toBeNull();
     expect(installDateFrom("2026-13-01", "", "2026-10-01")).toBeNull();
+    expect(installDateFrom("2026-02-30", "", "2026-10-01")).toBeNull();
+    expect(installDateFrom("2024-02-29", "", "2026-10-01")).toBe("2024-02-29");
     expect(installDateFrom("", "", "2026-10-01")).toBeNull();
     expect(installDateFrom("", "0", "2026-10-01")).toBeNull();
     expect(installDateFrom("", "2.5", "2026-10-01")).toBeNull();

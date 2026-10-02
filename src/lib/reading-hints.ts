@@ -67,7 +67,8 @@ interface Plausible {
 }
 
 const PLAUSIBLE: Record<Exclude<HintField, "water_temp">, Plausible> = {
-  fc: { label: "FC", low: 0, high: 20, unit: "ppm" },
+  // Shock (SLAM) level is 40% of CYA: up to 40 ppm at CYA 100.
+  fc: { label: "FC", low: 0, high: 40, unit: "ppm" },
   cc: { label: "CC", low: 0, high: 5, unit: "ppm" },
   ph: { label: "pH", low: 6.2, high: 8.6, unit: "" },
   ta: { label: "TA", low: 0, high: 250, unit: "ppm" },

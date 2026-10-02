@@ -201,9 +201,11 @@ export function buildTestPairs(input: {
     const t0 = Date.parse(a.taken_at);
     const t1 = Date.parse(b.taken_at);
     const days = (t1 - t0) / DAY_MS;
+    // From the first test on, up to the second: a dose logged at a test's own moment came
+    // after that test (test, then dose), so it belongs to the pair the test starts.
     const inside = (iso: string) => {
       const t = Date.parse(iso);
-      return t > t0 && t <= t1;
+      return t >= t0 && t < t1;
     };
 
     const dosed = doses.filter((d) => inside(d.added_at)).reduce((sum, d) => sum + fcAdded(d, pool.volumeL), 0);

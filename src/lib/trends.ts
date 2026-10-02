@@ -245,6 +245,8 @@ export interface BuildTrendInput {
   plan?: {
     /** A salt cell makes chlorine all day: the line runs smoothly between day ends. */
     continuous?: boolean;
+    /** Free chlorine the plan starts from (now), for a salt plan without an estimate to start from. */
+    fcStart?: number;
     days: Array<{
       date: string;
       fcAfterAdd: number;
@@ -309,7 +311,8 @@ export function buildTrend(input: BuildTrendInput): TrendData {
   const continuous = Boolean(input.plan?.continuous);
   const lastEstimate = estimate.length ? estimate[estimate.length - 1] : null;
   if (continuous && planDays.length) {
-    forecast.push({ x: nowX, fc: lastEstimate?.fc ?? planDays[0].fcAfterAdd });
+    // fcAfterAdd is FC plus a whole day of the cell's output: not where the line starts.
+    forecast.push({ x: nowX, fc: lastEstimate?.fc ?? input.plan?.fcStart ?? planDays[0].fcAfterAdd });
   }
   planDays.forEach((p) => {
     const k = daysBetween(start, p.date);

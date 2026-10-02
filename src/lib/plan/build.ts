@@ -16,7 +16,7 @@ import {
 } from "@/engine/server";
 import { loadPopulationPrior } from "@/lib/model/recompute";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { estimateStartFc, type StoredPlanDay, type StoredPlanSummary } from "./stored";
+import { dayShareLeft, estimateStartFc, type StoredPlanDay, type StoredPlanSummary } from "./stored";
 import { loadOwnRain, withOwnRain } from "@/lib/weather/own-rain";
 import { cellLevels } from "@/lib/salt-cells";
 import { loadPoolEstimate } from "@/lib/model/pool-estimate";
@@ -62,6 +62,7 @@ function n(value: number | string | null | undefined): number | null {
 function localDate(now: number, timeZone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(now));
 }
+
 
 function weatherOf(row: ForecastRow): WeatherDrivers {
   return {
@@ -144,7 +145,8 @@ export async function buildPlan(admin: SupabaseClient, poolId: string, now = Dat
       .from("doses")
       .select("product_id, amount")
       .eq("pool_id", poolId)
-      .gt("added_at", latestFc.taken_at)
+      // A dose logged at the test's own moment came after it.
+      .gte("added_at", latestFc.taken_at)
       .returns<{ product_id: string; amount: number }[]>(),
     admin
       .from("pool_models")
@@ -209,6 +211,9 @@ export async function buildPlan(admin: SupabaseClient, poolId: string, now = Dat
     },
     water: { fc: fcStart, cya, ch: latest("ch"), salt: latest("salt") },
     days,
+    // fcStart is FC now: only the rest of today's use is still to come (the nightly run is
+    // 11 PM in California, so most of its first day is gone).
+    firstDayShare: days[0]?.date === today ? dayShareLeft(now, timeZone) : 1,
   });
   if (!plan) return false;
 

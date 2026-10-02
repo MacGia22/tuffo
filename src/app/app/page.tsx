@@ -67,6 +67,7 @@ async function loadFacts(
           cardFacts({
             units,
             today: poolLocalDate(pool.timezone, now),
+            timeZone: pool.timezone,
             now,
             latestFc: withFc
               ? { takenAt: withFc.taken_at, fc: Number(withFc.fc), target: { low: fcTarget.targetLow, high: fcTarget.targetHigh } }

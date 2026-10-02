@@ -55,7 +55,8 @@ export default async function TrendsPage({ params, searchParams }: PageProps<"/a
 
       {trend ? (
         <section aria-label="Chart" className="rounded-2xl border border-border bg-surface p-3 sm:p-5">
-          <TrendChart data={trend} rainHref={pool.cell_id ? `${base}/rain` : null} />
+          {/* Keyed by the range so the selected day resets to today with the new columns. */}
+          <TrendChart key={range} data={trend} rainHref={pool.cell_id ? `${base}/rain` : null} />
           {estimateMiss ? (
             <p className="mt-2 text-xs text-muted">
               Tuffo&apos;s estimates were within about {estimateMiss.ppm} ppm on your last {estimateMiss.count} tests

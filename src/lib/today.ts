@@ -4,7 +4,8 @@
  * engine's advice, this file decides what to say and in what order. Advisory only.
  */
 
-import type { Units } from "@/lib/format";
+import { chanceOnly, formatRainAmount, isDry, type Units } from "@/lib/format";
+import { ageText } from "@/lib/tiles";
 import { uvLevel, type UvLevel } from "@/lib/uv";
 
 const DAY_MS = 86_400_000;
@@ -30,10 +31,7 @@ export interface TestStatus {
 
 export function testStatus(takenAt: string, method: string, now: number, timeZone: string): TestStatus {
   const ms = Math.max(0, now - Date.parse(takenAt));
-  const days = Math.floor(ms / DAY_MS);
-  const hours = Math.floor(ms / 3_600_000);
-  const age =
-    hours < 1 ? "just now" : days < 1 ? `${hours} ${hours === 1 ? "hour" : "hours"} ago` : days === 1 ? "yesterday" : `${days} days ago`;
+  const age = ageText(takenAt, now, timeZone).text;
   const when = new Date(takenAt);
   const date = when.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone });
   const time = when.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone });
@@ -82,8 +80,8 @@ export interface ActionsInput {
   band: { direction: "high" | "low"; text: string } | null;
   /** Measures to retest: never tested, past their retest age, or due within the week. */
   retests: Array<{ key: string; label: string; lastTestedOn: string | null; dueOn: string }>;
-  /** Maintenance due: from the maintenance statuses. */
-  maintenance: Array<{ id: string; label: string; daysLeft: number | null; nextDue: string | null; relative: string }>;
+  /** Maintenance due: from the maintenance statuses; `pressureHigh` makes it due now, whatever the date. */
+  maintenance: Array<{ id: string; label: string; daysLeft: number | null; nextDue: string | null; relative: string; pressureHigh?: boolean }>;
 }
 
 const CHLORINE_NOTE = "Add chlorine in the evening with the pump running, away from the skimmer, and never mix it with other products.";
@@ -151,10 +149,20 @@ export function todayActions(input: ActionsInput): TodayAction[] {
 
   for (const m of input.maintenance) {
     const d = m.daysLeft;
+    if (m.pressureHigh) {
+      push(5, {
+        id: `task-${m.id}`,
+        title: m.label,
+        why: "Due now: the filter pressure is up.",
+        pill: d !== null && d < 0 ? "Overdue" : "Today",
+        task: { id: m.id, label: m.label },
+      });
+      continue;
+    }
     push(d !== null && d <= 0 ? 5 : 7, {
       id: `task-${m.id}`,
       title: m.label,
-      why: m.relative === "now" ? "Due now: the filter pressure is up." : `Due ${m.relative}.`,
+      why: `Due ${m.relative}.`,
       pill: d === null || m.nextDue === null ? "This week" : d < 0 ? "Overdue" : d === 0 ? "Today" : `Around ${shortDate(m.nextDue)}`,
       task: { id: m.id, label: m.label },
     });
@@ -219,7 +227,8 @@ export interface WeekInput {
   forecast: Array<{ date: string; uv_index_max: number | null; precipitation_mm: number | null; precipitation_probability?: number | null }>;
   plan: {
     kind: "manual" | "swg";
-    days: Array<{ date: string; fcEnd: number; algaeRisk: boolean; add: string | null; cellPercent: number | null }>;
+    /** `fcEnd` is null when the plan has no free chlorine line (a salt cell of unknown output). */
+    days: Array<{ date: string; fcEnd: number | null; algaeRisk: boolean; add: string | null; cellPercent: number | null }>;
     /** The setting last logged, for "Keep" or "Set" on the first day. */
     loggedPercent: number | null;
   } | null;
@@ -227,14 +236,12 @@ export interface WeekInput {
   tests: Record<string, string[]>;
 }
 
-/** Below this much rain and this chance, a day is "Dry". */
-const DRY_MM = 0.25;
-const DRY_CHANCE = 30;
-
+/** "0.8 in · 52%", or "Dry" (the same rule as the chart). */
 function rain(mm: number | null, chance: number | null | undefined, units: Units): string | null {
   if (mm === null) return null;
-  if (mm < DRY_MM && (chance ?? 0) < DRY_CHANCE) return "Dry";
-  const amount = units === "us" ? `${(mm / 25.4).toFixed(1)} in` : `${Math.round(mm)} mm`;
+  if (isDry(mm, chance)) return "Dry";
+  if (chanceOnly(mm, chance)) return `${Math.round(chance!)}% chance`;
+  const amount = formatRainAmount(mm, units, 1);
   return chance === null || chance === undefined ? amount : `${amount} · ${Math.round(chance)}%`;
 }
 
@@ -264,7 +271,7 @@ export function weekCards(input: WeekInput): WeekCard[] {
       today: date === input.today,
       uv: f?.uv_index_max === null || f?.uv_index_max === undefined ? null : { index: Math.round(f.uv_index_max), level: uvLevel(f.uv_index_max) },
       rain: f ? rain(f.precipitation_mm === null ? null : Number(f.precipitation_mm), f.precipitation_probability, input.units) : null,
-      fc: p ? `≈ ${p.fcEnd.toFixed(1)}` : null,
+      fc: p && p.fcEnd !== null ? `≈ ${p.fcEnd.toFixed(1)}` : null,
       actions,
       risk: Boolean(p?.algaeRisk),
     };

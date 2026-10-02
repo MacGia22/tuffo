@@ -301,6 +301,11 @@ export interface MaintenanceInput {
   done: { task: string; doneOn: string }[];
   pressure: PressureStatus | null;
   today: string;
+  /**
+   * When each current item was installed (YYYY-MM-DD). Completions before it belonged to
+   * the item it replaced, and a "replace" task counts the install as done (within one interval).
+   */
+  installedOn?: Partial<Record<TaskEquipment, string | null>>;
 }
 
 /** The status of each task that applies, most urgent first. */
@@ -309,12 +314,20 @@ export function maintenanceStatus(input: MaintenanceInput): TaskStatus[] {
   return tasksFor(input.pool)
     .map((task): TaskStatus => {
       const intervalDays = intervalFor(task, input.overrides);
-      const lastDone =
+      const installed = input.installedOn?.[task.equipment] ?? null;
+      const logged =
         input.done
-          .filter((d) => d.task === task.id && d.doneOn <= input.today)
+          .filter((d) => d.task === task.id && d.doneOn <= input.today && (!installed || d.doneOn.slice(0, 10) >= installed))
           .map((d) => d.doneOn.slice(0, 10))
           .sort()
           .pop() ?? null;
+      // A new item comes with a new cartridge or sand, so its install counts as the last
+      // replacement while that is within one interval; an older item may have had one since.
+      const fromInstall =
+        installed && task.id.endsWith("_replace") && installed <= input.today && addDays(installed, intervalDays) >= input.today
+          ? installed
+          : null;
+      const lastDone = logged ?? fromInstall;
       const p = input.pressure;
       const pressureHigh = Boolean(task.pressure && p?.high && (!lastDone || p.latest.readOn >= lastDone));
       const nextDue = lastDone ? addDays(lastDone, intervalDays) : null;
@@ -353,7 +366,7 @@ export function dueText(s: TaskStatus): string {
 }
 
 export interface ScheduleSpan {
-  /** When it took effect (ISO instant or date). */
+  /** The pool's local date it took effect (an ISO instant is read by its UTC date). */
   from: string;
   /** Hours a day the cell runs (the pump hours it is on). */
   hours: number;
@@ -383,6 +396,8 @@ export function cellHoursUsed(input: {
   schedules: ScheduleSpan[];
   settings: SettingChange[];
 }): CellHours | null {
+  // By day; the sort is stable, so of two changes the same day the later in the input (the
+  // caller passes them oldest first) is the one in force.
   const schedules = input.schedules
     .filter((s) => Number.isFinite(s.hours) && s.hours >= 0)
     .map((s) => ({ day: s.from.slice(0, 10), hours: Math.min(24, s.hours) }))
@@ -430,8 +445,8 @@ export function ageYears(installedOn: string, today: string): number {
 
 /** "8 months", "1 year", "3.5 years". */
 export function formatAge(years: number): string {
-  if (years < 1) {
-    const months = Math.max(0, Math.round(years * 12));
+  const months = Math.max(0, Math.round(years * 12));
+  if (months < 12) {
     return months <= 1 ? (months === 0 ? "under a month" : "1 month") : `${months} months`;
   }
   const rounded = Math.round(years * 2) / 2;
@@ -490,6 +505,11 @@ export function dueCalendar(statuses: TaskStatus[], today: string, days = 30): D
       continue;
     }
     const offset = daysBetween(today, s.nextDue);
+    // Due now because the filter pressure is up: today, whatever the calendar says.
+    if (s.pressureHigh && offset >= 0) {
+      out[0].tasks.push({ label: s.task.label, overdue: false });
+      continue;
+    }
     if (offset < 0) out[0].tasks.push({ label: s.task.label, overdue: true });
     else if (offset < days) out[offset].tasks.push({ label: s.task.label, overdue: false });
   }
@@ -614,10 +634,11 @@ export const LATER_DAYS = 90;
 export function groupTasks(statuses: TaskStatus[]): { start: TaskStatus[]; soon: TaskStatus[]; later: TaskStatus[] } {
   const start = statuses.filter((s) => s.state === "unknown" && !s.pressureHigh);
   const rest = statuses.filter((s) => !start.includes(s));
+  // A task due now from high filter pressure is never "later", however far its date.
   return {
     start,
-    soon: rest.filter((s) => s.daysLeft === null || s.daysLeft <= LATER_DAYS),
-    later: rest.filter((s) => s.daysLeft !== null && s.daysLeft > LATER_DAYS),
+    soon: rest.filter((s) => s.pressureHigh || s.daysLeft === null || s.daysLeft <= LATER_DAYS),
+    later: rest.filter((s) => !s.pressureHigh && s.daysLeft !== null && s.daysLeft > LATER_DAYS),
   };
 }
 
@@ -657,8 +678,10 @@ export const ABOUT_YEARS = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 15, 20] as const;
  */
 export function installDateFrom(since: string, aboutYears: string, today: string): string | null {
   if (since) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(since) || since > today || Number.isNaN(Date.parse(`${since}T00:00:00Z`))) return null;
-    return since;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(since) || since > today) return null;
+    // A real day: Date.parse reads "2026-02-30" as March 2.
+    const t = Date.parse(`${since}T00:00:00Z`);
+    return Number.isFinite(t) && new Date(t).toISOString().slice(0, 10) === since ? since : null;
   }
   const years = Number(aboutYears);
   if (!aboutYears || !Number.isInteger(years) || years < 1 || years > 40) return null;

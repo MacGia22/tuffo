@@ -61,7 +61,10 @@ describe("parseForecastParams", () => {
     ]);
     const small = parseForecastParams({ ...tampa, v: "500", cya: "150" });
     expect(small.ok && small.input).toMatchObject({ volumeL: 56_781, cya: 40 });
-    expect(small.ok && small.notices[0]).toBe("Pool volume must be between 300 gal and 264,200 gal; using 15,000 gal.");
+    // The stated limits are themselves accepted: 264,100 gal is under 1,000,000 L (264,200 gal is not).
+    expect(small.ok && small.notices[0]).toBe("Pool volume must be between 300 gal and 264,100 gal; using 15,000 gal.");
+    const atMax = parseForecastParams({ place: "Tampa, Florida, US", lat: "27.96", lon: "-82.47", v: String(Math.round(264_100 * 3.785411784)) });
+    expect(atMax.ok && atMax.notices).toEqual([]);
     const big = parseForecastParams({ ...tampa, v: "2000000", cya: "-5" });
     expect(big.ok && big.input).toMatchObject({ volumeL: 56_781, cya: 40 });
     expect(big.ok && big.notices).toHaveLength(2);

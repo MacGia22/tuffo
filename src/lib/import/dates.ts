@@ -81,8 +81,9 @@ export function parseImportDate(raw: string, order: DateOrder = "mdy"): ParsedDa
     value.match(/^(\d{1,2}) ([a-z]{3,9})\.? (\d{4}),?(?: (?:at )?(.*))?$/i);
   if (named) {
     const monthFirst = /^[a-z]/i.test(named[1]);
-    const monthName = (monthFirst ? named[1] : named[2]).toLowerCase().slice(0, 4).replace(/t$/, "");
-    const mo = MONTHS[monthName] ?? MONTHS[monthName.slice(0, 3)];
+    // "sept" is a key; otherwise the first three letters ("oct", "october" → oct).
+    const monthName = (monthFirst ? named[1] : named[2]).toLowerCase();
+    const mo = MONTHS[monthName.slice(0, 4)] ?? MONTHS[monthName.slice(0, 3)];
     const d = Number(monthFirst ? named[2] : named[1]);
     const t = parseTime(named[4] ?? "");
     if (!mo || !t) return null;

@@ -36,6 +36,15 @@ export function displayPressureToKpa(value: number, units: Units): number {
   return units === "us" ? value * KPA_PER_PSI : value * 100;
 }
 
+/**
+ * A stored pressure as an edit field shows it: psi to 0.1, bar to 0.01, so saving an
+ * unchanged field gives back the stored value (to a tenth of a kPa).
+ */
+export function pressureFieldValue(kpa: number, units: Units): string {
+  const v = kpaToDisplayPressure(kpa, units);
+  return String(units === "us" ? Math.round(v * 10) / 10 : Math.round(v * 100) / 100);
+}
+
 export function pressureUnitLabel(units: Units): string {
   return units === "us" ? "psi" : "bar";
 }
@@ -91,4 +100,36 @@ export const READING_METHODS = [
 export function methodLabel(method: string): string {
   if (method === "imported") return "Imported";
   return READING_METHODS.find((m) => m.value === method)?.label ?? method.replace(/_/g, " ");
+}
+
+/** Below this much rain, and with a lower chance than this, a day reads "Dry". */
+export const DRY_MM = 0.25;
+export const DRY_CHANCE = 30;
+
+/** Whether a day's rain (mm) and chance (percent, if forecast) read as dry. */
+export function isDry(mm: number, chance: number | null | undefined): boolean {
+  return mm < DRY_MM && (chance ?? 0) < DRY_CHANCE;
+}
+
+/**
+ * Rain in the person's units without a misleading zero: inches to `inDecimals` (two when
+ * that would show 0.0), mm whole (one decimal under 1 mm); a trace below that is
+ * "< 0.01 in" or "< 0.1 mm", and none at all "0 in" or "0 mm".
+ */
+export function formatRainAmount(mm: number, units: Units, inDecimals = 2): string {
+  if (units === "us") {
+    const inches = mm / 25.4;
+    if (!(inches > 0)) return "0 in";
+    if (inches < 0.005) return "< 0.01 in";
+    const decimals = inDecimals < 2 && Number(inches.toFixed(inDecimals)) === 0 ? 2 : inDecimals;
+    return `${inches.toFixed(decimals)} in`;
+  }
+  if (!(mm > 0)) return "0 mm";
+  if (mm < 0.05) return "< 0.1 mm";
+  return `${mm < 1 ? mm.toFixed(1) : Math.round(mm)} mm`;
+}
+
+/** A forecast with a chance of rain but no amount: "40% chance" says it; "0 in · 40%" does not. */
+export function chanceOnly(mm: number, chance: number | null | undefined): boolean {
+  return !(mm > 0) && chance !== null && chance !== undefined;
 }

@@ -168,11 +168,11 @@ export function waterTiles(input: WaterTilesInput): WaterTile[] {
     const shown = { ...base, value, valueText: valueText(key, value) };
 
     if (days > OLD_AFTER_DAYS[key]) {
-      const whole = Math.floor(days);
       return {
         ...shown,
         state: "old",
-        chip: `${whole} days ago`,
+        // Counted in the pool's calendar days, as the test card counts them.
+        chip: ageText(latest.taken_at, input.now, input.timeZone).text,
         note: OLD_AFTER_DAYS[key] <= 7 ? "Retest today" : "Retest this month",
       };
     }
@@ -184,7 +184,7 @@ export function waterTiles(input: WaterTilesInput): WaterTile[] {
 
     if (state === "too-low" || state === "too-high") {
       // Something added since the test is the action already taken; say that instead.
-      const since = added && Date.parse(added.addedAt) > Date.parse(latest.taken_at);
+      const since = added && Date.parse(added.addedAt) >= Date.parse(latest.taken_at);
       const action =
         state === "too-low"
           ? (input.fcAction ?? "Add chlorine now")
@@ -195,10 +195,15 @@ export function waterTiles(input: WaterTilesInput): WaterTile[] {
     let note = addedText;
     const previous = tests[1];
     if (!note && previous) {
-      const decimals = key === "fc" || key === "ph" ? 1 : 0;
-      const change = value - Number(previous[key]);
+      // The change between the values as the tiles show them (pH 7.4 to 7.45 is +0.05).
+      const latestText = valueText(key, value);
+      const previousText = valueText(key, Number(previous[key]));
+      const decimalsOf = (text: string) => (text.split(".")[1] ?? "").length;
+      const decimals = Math.max(decimalsOf(latestText), decimalsOf(previousText));
+      const num = (text: string) => Number(text.replace(/,/g, ""));
+      const steps = Math.round((num(latestText) - num(previousText)) * 10 ** decimals);
       const when = shortDay(previous.taken_at, input.timeZone);
-      note = Math.abs(change) < 0.5 * 10 ** -decimals ? `No change since ${when}` : `${signed(change, decimals)} since ${when}`;
+      note = steps === 0 ? `No change since ${when}` : `${signed(steps / 10 ** decimals, decimals)} since ${when}`;
     }
     return { ...shown, state, chip: LEVEL_LABEL[level ?? "ok"], note };
   });
@@ -210,18 +215,34 @@ export const STALE_TEST_DAYS = 7;
 const HOUR_MS = 3_600_000;
 const DAY_MS = 24 * HOUR_MS;
 
-/** "just now", "5 hours ago", "yesterday", "3 days ago"; stale after a week. */
-export function testAge(takenAt: string, now: number): { text: string; days: number; stale: boolean } {
-  const ms = Math.max(0, now - Date.parse(takenAt));
+function localDate(ms: number, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(ms));
+}
+
+/**
+ * "just now", "5 hours ago" (the same local day), "yesterday" (the local day before),
+ * "3 days ago" (local calendar days, so a Thursday test reads "2 days ago" on Saturday
+ * morning). `days` is the elapsed time, for staleness.
+ */
+export function ageText(takenAt: string, now: number, timeZone = "UTC"): { text: string; days: number } {
+  const t = Date.parse(takenAt);
+  const ms = Math.max(0, now - t);
   const days = ms / DAY_MS;
-  let text: string;
-  if (ms < HOUR_MS) text = "just now";
-  else if (ms < DAY_MS) {
+  if (ms < HOUR_MS) return { text: "just now", days };
+  const calendarDays = Math.round(
+    (Date.parse(`${localDate(now, timeZone)}T00:00:00Z`) - Date.parse(`${localDate(t, timeZone)}T00:00:00Z`)) / DAY_MS,
+  );
+  if (calendarDays <= 0) {
     const hours = Math.floor(ms / HOUR_MS);
-    text = `${hours} ${hours === 1 ? "hour" : "hours"} ago`;
-  } else if (days < 2) text = "yesterday";
-  else text = `${Math.floor(days)} days ago`;
-  return { text, days, stale: days > STALE_TEST_DAYS };
+    return { text: `${hours} ${hours === 1 ? "hour" : "hours"} ago`, days };
+  }
+  return { text: calendarDays === 1 ? "yesterday" : `${calendarDays} days ago`, days };
+}
+
+/** How old a test is, and whether it is stale (over a week). */
+export function testAge(takenAt: string, now: number, timeZone = "UTC"): { text: string; days: number; stale: boolean } {
+  const age = ageText(takenAt, now, timeZone);
+  return { ...age, stale: age.days > STALE_TEST_DAYS };
 }
 
 export interface HistoryCell {
@@ -265,7 +286,7 @@ export function historyCells(reading: TileReading, targets: TileTargets): Histor
 }
 
 /**
- * The line under the tiles, with whatever was logged: "Water 84 °F · CC 0.0 · CSI −0.2
+ * The line under the tiles, with whatever was logged: "Water 84 °F · CC 0.0 · CSI −0.24
  * (balanced)". Null when there is nothing to say.
  */
 export function waterLine(parts: {
@@ -277,8 +298,9 @@ export function waterLine(parts: {
   if (parts.temp) items.push(`Water ${parts.temp}`);
   if (parts.cc !== null) items.push(`CC ${parts.cc.toFixed(1)}`);
   if (parts.csi) {
-    const v = Math.round(parts.csi.value * 10) / 10;
-    items.push(`CSI ${v === 0 ? "0.0" : signed(v, 1)} (${parts.csi.verdict})`);
+    // Two decimals, as on the advice card, so the number and the verdict agree (−0.62 corrosive, −0.58 balanced).
+    const v = Math.round(parts.csi.value * 100) / 100;
+    items.push(`CSI ${v === 0 ? "0.00" : signed(v, 2)} (${parts.csi.verdict})`);
   }
   return items.length ? items.join(" · ") : null;
 }

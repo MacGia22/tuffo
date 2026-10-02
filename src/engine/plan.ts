@@ -64,6 +64,11 @@ export interface PlanInput {
   pool: PlanPool;
   water: PlanWater;
   days: PlanForecastDay[];
+  /**
+   * Share of the first day still ahead, 0–1 (default 1). `water.fc` is FC now, so only
+   * that share of the first day's use (and of a salt cell's output) is still to come.
+   */
+  firstDayShare?: number;
 }
 
 export interface Dilution {
@@ -140,6 +145,15 @@ export function rainDilution(rainMm: number, pool: Pick<PlanPool, "volumeL" | "s
   return rainL / (pool.volumeL + rainL);
 }
 
+/**
+ * The free chlorine the plan keeps at or above at the end of each day: a margin over the
+ * minimum (or one under the target's bottom, whichever is higher), plus a little more
+ * while the pool runs on typical-pool numbers.
+ */
+export function planFloor(fc: FcRange, pairs: number): number {
+  return Math.max(fc.min + PLAN_MARGIN_PPM, fc.targetLow - 1) + (pairs >= PLAN_OWN_MODEL_PAIRS ? 0 : PLAN_TYPICAL_EXTRA_PPM);
+}
+
 export function planWeek(input: PlanInput): Plan | null {
   const { pool, water } = input;
   if (input.days.length === 0 || !Number.isFinite(water.fc)) return null;
@@ -148,7 +162,7 @@ export function planWeek(input: PlanInput): Plan | null {
   const targets = targetsFor({ swg: pool.swg, surface: pool.surface, cya });
   const fc = targets.fc;
   const confidence = input.pairs >= PLAN_OWN_MODEL_PAIRS ? "own" : "typical";
-  const floor = Math.max(fc.min + PLAN_MARGIN_PPM, fc.targetLow - 1) + (confidence === "typical" ? PLAN_TYPICAL_EXTRA_PPM : 0);
+  const floor = planFloor(fc, input.pairs);
 
   // Predicted loss per day; a day without weather takes the average of the others.
   const state = { cya, covered: pool.covered, heavyUse: 0 };
@@ -159,7 +173,11 @@ export function planWeek(input: PlanInput): Plan | null {
   const knownLosses = known.filter((v): v is number => v !== null);
   if (knownLosses.length === 0) return null;
   const average = knownLosses.reduce((a, b) => a + b, 0) / knownLosses.length;
-  const losses = known.map((v) => v ?? average);
+  // Whole days' use (for the daily need), and what is still to come from now on.
+  const dailyLosses = known.map((v) => v ?? average);
+  const share = Math.min(1, Math.max(0, input.firstDayShare ?? 1));
+  const dayShare = (i: number) => (i === 0 ? share : 1);
+  const losses = dailyLosses.map((v, i) => v * dayShare(i));
 
   // Rain dilution, cumulative.
   let cyaLevel = water.cya;
@@ -217,22 +235,27 @@ export function planWeek(input: PlanInput): Plan | null {
     });
   } else {
     const days = losses.length;
-    const mean = losses.reduce((a, b) => a + b, 0) / days;
+    const mean = dailyLosses.reduce((a, b) => a + b, 0) / days;
     // The cell makes up the daily use, plus whatever FC is short of the band spread over the week.
     swgNeedPpm = round(mean + Math.max(0, fc.targetLow - water.fc) / days, 2);
     const cell = pool.cellPpmPerDay;
     if (cell && cell > 0) {
       const ends = (percent: number) => {
         let level = water.fc;
-        return losses.map((loss) => (level = Math.max(0, level + (cell * percent) / 100 - loss)));
+        return losses.map((loss, i) => (level = Math.max(0, level + (cell * percent * dayShare(i)) / 100 - loss)));
       };
+      // A first day with only hours left need not reach the floor by midnight: it has to make
+      // that share of the way up from below it (all of it on a whole day).
+      const dayFloor = (i: number) =>
+        i === 0 && share < 1 && water.fc < floor ? water.fc + share * (floor - water.fc) : floor;
+      const holds = (path: number[]) => path.every((v, i) => v >= dayFloor(i));
       // The settings the cell's control offers (plus off), or any 5% step.
       const candidates = pool.cellLevels?.length
         ? [0, ...pool.cellLevels.filter((l) => l > 0 && l <= 100)].sort((a, b) => a - b)
         : Array.from({ length: 100 / SWG_STEP_PERCENT + 1 }, (_, i) => i * SWG_STEP_PERCENT);
       let chosen: number | null = null;
       for (const p of candidates) {
-        if (ends(p).every((v) => v >= floor)) {
+        if (holds(ends(p))) {
           chosen = p;
           break;
         }
@@ -249,14 +272,14 @@ export function planWeek(input: PlanInput): Plan | null {
       const over = (ends: number[]) => ends.reduce((sum, v) => sum + Math.max(0, v - fc.targetHigh), 0);
       const schedule = (start: number, k: number) => {
         let level = water.fc;
-        return losses.map((loss, i) => (level = Math.max(0, level + (cell * (i < k ? start : chosen)) / 100 - loss)));
+        return losses.map((loss, i) => (level = Math.max(0, level + (cell * (i < k ? start : chosen) * dayShare(i)) / 100 - loss)));
       };
       let best = { excess: over(ends(chosen)), start: chosen, k: 0 };
       if (!capped && water.fc > fc.targetHigh) {
         for (const start of candidates.filter((p) => p < chosen)) {
           for (let k = 1; k < days; k += 1) {
             const path = schedule(start, k);
-            if (!path.every((v) => v >= floor)) break;
+            if (!holds(path)) break;
             const excess = over(path);
             if (excess < best.excess - 1e-9 || (Math.abs(excess - best.excess) < 1e-9 && start > best.start && best.k > 0)) {
               best = { excess, start, k };
@@ -266,7 +289,9 @@ export function planWeek(input: PlanInput): Plan | null {
       }
       const startDays = best.k;
       if (startDays > 0) swgStart = { percent: best.start, until: input.days[startDays].date };
-      for (let i = 0; i < days; i += 1) adds.push(round((cell * (i < startDays ? best.start : chosen)) / 100, 2));
+      // Not rounded: the setting was chosen on the exact output (a rounded one can end a day
+      // a hundredth under the floor).
+      for (let i = 0; i < days; i += 1) adds.push((cell * (i < startDays ? best.start : chosen) * dayShare(i)) / 100);
     } else {
       // Unknown cell: show the week's use only.
       for (let i = 0; i < days; i += 1) adds.push(0);

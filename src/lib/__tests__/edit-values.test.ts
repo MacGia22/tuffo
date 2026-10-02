@@ -28,6 +28,12 @@ describe("readingEditValues", () => {
     expect(v.taken_at).toBe("2026-09-27T08:30");
   });
 
+  it("shows whole °F when that saves back unchanged", () => {
+    // 83 °F is stored as 28.3 °C; 82.9 °F would save as 28.3 °C too, but reads oddly.
+    expect(readingEditValues({ ...reading, water_temp_c: "28.3" }, "us", tz).water_temp).toBe("83");
+    expect(readingEditValues({ ...reading, water_temp_c: 26.7 }, "us", tz).water_temp).toBe("80");
+  });
+
   it("keeps °C for metric", () => {
     expect(readingEditValues(reading, "metric", "UTC")).toMatchObject({ water_temp: "28.5", taken_at: "2026-09-27T12:30" });
   });

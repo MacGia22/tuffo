@@ -7,8 +7,9 @@ import type { ActivityItem } from "@/components/activity-list";
 import { planAddLabel } from "@/lib/plan/add-label";
 import { canSeePlan } from "@/lib/entitlements";
 import { refreshPlanAfterResponse } from "@/lib/plan/build";
-import { cellPercentOn, parseStoredPlan, planHasFcLine, planIsStale, type StoredPlan } from "@/lib/plan/stored";
-import { adviseFor } from "@/lib/advice";
+import { cellPercentOn, parseStoredPlan, planHasFcLine, planIsStale, planMissesDose, type StoredPlan } from "@/lib/plan/stored";
+import { adviseFor, type AdviceMeasure } from "@/lib/advice";
+import { OLD_AFTER_DAYS } from "@/lib/tiles";
 import { catalogProduct } from "@/lib/catalog";
 import { baseToShelf, formatShelf, type BaseUnit } from "@/lib/dose-format";
 import { describeEvent } from "@/lib/events";
@@ -65,6 +66,7 @@ export interface Dose {
   amount: number;
   unit: BaseUnit;
   notes: string | null;
+  created_at?: string;
 }
 
 export interface PoolEvent {
@@ -132,11 +134,12 @@ export async function loadPoolView(id: string, range: TrendRange, options: { tre
           .select("id, taken_at, fc, cc, ph, ta, ch, cya, salt, water_temp_c, borate, method")
           .eq("pool_id", id)
           .order("taken_at", { ascending: false })
-          .limit(lookbackDays > 60 ? 1000 : 100)
+          // Enough for a monitor or several tests a day to still reach the last stabilizer test.
+          .limit(1000)
           .returns<Reading[]>(),
         supabase
           .from("doses")
-          .select("id, added_at, product_id, amount, unit, notes")
+          .select("id, added_at, product_id, amount, unit, notes, created_at")
           .eq("pool_id", id)
           .gte("added_at", since)
           .order("added_at", { ascending: false })
@@ -181,6 +184,7 @@ export async function loadPoolView(id: string, range: TrendRange, options: { tre
   // The 7-day plan, written by the server. A missing or old one is rebuilt after the
   // response, so the next visit has it; the page never waits for it.
   let plan: StoredPlan | null = null;
+  let planMissesChlorine = false;
   if (await canSeePlan()) {
     const { data: planRow } = await supabase
       .from("plans")
@@ -189,7 +193,12 @@ export async function loadPoolView(id: string, range: TrendRange, options: { tre
       .maybeSingle<{ computed_at: string; version: number; summary: unknown; days: unknown }>();
     plan = parseStoredPlan(planRow ?? null);
     const latestFcAt = allReadings.find((r) => r.fc !== null)?.taken_at ?? null;
-    if (pool.cell_id && latestFcAt && planIsStale(plan, latestFcAt, now)) refreshPlanAfterResponse(pool.id);
+    planMissesChlorine = planMissesDose(
+      plan,
+      (doses ?? []).map((d) => ({ addedAt: d.added_at, createdAt: d.created_at, chlorine: catalogProduct(d.product_id)?.group === "Chlorine" })),
+      latestFcAt,
+    );
+    if (pool.cell_id && latestFcAt && (planIsStale(plan, latestFcAt, now, today) || planMissesChlorine)) refreshPlanAfterResponse(pool.id);
   }
 
   const ownModel = Math.max(use?.pairs ?? 0, plan?.summary.pairs ?? 0) >= PLAN_OWN_MODEL_PAIRS;
@@ -248,19 +257,32 @@ export async function loadPoolView(id: string, range: TrendRange, options: { tre
     timeZone: tz,
     units,
     swg: pool.sanitizer === "swg",
+    // From the first test up to the second: something logged at a test's own moment came after it.
     fcAddedPpm: (t0, t1) =>
-      allDoses.filter((d) => Date.parse(d.added_at) > t0 && Date.parse(d.added_at) <= t1).reduce((sum, d) => sum + fcAddedBy(d, liters), 0),
+      allDoses.filter((d) => Date.parse(d.added_at) >= t0 && Date.parse(d.added_at) < t1).reduce((sum, d) => sum + fcAddedBy(d, liters), 0),
     notes: (t0, t1) =>
       allEvents
-        .filter((e) => Date.parse(e.occurred_at) > t0 && Date.parse(e.occurred_at) <= t1)
+        .filter((e) => Date.parse(e.occurred_at) >= t0 && Date.parse(e.occurred_at) < t1)
         .filter((e) => e.kind === "refill" || e.kind === "drain_refill" || e.kind === "heavy_use")
         .reverse()
         .map((e) => `${describeEvent(e.kind, e.value === null ? null : Number(e.value), units)}, ${formatDateTime(e.occurred_at, tz)}`),
   });
 
-  const dosesSinceTest = latest
+  // Advice reads each measure from its newest test (combined chlorine with free chlorine),
+  // as the Water now tiles do, and counts what was added since that test.
+  const newestWith = (key: AdviceMeasure | "borate" | "water_temp_c") =>
+    allReadings.find((r) => r[key] !== null && r[key] !== undefined) ?? null;
+  const adviceKeys: AdviceMeasure[] = ["fc", "ph", "ta", "ch", "cya", "salt"];
+  const valueTests = Object.fromEntries(adviceKeys.map((k) => [k, newestWith(k)])) as Record<AdviceMeasure, Reading | null>;
+  // A water temperature older than two weeks says little about today's.
+  const tempTest = newestWith("water_temp_c");
+  const recentTemp = tempTest && now - Date.parse(tempTest.taken_at) <= 14 * DAY_MS ? Number(tempTest.water_temp_c) : null;
+  const firstTestAt = latest
+    ? Math.min(...adviceKeys.map((k) => (valueTests[k] ? Date.parse(valueTests[k].taken_at) : Infinity)), Date.parse(latest.taken_at))
+    : 0;
+  const dosesForAdvice = latest
     ? allDoses
-        .filter((d) => Date.parse(d.added_at) > Date.parse(latest.taken_at))
+        .filter((d) => Date.parse(d.added_at) >= firstTestAt)
         .reverse()
         .map((d) => {
           const shelf = baseToShelf(Number(d.amount), d.unit, units);
@@ -269,25 +291,28 @@ export async function loadPoolView(id: string, range: TrendRange, options: { tre
             amount: Number(d.amount),
             amountText: shelf.value > 0 ? formatShelf(shelf.value, shelf.unit) : "a little",
             dateText: formatDay(d.added_at, tz),
+            addedAt: d.added_at,
           };
         })
     : [];
+  const valueOf = (k: AdviceMeasure | "cc" | "borate", test: Reading | null) =>
+    test && test[k] !== null && test[k] !== undefined ? Number(test[k]) : null;
 
   const advice = latest
     ? adviseFor(
         { volumeL: liters, sanitizer: pool.sanitizer, surface: pool.surface },
         {
-          fc: latest.fc,
-          cc: latest.cc,
-          ph: latest.ph,
-          ta: latest.ta,
-          ch: latest.ch,
-          cya: latest.cya,
-          salt: latest.salt,
-          waterTempC: latest.water_temp_c,
-          borate: latest.borate,
+          fc: valueOf("fc", valueTests.fc),
+          cc: valueOf("cc", valueTests.fc),
+          ph: valueOf("ph", valueTests.ph),
+          ta: valueOf("ta", valueTests.ta),
+          ch: valueOf("ch", valueTests.ch),
+          cya: valueOf("cya", valueTests.cya),
+          salt: valueOf("salt", valueTests.salt),
+          waterTempC: recentTemp,
+          borate: valueOf("borate", newestWith("borate")),
         },
-        dosesSinceTest,
+        dosesForAdvice,
         // Salt pools: the plan's cell setting, or a prompt for the cell's rating.
         pool.sanitizer === "swg"
           ? pool.swg_cell_lb_per_day === null
@@ -298,6 +323,17 @@ export async function loadPoolView(id: string, range: TrendRange, options: { tre
                 ? { percent: cellPercentOn(plan.summary, today), needPpm: plan.summary.swgNeedPpm }
                 : undefined
           : undefined,
+        {
+          testedAt: latest.taken_at,
+          valueTestedAt: Object.fromEntries(
+            adviceKeys.filter((k) => valueTests[k] && valueTests[k].id !== latest.id).map((k) => [k, valueTests[k]!.taken_at]),
+          ),
+          // Past the retest age the tiles use (7 days for FC and pH, 30 for the rest): the value
+          // still sets targets and doses, with no card of its own.
+          stale: Object.fromEntries(
+            adviceKeys.map((k) => [k, Boolean(valueTests[k]) && now - Date.parse(valueTests[k]!.taken_at) > OLD_AFTER_DAYS[k] * DAY_MS]),
+          ),
+        },
       )
     : null;
 
@@ -347,6 +383,7 @@ export async function loadPoolView(id: string, range: TrendRange, options: { tre
             plan && planHasFcLine(plan.summary)
               ? {
                   continuous: plan.summary.kind === "swg",
+                  fcStart: plan.summary.fcStart,
                   days: plan.days.map((d) => {
                     const add = planAddLabel(d, units);
                     const w = forecastDays.find((f) => f.date === d.date);
@@ -430,6 +467,7 @@ export async function loadPoolView(id: string, range: TrendRange, options: { tre
     trend,
     activity,
     plan,
+    planMissesChlorine,
     today,
     saltStatus,
     estimateMiss,

@@ -21,9 +21,15 @@ function rainText(mm: number, units: Units): string {
  * "8 days of strong sun and two wet days. Free chlorine still went from 3.0 to 8.0, so
  * the cell made more than the sun burned."
  */
+/** Wet days, never more than the days between the tests (both end dates' weather is counted in full). */
+function wetDaysOf(s: BetweenSummary): number {
+  return Math.min(s.wetDays, s.days);
+}
+
 export function betweenStory(s: BetweenSummary, fc: { from: number | null; to: number | null }, swg: boolean): string {
   const sun = s.avgUvMax === null ? "" : ` of ${sunVerdict(s.avgUvMax)}`;
-  const wet = s.daysWithWeather === 0 ? "" : s.wetDays > 0 ? ` and ${count(s.wetDays, "wet day")}` : ", all dry";
+  const wetDays = wetDaysOf(s);
+  const wet = s.daysWithWeather === 0 ? "" : wetDays > 0 ? ` and ${count(wetDays, "wet day")}` : ", all dry";
   const weather = `${count(s.days, "day")}${sun}${wet}.`.replace(/^./, (c) => c.toUpperCase());
   if (fc.from === null || fc.to === null) return weather;
   const from = fc.from.toFixed(1);
@@ -34,15 +40,22 @@ export function betweenStory(s: BetweenSummary, fc: { from: number | null; to: n
   let chlorine: string;
   if (Math.abs(fc.to - fc.from) < 0.25 && !added) {
     chlorine = swg ? `Free chlorine held at about ${to}, so the cell kept up.` : `Free chlorine held at about ${to}.`;
+  } else if (swg) {
+    // What the cell made minus what the sun and heat burned: the change, less what was poured in.
+    const net = fc.to - fc.from - s.fcAddedPpm;
+    const went = `Free chlorine ${strong && fc.to > fc.from && !added ? "still " : ""}went from ${from} to ${to}${added ? ` with the ${added} ppm you added` : ""}`;
+    const perDay = loss !== null && loss >= 0.05 ? loss.toFixed(1) : null;
+    chlorine =
+      Math.abs(net) / s.days < 0.05
+        ? `${went}, so the cell kept up.`
+        : net > 0
+          ? `${went}, so the cell made more than the sun burned.`
+          : `${went}${perDay ? `, so the sun burned about ${perDay} ppm a day more than the cell made` : ""}.`;
   } else if (fc.to > fc.from) {
-    chlorine = swg
-      ? `Free chlorine ${strong ? "still " : ""}went from ${from} to ${to}, so the cell made more than the sun burned.`
-      : `Free chlorine went from ${from} to ${to}${added ? ` with the ${added} ppm you added` : ""}.`;
+    chlorine = `Free chlorine went from ${from} to ${to}${added ? ` with the ${added} ppm you added` : ""}.`;
   } else {
     const perDay = loss !== null && loss >= 0.05 ? loss.toFixed(1) : null;
-    chlorine = swg
-      ? `Free chlorine went from ${from} to ${to}${perDay ? `, so the sun burned about ${perDay} ppm a day more than the cell made` : ""}.`
-      : `Free chlorine went from ${from} to ${to}${perDay ? `: about ${perDay} ppm a day` : ""}${added ? `, counting the ${added} ppm you added` : ""}.`;
+    chlorine = `Free chlorine went from ${from} to ${to}${perDay ? `: about ${perDay} ppm a day` : ""}${added ? `, counting the ${added} ppm you added` : ""}.`;
   }
   return `${weather} ${chlorine}`;
 }
@@ -59,8 +72,8 @@ export function betweenStats(s: BetweenSummary, units: Units): BetweenStat[] {
   if (s.avgUvMax !== null) {
     stats.push({ label: "Peak UV", value: s.avgUvMax.toFixed(1), qualifier: `average · ${UV_LEVEL_LABEL[uvLevel(s.avgUvMax)]}` });
   }
-  if (s.sunshineHours !== null && s.daysWithWeather > 0) {
-    stats.push({ label: "Sunshine", value: `${Math.round(s.sunshineHours / s.daysWithWeather)} h`, qualifier: "a day" });
+  if (s.sunshineHours !== null && s.sunshineDays > 0) {
+    stats.push({ label: "Sunshine", value: `${Math.round(s.sunshineHours / s.sunshineDays)} h`, qualifier: "a day" });
   }
   if (s.avgTmaxC !== null) {
     const t = units === "us" ? `${Math.round((s.avgTmaxC * 9) / 5 + 32)} °F` : `${Math.round(s.avgTmaxC)} °C`;
@@ -70,7 +83,7 @@ export function betweenStats(s: BetweenSummary, units: Units): BetweenStat[] {
     stats.push({
       label: "Rain",
       value: rainText(s.rainMm, units),
-      qualifier: s.wetDays > 0 ? `over ${s.wetDays} ${s.wetDays === 1 ? "day" : "days"}` : "no wet days",
+      qualifier: wetDaysOf(s) > 0 ? `over ${wetDaysOf(s)} ${wetDaysOf(s) === 1 ? "day" : "days"}` : "no wet days",
     });
   }
   return stats;

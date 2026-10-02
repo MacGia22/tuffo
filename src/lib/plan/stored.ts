@@ -54,16 +54,37 @@ export function parseStoredPlan(row: { computed_at: string; version: number; sum
   return { computedAt: row.computed_at, version: row.version, summary, days: row.days as StoredPlanDay[] };
 }
 
-export function planIsStale(plan: StoredPlan | null, latestTestAt: string | null, now = Date.now()): boolean {
+export function planIsStale(plan: StoredPlan | null, latestTestAt: string | null, now = Date.now(), today?: string): boolean {
   if (!plan) return true;
+  // Built the evening before in the pool's time zone: its first day is already over.
+  if (today && plan.days.length > 0 && plan.days[0].date < today) return true;
   const computed = Date.parse(plan.computedAt);
   if (now - computed > PLAN_STALE_HOURS * 3_600_000) return true;
   return latestTestAt !== null && Date.parse(latestTestAt) > computed;
 }
 
 /**
+ * A chlorine dose logged after the plan was built, since the test it starts from: the plan
+ * does not count it yet (it is rebuilt after the save), so today's addition must not be
+ * offered again in the meantime.
+ */
+export function planMissesDose(
+  plan: Pick<StoredPlan, "computedAt"> | null,
+  doses: { addedAt: string; createdAt?: string | null; chlorine: boolean }[],
+  latestFcAt: string | null,
+): boolean {
+  if (!plan || !latestFcAt) return false;
+  const built = Date.parse(plan.computedAt);
+  const tested = Date.parse(latestFcAt);
+  return doses.some((d) => d.chlorine && Boolean(d.createdAt) && Date.parse(d.createdAt!) > built && Date.parse(d.addedAt) >= tested);
+}
+
+/** Days of predicted use the carry-forward takes off at most (the estimate's horizon). */
+export const CARRY_FORWARD_DAYS = 10;
+
+/**
  * Free chlorine now, from the last test: what it read, plus chlorine logged since, minus
- * the predicted daily use for the time gone by (at most a week). A salt pool's cell has
+ * the predicted daily use for the time gone by (at most CARRY_FORWARD_DAYS). A salt pool's cell has
  * been making chlorine all along at an unknown setting, so its level is carried as is.
  */
 export function estimateStartFc(input: {
@@ -75,7 +96,9 @@ export function estimateStartFc(input: {
 }): number {
   const added = input.fc + Math.max(0, input.addedPpm);
   if (input.swg) return Math.round(added * 100) / 100;
-  const elapsed = Math.min(7, Math.max(0, input.daysSince));
+  // The same horizon as the estimate (MAX_ESTIMATE_DAYS), so the start doesn't jump back up
+  // the day the estimate stops.
+  const elapsed = Math.min(CARRY_FORWARD_DAYS, Math.max(0, input.daysSince));
   return Math.round(Math.max(0, added - input.dailyLossPpm * elapsed) * 100) / 100;
 }
 
@@ -101,4 +124,11 @@ export function confidenceText(summary: Pick<StoredPlanSummary, "confidence" | "
     return `Based on typical pools until you have ${ownPairs} test pairs (you have ${have}), so it keeps a wider margin.`;
   }
   return `From your pool's own chlorine use (${summary.pairs} test pairs) and the forecast.`;
+}
+
+/** Share of the pool's local day still ahead at `now` (1 at midnight, about 0.04 at 11 PM). */
+export function dayShareLeft(now: number, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(now));
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0);
+  return Math.min(1, Math.max(0, 1 - (get("hour") * 60 + get("minute")) / 1440));
 }
