@@ -138,7 +138,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/app/admin"
     .returns<Entry[]>();
 
   const input =
-    "h-11 flex-1 rounded-xl border border-border bg-background px-3 text-base outline-none focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
+    "h-11 flex-1 rounded-xl border border-border-input bg-background px-3 text-base outline-none focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
 
   return (
     <>
@@ -166,7 +166,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/app/admin"
         <form method="get" action="/app/admin#feedback" className="flex flex-wrap items-end gap-2">
           <label className="flex flex-col gap-1 text-xs text-muted">
             Kind
-            <select name="kind" defaultValue={kindFilter ?? ""} className="h-10 rounded-xl border border-border bg-background px-2 text-sm">
+            <select name="kind" defaultValue={kindFilter ?? ""} className="h-11 rounded-xl border border-border-input bg-background px-2 text-base">
               <option value="">All</option>
               {FEEDBACK_KINDS.map((k) => (
                 <option key={k} value={k}>
@@ -177,7 +177,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/app/admin"
           </label>
           <label className="flex flex-col gap-1 text-xs text-muted">
             Status
-            <select name="fstatus" defaultValue={statusFilter ?? ""} className="h-10 rounded-xl border border-border bg-background px-2 text-sm">
+            <select name="fstatus" defaultValue={statusFilter ?? ""} className="h-11 rounded-xl border border-border-input bg-background px-2 text-base">
               <option value="">All</option>
               {FEEDBACK_STATUSES.map((st) => (
                 <option key={st} value={st}>
@@ -220,7 +220,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/app/admin"
                   <label htmlFor={`status-${f.id}`} className="sr-only">
                     Status
                   </label>
-                  <select id={`status-${f.id}`} name="status" defaultValue={f.status} className="h-10 rounded-xl border border-border bg-background px-2 text-sm">
+                  <select id={`status-${f.id}`} name="status" defaultValue={f.status} className="h-11 rounded-xl border border-border-input bg-background px-2 text-base">
                     {FEEDBACK_STATUSES.map((st) => (
                       <option key={st} value={st}>
                         {STATUS_LABELS[st]}
@@ -356,7 +356,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/app/admin"
           <input id="invite-email" name="email" type="email" required placeholder="name@example.com" className={input} />
           <button
             type="submit"
-            className="h-11 rounded-xl bg-lagoon px-4 text-sm font-semibold text-white hover:bg-lagoon-deep"
+            className="h-11 rounded-xl bg-action px-4 text-sm font-semibold text-white hover:bg-action-deep"
           >
             Send invitation
           </button>

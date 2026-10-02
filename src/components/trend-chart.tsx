@@ -274,7 +274,7 @@ export function TrendChart({
           const i = Math.floor((e.clientX - rect.left - LEFT) / col);
           if (i >= 0 && i < n) setSelected(i);
         }}
-        className="relative w-full cursor-pointer touch-pan-y select-none rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-lagoon/40"
+        className="relative w-full cursor-pointer touch-pan-y select-none rounded-xl"
         style={{ height }}
       >
         {width ? (
@@ -286,7 +286,7 @@ export function TrendChart({
             {data.forecastFrom !== null ? (
               <g>
                 <rect x={xAt(nowX)} y={top.fc} width={Math.max(0, LEFT + plot - xAt(nowX))} height={FC_H} className="fill-chart-grid" fillOpacity={0.45} />
-                <text x={LEFT + plot} y={top.fc - 10} textAnchor="end" className="fill-muted text-[11px]">
+                <text x={LEFT + plot} y={top.fc - 10} textAnchor="end" className="fill-muted text-xs">
                   Forecast →
                 </text>
               </g>
@@ -314,7 +314,7 @@ export function TrendChart({
             {fcTicks.map((t) => (
               <g key={`fct-${t}`}>
                 <line x1={LEFT} x2={LEFT + plot} y1={yFc(t)} y2={yFc(t)} className={t === 0 ? "stroke-chart-axis" : "stroke-chart-grid"} shapeRendering="crispEdges" />
-                <text x={LEFT - 6} y={yFc(t) + 3.5} textAnchor="end" className="fill-muted text-[11px] tabular-nums">
+                <text x={LEFT - 6} y={yFc(t) + 3.5} textAnchor="end" className="fill-muted text-xs tabular-nums">
                   {t}
                 </text>
               </g>
@@ -328,7 +328,7 @@ export function TrendChart({
               className="fill-chart-chem"
               fillOpacity={0.12}
             />
-            <text x={LEFT + plot - 4} y={yFc(data.fcBand.high) + 12} textAnchor="end" className="fill-muted text-[11px]">
+            <text x={LEFT + plot - 4} y={yFc(data.fcBand.high) + 12} textAnchor="end" className="fill-muted text-xs">
               Target {data.fcBand.low}–{data.fcBand.high}
             </text>
             {data.fcMin !== null ? (
@@ -343,7 +343,7 @@ export function TrendChart({
                   strokeDasharray="4 3"
                   shapeRendering="crispEdges"
                 />
-                <text x={LEFT + plot - 4} y={yFc(data.fcMin) + 13} textAnchor="end" className={`text-[11px] ${nearMin ? "fill-status-critical font-semibold" : "fill-muted"}`}>
+                <text x={LEFT + plot - 4} y={yFc(data.fcMin) + 13} textAnchor="end" className={`text-xs ${nearMin ? "fill-status-critical font-semibold" : "fill-muted"}`}>
                   Never below {data.fcMin}
                 </text>
               </g>
@@ -355,7 +355,7 @@ export function TrendChart({
             {/* The plan: one solid line */}
             {planLine ? <path d={planLine} fill="none" className="stroke-chart-chem" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" /> : null}
             {peakLabel ? (
-              <text x={xAt(peakLabel.x)} y={yFc(peakLabel.fc) - 8} textAnchor="middle" className="fill-foreground text-[11px] font-semibold">
+              <text x={xAt(peakLabel.x)} y={yFc(peakLabel.fc) - 8} textAnchor="middle" className="fill-foreground text-xs font-semibold">
                 ≈ {f1(peakLabel.fc)}
               </text>
             ) : null}
@@ -368,7 +368,7 @@ export function TrendChart({
               <g key={`fc-${p.x}`}>
                 <circle cx={xAt(p.x)} cy={yFc(p.fc as number)} r={4.5} className="fill-chart-chem stroke-surface" strokeWidth={2} />
                 {roomy(fcPoints, k) ? (
-                  <text x={xAt(p.x)} y={yFc(p.fc as number) - 9} textAnchor="middle" className="fill-foreground text-[11px] font-semibold tabular-nums">
+                  <text x={xAt(p.x)} y={yFc(p.fc as number) - 9} textAnchor="middle" className="fill-foreground text-xs font-semibold tabular-nums">
                     {f1(p.fc as number)}
                   </text>
                 ) : null}
@@ -385,7 +385,7 @@ export function TrendChart({
             {phTicks.map((t) => (
               <g key={`pht-${t}`}>
                 <line x1={LEFT} x2={LEFT + plot} y1={yPh(t)} y2={yPh(t)} className={t === phLo ? "stroke-chart-axis" : "stroke-chart-grid"} shapeRendering="crispEdges" />
-                <text x={LEFT - 6} y={yPh(t) + 3.5} textAnchor="end" className="fill-muted text-[11px] tabular-nums">
+                <text x={LEFT - 6} y={yPh(t) + 3.5} textAnchor="end" className="fill-muted text-xs tabular-nums">
                   {t.toFixed(1)}
                 </text>
               </g>
@@ -405,7 +405,7 @@ export function TrendChart({
               <g key={`ph-${p.x}`}>
                 <circle cx={xAt(p.x)} cy={yPh(p.ph as number)} r={4} className="fill-chart-chem stroke-surface" strokeWidth={2} />
                 {roomy(phPoints, k) ? (
-                  <text x={xAt(p.x)} y={yPh(p.ph as number) - 8} textAnchor="middle" className="fill-foreground text-[11px] font-semibold tabular-nums">
+                  <text x={xAt(p.x)} y={yPh(p.ph as number) - 8} textAnchor="middle" className="fill-foreground text-xs font-semibold tabular-nums">
                     {fPh(p.ph as number)}
                   </text>
                 ) : null}
@@ -424,7 +424,7 @@ export function TrendChart({
                     <g key={`uv-${d.date}`}>
                       <rect x={xAt(i) + 1} y={top.uv} width={Math.max(1, col - 2)} height={UV_H} rx={Math.min(6, col / 3)} fill={c.fill} fillOpacity={faded ? 0.75 : 1} />
                       {col >= NARROW ? (
-                        <text x={center(i)} y={top.uv + UV_H / 2 + 4} textAnchor="middle" fill={c.text} className="text-[11px] font-semibold tabular-nums">
+                        <text x={center(i)} y={top.uv + UV_H / 2 + 4} textAnchor="middle" fill={c.text} className="text-xs font-semibold tabular-nums">
                           {Math.round(d.uv)}
                         </text>
                       ) : null}
@@ -458,7 +458,7 @@ export function TrendChart({
                         strokeWidth={ahead ? 1 : 0}
                       />
                       {labelled.has(i) && col >= 10 ? (
-                        <text x={center(i)} y={rainBase - h - 3} textAnchor="middle" className="fill-foreground text-[10px] font-semibold tabular-nums">
+                        <text x={center(i)} y={rainBase - h - 3} textAnchor="middle" className="fill-foreground text-xs font-semibold tabular-nums">
                           {us ? value.toFixed(value >= 1 ? 1 : 2) : value.toFixed(value < 1 ? 1 : 0)}
                         </text>
                       ) : null}
@@ -471,7 +471,7 @@ export function TrendChart({
             {/* Today */}
             {/* Through the chlorine and pH panels only; the column tint marks today below. */}
             <line x1={xAt(nowX)} x2={xAt(nowX)} y1={top.fc} y2={top.ph + PH_H} className="stroke-foreground" strokeOpacity={0.55} strokeWidth={1} />
-            <text x={xAt(nowX)} y={top.fc - 10} textAnchor="middle" className="fill-foreground text-[11px] font-semibold">
+            <text x={xAt(nowX)} y={top.fc - 10} textAnchor="middle" className="fill-foreground text-xs font-semibold">
               Today
             </text>
 
@@ -484,18 +484,18 @@ export function TrendChart({
                 <g key={`ax-${d.date}`} className={isToday ? "font-bold" : ""}>
                   {show ? (
                     <>
-                      <text x={center(i)} y={top.axis + 12} textAnchor="middle" className={`text-[11px] tabular-nums ${isToday ? "fill-foreground" : "fill-muted"}`}>
+                      <text x={center(i)} y={top.axis + 12} textAnchor="middle" className={`text-xs tabular-nums ${isToday ? "fill-foreground" : "fill-muted"}`}>
                         {dayNum(d)}
                       </text>
                       {every === 1 ? (
-                        <text x={center(i)} y={top.axis + 25} textAnchor="middle" className={`text-[10px] ${isToday ? "fill-foreground" : "fill-muted"}`}>
+                        <text x={center(i)} y={top.axis + 25} textAnchor="middle" className={`text-xs ${isToday ? "fill-foreground" : "fill-muted"}`}>
                           {d.weekday[0]}
                         </text>
                       ) : null}
                     </>
                   ) : null}
                   {monthStart ? (
-                    <text x={xAt(i) + 1} y={top.axis + 40} className="fill-foreground text-[11px] font-semibold">
+                    <text x={xAt(i) + 1} y={top.axis + 40} className="fill-foreground text-xs font-semibold">
                       {d.label.split(" ")[0]}
                     </text>
                   ) : null}

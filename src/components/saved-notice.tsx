@@ -79,13 +79,13 @@ export function SavedNotice() {
             type="button"
             onClick={undo}
             disabled={pending}
-            className="font-semibold text-ice underline-offset-2 hover:underline disabled:opacity-60"
+            className="inline-flex min-h-11 items-center px-1 font-semibold text-ice underline-offset-2 hover:underline disabled:opacity-60"
           >
             {pending ? "Undoing…" : "Undo"}
           </button>
         </>
       ) : null}
-      <button type="button" onClick={close} aria-label="Close" className="ml-1 px-1 text-white/70 hover:text-white">
+      <button type="button" onClick={close} aria-label="Close" className="ml-1 inline-flex h-11 w-11 items-center justify-center text-white/70 hover:text-white">
         ✕
       </button>
     </div>

@@ -8,7 +8,7 @@ import { ScanButton, type ScanAllowance, type ScanResponse } from "@/components/
 import { cellHoursPerDay, LOW_GPM, LOW_RPM, MAX_RUNS, type PumpSegment, type SpeedUnit } from "@/lib/pump";
 
 const initial: PumpState = {};
-const field = "h-10 rounded-xl border border-border bg-surface px-2 text-sm";
+const field = "h-11 rounded-xl border border-border-input bg-surface px-2 text-base text-foreground outline-none focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
 
 interface Row {
   key: number;
@@ -179,7 +179,7 @@ export function PumpForm({
         <button
           type="submit"
           disabled={pending}
-          className="h-12 self-start rounded-xl bg-lagoon px-6 text-base font-semibold text-white hover:bg-lagoon-deep disabled:opacity-60"
+          className="h-12 self-start rounded-xl bg-action px-6 text-base font-semibold text-white hover:bg-action-deep disabled:opacity-60"
         >
           {pending ? "Saving…" : "Save schedule"}
         </button>

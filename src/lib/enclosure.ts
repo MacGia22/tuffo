@@ -26,17 +26,17 @@ export function suggestedSunPct(kind: EnclosureKind): number {
 
 export type EnclosureInput =
   | { ok: true; enclosure: EnclosureKind | null; sunPct: number | null }
-  | { ok: false; error: string };
+  | { ok: false; error: string; field: string };
 
 /** The settings form's values: no enclosure, or a kind with a sun share of 5–100%. */
 export function readEnclosure(kindRaw: string, pctRaw: string): EnclosureInput {
   if (!kindRaw || kindRaw === "none") return { ok: true, enclosure: null, sunPct: null };
-  if (!isEnclosureKind(kindRaw)) return { ok: false, error: "Pick the kind of enclosure." };
+  if (!isEnclosureKind(kindRaw)) return { ok: false, error: "Pick the kind of enclosure.", field: "enclosure" };
   const text = pctRaw.trim();
   if (text === "") return { ok: true, enclosure: kindRaw, sunPct: suggestedSunPct(kindRaw) };
   const pct = Number(text.replace(/%$/, ""));
   if (!Number.isFinite(pct) || pct < 5 || pct > 100) {
-    return { ok: false, error: "Sun through the screen must be between 5% and 100%." };
+    return { ok: false, error: "Sun through the screen must be between 5% and 100%.", field: "sun_pct" };
   }
   return { ok: true, enclosure: kindRaw, sunPct: Math.round(pct) };
 }

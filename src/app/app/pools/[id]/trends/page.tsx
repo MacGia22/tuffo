@@ -42,7 +42,7 @@ export default async function TrendsPage({ params, searchParams }: PageProps<"/a
                   scroll={false}
                   aria-current={r.value === range ? "page" : undefined}
                   className={`flex min-h-11 items-center rounded-lg px-3 ${
-                    r.value === range ? "bg-lagoon text-white" : "text-muted hover:text-foreground"
+                    r.value === range ? "bg-action text-white" : "text-muted hover:text-foreground"
                   }`}
                 >
                   {r.label}

@@ -95,7 +95,7 @@ export function InstallBanner() {
           <button
             type="button"
             onClick={install}
-            className="rounded-xl bg-lagoon px-4 py-2 text-sm font-semibold text-white hover:bg-lagoon-deep"
+            className="rounded-xl bg-action px-4 py-2 text-sm font-semibold text-white hover:bg-action-deep"
           >
             Install
           </button>

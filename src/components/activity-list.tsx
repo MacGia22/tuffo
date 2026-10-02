@@ -23,7 +23,7 @@ export function ActivityList({ poolId, items }: { poolId: string; items: Activit
             <Link
               href={`/app/pools/${poolId}/${item.kind === "dose" ? "doses" : "events"}/${item.id}/edit?${back}`}
               aria-label={`${item.text}, ${item.when}. Edit or remove`}
-              className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-lagoon/5 focus-visible:bg-lagoon/5 focus-visible:outline-none"
+              className="flex min-h-11 items-center justify-between gap-3 px-4 py-3 hover:bg-lagoon/5 focus-visible:bg-lagoon/5 focus-visible:-outline-offset-2"
             >
               <span className="min-w-0">
                 <span className="block text-sm font-semibold">{item.text}</span>

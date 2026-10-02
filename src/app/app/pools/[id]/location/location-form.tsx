@@ -48,7 +48,7 @@ export function LocationForm({
         <button
           type="submit"
           disabled={pending}
-          className="h-12 self-start rounded-xl bg-lagoon px-6 text-base font-semibold text-white hover:bg-lagoon-deep disabled:opacity-60"
+          className="h-12 self-start rounded-xl bg-action px-6 text-base font-semibold text-white hover:bg-action-deep disabled:opacity-60"
         >
           {pending ? "Saving…" : "Save location"}
         </button>

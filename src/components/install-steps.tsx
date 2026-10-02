@@ -93,7 +93,7 @@ export function InstallSteps({ platform }: { platform: Exclude<InstallPlatform, 
     <ol className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-5">
       {STEPS[platform].map((step, index) => (
         <li key={index} className="flex items-center gap-2 text-sm">
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-lagoon text-[11px] font-semibold text-white">
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-action text-xs font-semibold text-white">
             {index + 1}
           </span>
           {step.icon}

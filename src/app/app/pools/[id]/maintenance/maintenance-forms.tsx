@@ -1,5 +1,6 @@
 "use client";
 
+import { FieldError } from "@/components/field-error";
 import { useActionState, useState, useTransition } from "react";
 import { ResetButton } from "@/components/form-cancel";
 import { INTERVAL_UNITS, splitInterval } from "@/lib/maintenance";
@@ -14,18 +15,21 @@ import {
 } from "./actions";
 
 const initial: MaintenanceState = {};
-const field = "h-10 rounded-xl border border-border bg-background px-3 text-sm";
+const field = "h-11 rounded-xl border border-border-input bg-surface px-3 text-base text-foreground outline-none focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
 const label = "flex flex-col gap-1 text-xs text-muted";
 const primary =
-  "h-10 rounded-xl bg-lagoon px-4 text-sm font-semibold text-white hover:bg-lagoon-deep disabled:opacity-60";
+  "h-11 rounded-xl bg-action px-4 text-sm font-semibold text-white hover:bg-action-deep disabled:opacity-60";
 
 function Status({
   state,
   saved = "Saved.",
   poolId,
   undo,
+  fields = [],
 }: {
   state: MaintenanceState;
+  /** Fields this form shows errors next to. */
+  fields?: string[];
   saved?: string;
   poolId?: string;
   /** Removes the row just added. */
@@ -35,6 +39,7 @@ function Status({
   const [undone, setUndone] = useState<string | null>(null);
   // A new save has a new id, so it shows its own Undo again.
   if (state.error) {
+    if (state.field && fields.includes(state.field)) return null;
     return (
       <p role="alert" className="text-sm text-red-600">
         {state.error}
@@ -102,7 +107,7 @@ export function DoneForm({
       {withDate && otherDay ? (
         <label className={label}>
           Done on
-          <input type="date" name="done_on" required className={`${field} w-44`} />
+          <input type="date" name="done_on" required className={`${field} w-44`} aria-invalid={state.field === "done_on" || undefined} />
         </label>
       ) : null}
       <button
@@ -131,7 +136,8 @@ export function DoneForm({
           Cancel
         </button>
       ) : null}
-      <Status state={state} saved="Logged." poolId={poolId} undo={deleteMaintenance} />
+      <FieldError state={state} name="done_on" />
+      <Status state={state} saved="Logged." poolId={poolId} undo={deleteMaintenance} fields={["done_on"]} />
     </form>
   );
 }
@@ -146,7 +152,7 @@ export function PressureForm({ poolId, units }: { poolId: string; units: Units }
       <div className="flex flex-wrap items-end gap-3">
         <label className={label}>
           Gauge ({pressureUnitLabel(units)})
-          <input name="pressure" required inputMode="decimal" className={`${field} w-28`} />
+          <input name="pressure" required inputMode="decimal" className={`${field} w-28`} aria-invalid={state.field === "pressure" || undefined} aria-describedby={state.field === "pressure" ? "pressure-error" : undefined} />
         </label>
         {otherDay ? (
           <label className={label}>
@@ -184,7 +190,7 @@ export function PressureForm({ poolId, units }: { poolId: string; units: Units }
         />
       </div>
       <details className="text-xs text-muted">
-        <summary className="cursor-pointer list-none">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1">
           Read it with the pump at its usual speed.{" "}
           <span aria-hidden="true" className="text-lagoon">
             ⓘ
@@ -196,7 +202,9 @@ export function PressureForm({ poolId, units }: { poolId: string; units: Units }
           or backwash: Tuffo counts the rise from that clean pressure.
         </p>
       </details>
-      <Status state={state} poolId={poolId} undo={deletePressure} />
+      <FieldError state={state} name="pressure" />
+      <FieldError state={state} name="read_on" />
+      <Status state={state} poolId={poolId} undo={deletePressure} fields={["pressure", "read_on"]} />
     </form>
   );
 }
@@ -260,7 +268,8 @@ export function IntervalForm({
             Back to the default
           </button>
         ) : null}
-        <Status state={state} />
+        <FieldError state={state} name="count" />
+        <Status state={state} fields={["count"]} />
       </form>
     </details>
   );

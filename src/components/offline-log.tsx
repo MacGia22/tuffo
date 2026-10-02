@@ -59,7 +59,7 @@ export function QueuedNotice({ poolId, what }: { poolId: string; what: string })
         shows what is waiting.
       </p>
       <div className="flex flex-wrap gap-2">
-        <Link href={`/app/pools/${poolId}`} className="rounded-xl bg-lagoon px-4 py-2.5 text-sm font-semibold text-white hover:bg-lagoon-deep">
+        <Link href={`/app/pools/${poolId}`} className="rounded-xl bg-action px-4 py-2.5 text-sm font-semibold text-white hover:bg-action-deep">
           Back to the pool
         </Link>
         <button

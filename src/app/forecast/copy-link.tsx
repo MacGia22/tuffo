@@ -26,7 +26,7 @@ export function CopyLink({ href }: { href: string }) {
         {state === "copied" ? "Link copied." : state === "failed" ? "Copy did not work; the link is below." : ""}
       </span>
       {state === "failed" ? (
-        <input readOnly value={url} onFocus={(e) => e.currentTarget.select()} aria-label="Link to this forecast" className="h-11 w-full rounded-xl border border-border bg-surface px-3 text-sm" />
+        <input readOnly value={url} onFocus={(e) => e.currentTarget.select()} aria-label="Link to this forecast" className="h-11 w-full rounded-xl border border-border-input bg-surface px-3 text-sm" />
       ) : null}
     </div>
   );

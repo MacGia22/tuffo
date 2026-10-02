@@ -10,6 +10,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { cellFor } from "@/lib/weather/cells";
 import { refreshCellIfStale } from "@/lib/weather/job";
 import { searchPlaces, type Place } from "@/lib/weather/geocode";
+import { failed } from "@/lib/errors";
 
 export interface PlaceSearchResult {
   places: Place[];
@@ -87,7 +88,7 @@ export async function createPool(_prev: CreatePoolState, formData: FormData): Pr
   const { error: cellError } = await admin
     .from("weather_cells")
     .upsert({ id: cell.id, lat: cell.lat, lon: cell.lon, timezone, active: true }, { onConflict: "id" });
-  if (cellError) return fail(`Could not register the weather location (${cellError.message}).`);
+  if (cellError) return fail(failed("new pool cell", cellError.message));
 
   const supabase = await createSupabaseServerClient();
   const { data: pool, error } = await supabase

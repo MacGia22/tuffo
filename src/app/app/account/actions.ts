@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth/user";
 import { isUuid } from "@/lib/form-data";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { failed } from "@/lib/errors";
 
 export interface AccountState {
   message?: string;
@@ -17,7 +18,7 @@ export async function updateUnits(_prev: AccountState, formData: FormData): Prom
   const units = String(formData.get("units")) === "metric" ? "metric" : "us";
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from("profiles").update({ units }).eq("id", user.id);
-  if (error) return { error: `Could not save (${error.message}).` };
+  if (error) return { error: failed("account", error.message) };
   revalidatePath("/app", "layout");
   return { message: units === "us" ? "Showing gallons and °F." : "Showing liters and °C." };
 }
@@ -35,7 +36,7 @@ export async function deleteAccount(_prev: AccountState, formData: FormData): Pr
   }
   const admin = createSupabaseAdminClient();
   const { error } = await admin.auth.admin.deleteUser(user.id);
-  if (error) return { error: `Could not delete the account (${error.message}). Write to privacy@tuffo.app.` };
+  if (error) return { error: failed("account delete", error.message, "Couldn't delete the account. Try again in a minute, or write to privacy@tuffo.app.") };
   if (user.email) {
     const { error: waitlistError } = await admin.from("waitlist").delete().eq("email", user.email.toLowerCase());
     if (waitlistError) console.error(`[account] waitlist cleanup: ${waitlistError.message}`);
@@ -73,7 +74,7 @@ export async function saveAlertSettings(_prev: AlertState, formData: FormData): 
     },
     { onConflict: "pool_id" },
   );
-  if (error) return { error: /alert_settings/.test(error.message) ? "Alerts are not available yet. Try again in a few minutes." : `Could not save (${error.message}).` };
+  if (error) return { error: /alert_settings/.test(error.message) ? "Alerts are not available yet. Try again in a few minutes." : failed("account", error.message) };
   revalidatePath("/app/account");
   const any = on("algae") || on("test_reminder") || on("weekly") || on("maintenance");
   return { message: any ? "Saved. Emails come from hello@tuffo.app, at most one a day." : "Saved. No alert emails for this pool." };

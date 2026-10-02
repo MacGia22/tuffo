@@ -9,6 +9,7 @@ import { loadPoolMaintenance, poolLocalDate } from "@/lib/maintenance-data";
 import { parseStoredPlan } from "@/lib/plan/stored";
 import { cardFacts, type CardFacts } from "@/lib/pool-card";
 import { LEVEL_LABEL } from "@/lib/tiles";
+import { failed, LOAD_FAILED } from "@/lib/errors";
 
 interface PoolRow {
   id: string;
@@ -122,17 +123,19 @@ export default async function PoolsPage() {
         </div>
         <Link
           href="/app/pools/new"
-          className="rounded-xl bg-lagoon px-4 py-2.5 text-sm font-semibold text-white hover:bg-lagoon-deep"
+          className="rounded-xl bg-action px-4 py-2.5 text-sm font-semibold text-white hover:bg-action-deep"
         >
           Add a pool
         </Link>
       </div>
 
       {error ? (
-        <p role="alert" className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
-          Could not load your pools ({error.message}). If this keeps happening, the database schema may not be applied
-          yet.
-        </p>
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <p>{failed("pools list", error.message, LOAD_FAILED)}</p>
+          <a href="/app" className="inline-flex min-h-11 items-center rounded-xl border border-red-300 bg-white px-4 font-semibold text-red-800">
+            Try again
+          </a>
+        </div>
       ) : null}
 
       {pools && pools.length === 0 ? (
@@ -144,7 +147,7 @@ export default async function PoolsPage() {
           </p>
           <Link
             href="/app/pools/new"
-            className="rounded-xl bg-lagoon px-4 py-2.5 text-sm font-semibold text-white hover:bg-lagoon-deep"
+            className="rounded-xl bg-action px-4 py-2.5 text-sm font-semibold text-white hover:bg-action-deep"
           >
             Add your first pool
           </Link>
@@ -167,11 +170,11 @@ export default async function PoolsPage() {
                 </span>
                 <PoolFacts facts={facts.get(pool.id)} />
               </Link>
-              <div className="flex flex-wrap gap-x-5 gap-y-1 border-t border-border px-5 py-2.5 text-sm">
-                <Link href={`/app/pools/${pool.id}`} className="font-semibold text-lagoon">
+              <div className="flex flex-wrap gap-x-5 border-t border-border px-5 py-0.5 text-sm">
+                <Link href={`/app/pools/${pool.id}`} className="inline-flex min-h-11 items-center font-semibold text-lagoon">
                   Open
                 </Link>
-                <Link href={`/app/pools/${pool.id}/settings`} className="font-semibold text-lagoon">
+                <Link href={`/app/pools/${pool.id}/settings`} className="inline-flex min-h-11 items-center font-semibold text-lagoon">
                   Settings and equipment
                 </Link>
               </div>

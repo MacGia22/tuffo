@@ -79,7 +79,7 @@ function Fields({
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           aria-describedby="feedback-count"
-          className="rounded-xl border border-border bg-background px-3 py-2 text-base outline-none focus:border-lagoon focus:ring-2 focus:ring-lagoon/30"
+          className="rounded-xl border border-border-input bg-background px-3 py-2 text-base outline-none focus:border-lagoon focus:ring-2 focus:ring-lagoon/30"
         />
         <p id="feedback-count" className={`self-end text-xs tabular-nums ${over ? "text-red-600" : "text-muted"}`}>
           {length} / {FEEDBACK_MAX_CHARS} characters
@@ -100,7 +100,7 @@ function Fields({
         <button
           type="submit"
           disabled={pending || over || message.trim() === ""}
-          className="h-11 rounded-xl bg-lagoon px-5 text-sm font-semibold text-white hover:bg-lagoon-deep disabled:opacity-60"
+          className="h-11 rounded-xl bg-action px-5 text-sm font-semibold text-white hover:bg-action-deep disabled:opacity-60"
         >
           {pending ? "Sending…" : "Send"}
         </button>
