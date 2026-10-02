@@ -95,6 +95,19 @@ select rls_test.check(
 );
 
 select rls_test.check(
+  not has_table_privilege('authenticated', 'public.ref_visits', 'select, insert, update, delete, truncate'),
+  'authenticated has no privilege on ref_visits'
+);
+
+select rls_test.check(
+  not has_function_privilege('authenticated', 'public.count_ref_visit(text)', 'execute')
+    and not has_function_privilege('anon', 'public.count_ref_visit(text)', 'execute')
+    and not has_function_privilege('authenticated', 'public.users_with_tests()', 'execute')
+    and not has_function_privilege('anon', 'public.users_with_tests()', 'execute'),
+  'users cannot count visits or list who has logged tests'
+);
+
+select rls_test.check(
   not has_table_privilege('authenticated', 'public.feedback', 'update, delete, truncate'),
   'authenticated cannot change or delete feedback'
 );
@@ -314,6 +327,8 @@ select rls_test.denied(
 select rls_test.denied('delete from public.profiles', 'A cannot delete profiles');
 select rls_test.denied('select 1 from public.waitlist', 'A cannot read the waitlist');
 select rls_test.denied('insert into public.waitlist (email) values (''x@example.com'')', 'A cannot write the waitlist');
+select rls_test.denied('select 1 from public.ref_visits', 'A cannot read link visits');
+select rls_test.denied('select public.count_ref_visit(''pools'')', 'A cannot count a link visit');
 select rls_test.denied(
   'insert into public.weather_daily (cell_id, date) values (''27.80,-82.70'', ''2026-09-03'')',
   'A cannot write weather'
@@ -589,6 +604,26 @@ select rls_test.check(
     and not exists (select 1 from public.alert_log where user_id = '00000000-0000-0000-0000-00000000000a')
     and not exists (select 1 from public.alert_settings where pool_id = '00000000-0000-0000-0000-0000000000a1'),
   'alert settings and log are deleted with the account'
+);
+
+
+-- the server counts link visits per label and day, ignores bad labels, and caps new labels at 200 a day
+set local role service_role;
+select public.count_ref_visit('pools');
+select public.count_ref_visit('pools');
+select public.count_ref_visit('Not a label!');
+reset role;
+select rls_test.check(
+  (select visits from public.ref_visits where label = 'pools' and day = (now() at time zone 'utc')::date) = 2
+    and (select count(*) from public.ref_visits) = 1,
+  'the server counts link visits per label and day'
+);
+set local role service_role;
+select public.count_ref_visit('l' || n) from generate_series(1, 250) n;
+reset role;
+select rls_test.check(
+  (select count(*) from public.ref_visits) = 200,
+  'a day keeps at most 200 link labels'
 );
 
 rollback;

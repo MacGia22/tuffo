@@ -57,7 +57,11 @@ separate from Resend's.
 A `?ref=` on a link to the home page (`tuffo.app/?ref=pools`) travels with **Start free**
 to `/login`; when that sign-in creates a new account, Supabase stores the label in the
 user's metadata (`signup_source`). Count new accounts by link in the SQL editor:
-`select raw_user_meta_data->>'signup_source' as source, count(*) from auth.users group by 1;` Supabase also needs the
+`select raw_user_meta_data->>'signup_source' as source, count(*) from auth.users group by 1;`
+The proxy also counts page loads from a labelled link (not `/app`, `/auth` or `/login`, not
+prefetches, not bots or link previews) in `ref_visits`, one row per label and UTC day,
+production only, with nothing about the visitor; a day takes at most 200 labels. Admin →
+Links shows 30-day visits next to sign-ups and accounts that have logged a test. Supabase also needs the
 site URL and redirect URLs (Authentication → URL Configuration): the production domain
 plus `https://*-mac-pool.vercel.app/**` for previews.
 

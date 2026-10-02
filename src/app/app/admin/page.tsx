@@ -6,7 +6,8 @@ import { parseAdminEmails } from "@/lib/beta";
 import { serverEnv } from "@/lib/env";
 import { formatDateTime } from "@/lib/format";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { deleteBlock, sourceCounts, userRows } from "@/lib/admin-users";
+import { deleteBlock, sourceCounts, userRows, type UserRow } from "@/lib/admin-users";
+import { refFunnel } from "@/lib/ref-visits";
 import { FeedbackStatusBadge } from "@/components/feedback-status";
 import {
   FEEDBACK_KINDS,
@@ -83,6 +84,28 @@ async function loadUsers() {
   return userRows(data.users);
 }
 
+/** Days of link visits the funnel adds up. */
+const FUNNEL_DAYS = 30;
+
+/**
+ * Visits per link label over the last FUNNEL_DAYS days (today included, UTC) next to
+ * all-time sign-ups and first tests; null when the counter is not there yet.
+ */
+async function loadFunnel(users: UserRow[] | null) {
+  const admin = createSupabaseAdminClient();
+  const since = new Date(Date.now() - (FUNNEL_DAYS - 1) * 86_400_000).toISOString().slice(0, 10);
+  const [visits, tested] = await Promise.all([
+    admin.from("ref_visits").select("label, visits").gte("day", since).limit(10_000).returns<{ label: string; visits: number }[]>(),
+    admin.rpc("users_with_tests"),
+  ]);
+  if (visits.error || tested.error) {
+    const error = visits.error ?? tested.error;
+    console.error(`[admin] link funnel: ${error?.code ?? ""} ${error?.message ?? ""}`);
+    return null;
+  }
+  return refFunnel(visits.data ?? [], users ?? [], new Set(((tested.data ?? []) as { user_id: string }[]).map((t) => t.user_id)));
+}
+
 interface Entry {
   email: string;
   source: string | null;
@@ -90,7 +113,7 @@ interface Entry {
 }
 
 /**
- * Private-beta admin: feedback, users, the waitlist, and invitations by email. Hidden (404)
+ * Private-beta admin: feedback, users, link visits, the waitlist, and invitations by email. Hidden (404)
  * from everyone not in ADMIN_EMAILS.
  */
 export default async function AdminPage({ searchParams }: PageProps<"/app/admin">) {
@@ -104,6 +127,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/app/admin"
   if (kindFilter) filters.set("kind", kindFilter);
   if (statusFilter) filters.set("fstatus", statusFilter);
   const [feedback, users] = await Promise.all([loadFeedback(kindFilter, statusFilter), loadUsers()]);
+  const funnel = await loadFunnel(users);
 
   const admin = createSupabaseAdminClient();
   const { data: entries, count, error } = await admin
@@ -126,7 +150,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/app/admin"
       </nav>
       <div>
         <h1 className="text-3xl font-semibold">Admin</h1>
-        <p className="text-muted">Feedback from the app, users, the waitlist, and invitations.</p>
+        <p className="text-muted">Feedback from the app, users, links, the waitlist, and invitations.</p>
       </div>
 
       {message ? (
@@ -281,6 +305,46 @@ export default async function AdminPage({ searchParams }: PageProps<"/app/admin"
             </p>
           </>
         )}
+      </section>
+
+      <section id="links" aria-labelledby="links-title" className="flex flex-col gap-3">
+        <h2 id="links-title" className="text-xl font-semibold">
+          Links
+        </h2>
+        {!funnel ? (
+          <p className="text-sm text-muted">Link counts are not available right now. Check the server logs.</p>
+        ) : funnel.length === 0 ? (
+          <p className="text-sm text-muted">No visits from a ?ref= link yet.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-2xl border border-border">
+            <table className="w-full min-w-[480px] text-sm">
+              <thead className="bg-surface text-left text-xs font-semibold text-muted">
+                <tr>
+                  <th className="px-4 py-3">Label</th>
+                  <th className="px-3 py-3 text-right">Visits, {FUNNEL_DAYS} days</th>
+                  <th className="px-3 py-3 text-right">Sign-ups</th>
+                  <th className="px-3 py-3 text-right">Logged a test</th>
+                </tr>
+              </thead>
+              <tbody>
+                {funnel.map((r) => (
+                  <tr key={r.label} className="border-t border-border">
+                    <td className="px-4 py-2.5">{r.label}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{r.visits}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{r.signups}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{r.firstTests}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="text-xs text-muted">
+          Visits are page loads from a link like tuffo.app/?ref=pools, counted per label and UTC day on the server; no
+          address, cookie or browser detail is kept, so a person who opens the link twice counts twice. Bots and link
+          previews are skipped. Sign-ups and tests are all time: accounts carrying the label, and how many of them have
+          logged at least one test.
+        </p>
       </section>
 
       <section className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-5">
