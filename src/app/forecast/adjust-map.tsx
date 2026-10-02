@@ -13,10 +13,15 @@ const CellMap = dynamic(() => import("@/components/cell-map").then((m) => m.Cell
 });
 
 /**
- * "Wrong area? Adjust on the map": on tap, the weather squares around this forecast's
- * square. Tapping another square opens its forecast; the link keeps only the square's
+ * Says which area the forecast is for and offers more precision: on tap, the weather
+ * squares around this forecast's square. Tapping another square opens its forecast; the link keeps only the square's
  * center, never the point tapped.
  */
+/** "St. Petersburg" from "St. Petersburg, FL, US". */
+function town(place: string): string {
+  return place.split(",")[0].trim() || place;
+}
+
 export function AdjustOnMap({ input }: { input: ForecastInput }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -33,14 +38,15 @@ export function AdjustOnMap({ input }: { input: ForecastInput }) {
 
   if (!open) {
     return (
-      <p className="text-sm">
-        Wrong area?{" "}
+      <p className="text-sm text-muted">
+        Weather for a {input.units === "us" ? "2-mile" : "3 km"} square at the center of {town(input.place)}. Pool somewhere
+        else in town?{" "}
         <button
           type="button"
           onClick={() => setOpen(true)}
           className="inline-flex min-h-11 items-center font-semibold text-lagoon underline-offset-2 hover:underline"
         >
-          Adjust on the map
+          Pick your square for a closer forecast
         </button>
       </p>
     );

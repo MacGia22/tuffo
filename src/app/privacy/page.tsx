@@ -100,8 +100,8 @@ export default function PrivacyPage() {
         Tuffo keeps nothing from it: no search, no address, nothing about you. The page&apos;s link holds the town name,
         the weather area and the pool numbers you entered, never a precise location. Each forecast shown adds one to a
         daily count, as with link visits above. To slow down automated use, the server briefly counts requests per
-        network address in memory; the address is not stored. The page shows a map only if you choose &ldquo;Adjust on
-        the map&rdquo;; the OpenStreetMap Foundation then serves the map images to your browser (see processors
+        network address in memory; the address is not stored. The page shows a map only if you choose to pick your
+        square on it; the OpenStreetMap Foundation then serves the map images to your browser (see processors
         below), and the link keeps only the weather area you pick, never the point you tap.
       </p>
       <h3>Technical logs</h3>
