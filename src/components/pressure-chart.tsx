@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { innerTicks } from "@/lib/chart-scale";
+import { innerTicks, pressureDomain } from "@/lib/chart-scale";
 import { kpaToDisplayPressure, pressureUnitLabel, type Units } from "@/lib/format";
 
+/** The container's width, null until measured: nothing is drawn at a guessed size. */
 function useWidth<T extends HTMLElement>() {
   const ref = useRef<T>(null);
-  const [width, setWidth] = useState(600);
+  const [width, setWidth] = useState<number | null>(null);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -26,7 +27,8 @@ const PAD = { left: 40, right: 16, top: 12, bottom: 26 };
 
 /**
  * Filter pressure over time on one scale, with the clean pressure and the clean-the-
- * filter line (clean + 8 psi / 0.55 bar). Each reading is focusable with its value.
+ * filter line (clean + 8 psi / 0.55 bar). The axis starts 4 psi under clean, so the
+ * rise fills the chart. Each reading is focusable with its value; the last is labelled.
  */
 export function PressureChart({
   readings,
@@ -42,25 +44,28 @@ export function PressureChart({
 }) {
   const { ref, width } = useWidth<HTMLDivElement>();
   if (readings.length === 0) return null;
-  const W = Math.max(280, width);
+  const W = Math.max(280, width ?? 0);
   const unit = pressureUnitLabel(units);
   const v = (kpa: number) => kpaToDisplayPressure(kpa, units);
   const values = readings.map((r) => v(r.kpa));
   const lines = [cleanKpa, thresholdKpa].filter((x): x is number => x !== null).map(v);
-  const top = Math.max(...values, ...lines) * 1.15;
-  const yTicks = innerTicks(0, top, 4);
-  const yMax = Math.max(top, yTicks[yTicks.length - 1] ?? top);
+  const cleanValue = cleanKpa === null ? null : v(cleanKpa);
+  const [yMin, yMax] = pressureDomain(values, cleanValue, lines, units === "us" ? 4 : 0.28);
+  const yTicks = innerTicks(yMin, yMax, 4);
   const t = (d: string) => Date.parse(`${d}T12:00:00Z`);
   const t0 = t(readings[0].readOn);
   const t1 = Math.max(t(readings[readings.length - 1].readOn), t0 + 86_400_000);
   const x = (d: string) => PAD.left + ((t(d) - t0) / (t1 - t0)) * (W - PAD.left - PAD.right);
-  const y = (val: number) => PAD.top + (1 - val / yMax) * (H - PAD.top - PAD.bottom);
+  const y = (val: number) => PAD.top + (1 - (val - yMin) / (yMax - yMin)) * (H - PAD.top - PAD.bottom);
   const fmt = (val: number) => (units === "us" ? `${Math.round(val)} ${unit}` : `${val.toFixed(2)} ${unit}`);
+  const last = readings[readings.length - 1];
+  const lastX = x(last.readOn);
   const path = readings.map((r, i) => `${i ? "L" : "M"}${x(r.readOn).toFixed(1)},${y(v(r.kpa)).toFixed(1)}`).join("");
 
   return (
     <figure className="flex flex-col gap-2">
-      <div ref={ref} className="w-full max-w-2xl">
+      <div ref={ref} className="w-full max-w-2xl" style={{ minHeight: H }}>
+      {width === null ? null : (
       <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} className="block" role="img" aria-label={`Filter pressure, ${readings.length} readings, ${unit}`}>
         {yTicks.map((tick) => (
           <g key={tick}>
@@ -104,6 +109,20 @@ export function PressureChart({
             </g>
           );
         })}
+        <text
+          x={readings.length > 1 ? lastX - 10 : lastX + 10}
+          y={y(v(last.kpa)) - 8}
+          textAnchor={readings.length > 1 ? "end" : "start"}
+          fontSize={12}
+          fontWeight={600}
+          fill="var(--foreground)"
+          stroke="var(--surface)"
+          strokeWidth={3}
+          paintOrder="stroke"
+          aria-hidden="true"
+        >
+          {fmt(v(last.kpa))}
+        </text>
         <text x={PAD.left} y={H - 6} fontSize={12} fill="var(--muted)">
           {short(readings[0].readOn)}
         </text>
@@ -113,6 +132,7 @@ export function PressureChart({
           </text>
         ) : null}
       </svg>
+      )}
       </div>
       <figcaption className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
         <span>● Reading ({unit})</span>

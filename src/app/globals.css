@@ -53,6 +53,8 @@
   --uv-extreme-fg: #ffffff;
   /* A 1px edge so Low (#fdf3dc, 1.10:1 on white) still shows as a cell. */
   --uv-border: #e8d9b0;
+  /* Amber for bars and dots: 3:1 or more against the card (status-warning is too light on white). */
+  --bar-warning: #b07400;
 }
 
 @theme inline {
@@ -97,6 +99,7 @@
   --color-uv-extreme: var(--uv-extreme);
   --color-uv-extreme-fg: var(--uv-extreme-fg);
   --color-uv-border: var(--uv-border);
+  --color-bar-warning: var(--bar-warning);
   --font-sans: var(--font-manrope);
   --font-display: var(--font-sora);
 }
@@ -122,6 +125,7 @@
     --chip-ok-fg: #a8e3a8;
     --chip-warn-bg: #3d2e07;
     --chip-warn-fg: #f6d27a;
+    --bar-warning: #fab219;
     --chip-critical-bg: #4a1919;
     --chip-critical-fg: #ffb9b9;
     --chip-critical-border: #e5605f;
