@@ -43,11 +43,12 @@ export function bandAdvice(plan: Pick<StoredPlan, "summary" | "days">, today: st
     const next = days.find((d) => d.addMl > 0);
     if (next && next.date === today) return null;
     const band = `${summary.fc.targetLow}–${targetHigh} ppm`;
+    const now = summary.fcStart.toFixed(1);
     return {
       direction: "high",
       text: next
-        ? `Free chlorine is above the ${band} target: skip chlorine until ${weekday(next.date)}.`
-        : `Free chlorine is above the ${band} target: skip chlorine this week.`,
+        ? `Free chlorine is about ${now} ppm, above the ${band} target: skip chlorine until ${weekday(next.date)}.`
+        : `Free chlorine is about ${now} ppm, above the ${band} target: skip chlorine this week.`,
     };
   }
 
@@ -71,17 +72,30 @@ export function bandAdvice(plan: Pick<StoredPlan, "summary" | "days">, today: st
   }
   const high = days.find((d) => d.fcEnd > targetHigh);
   if (!high) return null;
+  // Already above the band now: say so, not "climbs above it by Saturday".
+  // (fcStart is the level when the plan was built: only today's if the plan starts today.)
+  const above = summary.fcStart > targetHigh && plan.days.length > 0 && plan.days[0].date >= today;
+  const nowText = `Free chlorine is about ${summary.fcStart.toFixed(1)} ppm, above the ${summary.fc.targetLow}–${targetHigh} ppm target`;
   if (percent === 0) {
     // The plan already has the cell off: free chlorine is above the band and falling.
     return {
       direction: "high",
-      text: `Free chlorine is above the ${targetHigh} ppm target with the cell off: keep it off, and test before you turn it back on.`,
+      text: `${above ? nowText : `Free chlorine is above the ${targetHigh} ppm target`} with the cell off: keep it off, and test before you turn it back on.`,
     };
   }
   const steps = levels && levels.length ? [0, ...levels] : Array.from({ length: 21 }, (_, i) => i * 5);
   // The next setting down (on a 5% dial, 10 points down, to be worth a change).
   const lower = [...steps].reverse().find((l) => (levels ? l < percent : l <= percent - 10));
   const when = label(high.date);
+  if (above) {
+    return {
+      direction: "high",
+      text:
+        lower === undefined || lower === 0
+          ? `${nowText}: switch the cell off for a day, then test.`
+          : `${nowText}: lower the cell to ${lower}% today, then test in a day or two.`,
+    };
+  }
   if (lower === undefined || lower === 0) {
     return {
       direction: "high",

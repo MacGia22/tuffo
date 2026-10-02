@@ -4,7 +4,9 @@ import { UvChip } from "@/components/uv-chip";
 import type { TestStatus, TodayAction, WeekCard } from "@/lib/today";
 
 const primary =
-  "inline-flex min-h-11 items-center justify-center rounded-xl bg-lagoon px-4 text-sm font-semibold text-white hover:bg-lagoon-deep";
+  "inline-flex min-h-11 items-center justify-center rounded-xl bg-action px-4 text-sm font-semibold text-white hover:bg-action-deep";
+const secondary =
+  "inline-flex min-h-11 items-center justify-center rounded-xl border border-lagoon px-4 text-sm font-semibold text-lagoon hover:bg-lagoon/10";
 
 /** "Tested 5 days ago" with when and how, and the button to log the next test; a warning after a week. */
 export function TestStatusCard({ status, logHref }: { status: TestStatus; logHref: string }) {
@@ -20,7 +22,8 @@ export function TestStatusCard({ status, logHref }: { status: TestStatus; logHre
         <p className="font-display text-lg font-semibold">{status.title}</p>
         <p className={`text-sm ${status.due ? "" : "text-muted"}`}>{status.detail}</p>
       </div>
-      <Link href={logHref} className={primary}>
+      {/* Filled only when it is time to test: the first action below is the page's one filled button. */}
+      <Link href={logHref} className={status.due ? primary : secondary}>
         Log a test
       </Link>
     </section>

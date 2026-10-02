@@ -279,8 +279,6 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
         </div>
       </div>
 
-      <SetupChecklist poolId={pool.id} steps={setup} />
-
       {latest ? (
         <TestStatusCard status={testStatus(latest.taken_at, methodLabel(latest.method), now, tz)} logHref={`${base}/readings/new?${here}`} />
       ) : (
@@ -292,17 +290,17 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
           </p>
           <Link
             href={`${base}/readings/new`}
-            className="inline-flex min-h-11 items-center rounded-xl bg-lagoon px-4 text-sm font-semibold text-white hover:bg-lagoon-deep"
+            className="inline-flex min-h-11 items-center rounded-xl bg-action px-4 text-sm font-semibold text-white hover:bg-action-deep"
           >
             Log the first test
           </Link>
-          <Link href={`${base}/import`} className="text-sm font-semibold text-lagoon">
+          <Link href={`${base}/import`} className="inline-flex min-h-11 items-center text-sm font-semibold text-lagoon">
             Or import your history from Pool Math (CSV)
           </Link>
         </section>
       )}
 
-      {latest ? <WaterNow tiles={tiles} line={line} /> : null}
+      <SetupChecklist poolId={pool.id} steps={setup} />
 
       {latest ? <WhatToDoNow actions={actions} assumptions={advice?.assumptions ?? []} taskForms={taskForms} /> : null}
 
@@ -334,48 +332,54 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
         </NextSevenDays>
       ) : null}
 
+      {latest ? <WaterNow tiles={tiles} line={line} /> : null}
+
       {latest || pool.cell_id ? <TrendsLink href={`${base}/trends`} /> : null}
 
-      {saltStatus ? (
-        <section id="salt-cell" aria-label="Salt cell" className="flex flex-col gap-1 rounded-2xl border border-border bg-surface p-4 text-sm">
-          <p>
-            Cell setting: <strong>{saltStatus.setting === null ? "not logged yet" : `${saltStatus.setting}%`}</strong>
-            {saltStatus.settingSince ? ` since ${saltStatus.settingSince}` : ""} ·{" "}
-            <Link href={`${base}/events/new?kind=cell_setting&${here}`} className="font-semibold text-lagoon">
-              Log a change
-            </Link>
-          </p>
-          <p>
-            Pump:{" "}
-            {saltStatus.cellHours === null ? (
-              <strong>schedule not set</strong>
-            ) : (
-              <>
-                the cell runs <strong>{saltStatus.cellHours} h</strong> a day
-              </>
-            )}{" "}
-            ·{" "}
-            <Link href={`${base}/pump`} className="font-semibold text-lagoon">
-              {saltStatus.cellHours === null ? "Add the schedule" : "Change"}
-            </Link>
-          </p>
-          {saltStatus.setting === null || saltStatus.cellHours === null ? (
-            <p className="text-xs text-muted">
-              Until both are known, Tuffo leaves this pool&apos;s tests out of its chlorine model rather than guess what the
-              cell made.
-            </p>
-          ) : null}
-        </section>
-      ) : null}
-
       {swg ? (
-        <SaltCellForm
-          poolId={pool.id}
-          current={{
-            model: pool.swg_cell_model ?? null,
-            lbPerDay: pool.swg_cell_lb_per_day === null ? null : Number(pool.swg_cell_lb_per_day),
-          }}
-        />
+        <section id="salt-cell" aria-labelledby="salt-cell-title" className="flex flex-col gap-2 rounded-2xl border border-border bg-surface p-4 text-sm">
+          <h2 id="salt-cell-title" className="text-lg font-semibold">
+            Salt cell
+          </h2>
+          {saltStatus ? (
+            <>
+              <p>
+                Setting: <strong>{saltStatus.setting === null ? "not logged yet" : `${saltStatus.setting}%`}</strong>
+                {saltStatus.settingSince ? ` since ${saltStatus.settingSince}` : ""} ·{" "}
+                <Link href={`${base}/events/new?kind=cell_setting&${here}`} className="inline-flex min-h-11 items-center font-semibold text-lagoon">
+                  Log a change
+                </Link>
+              </p>
+              <p>
+                Pump:{" "}
+                {saltStatus.cellHours === null ? (
+                  <strong>schedule not set</strong>
+                ) : (
+                  <>
+                    the cell runs <strong>{saltStatus.cellHours} h</strong> a day
+                  </>
+                )}{" "}
+                ·{" "}
+                <Link href={`${base}/pump`} className="inline-flex min-h-11 items-center font-semibold text-lagoon">
+                  {saltStatus.cellHours === null ? "Add the schedule" : "Change"}
+                </Link>
+              </p>
+              {saltStatus.setting === null || saltStatus.cellHours === null ? (
+                <p className="text-xs text-muted">
+                  Until both are known, Tuffo leaves this pool&apos;s tests out of its chlorine model rather than guess what
+                  the cell made.
+                </p>
+              ) : null}
+            </>
+          ) : null}
+          <SaltCellForm
+            poolId={pool.id}
+            current={{
+              model: pool.swg_cell_model ?? null,
+              lbPerDay: pool.swg_cell_lb_per_day === null ? null : Number(pool.swg_cell_lb_per_day),
+            }}
+          />
+        </section>
       ) : null}
 
       <HealthRow items={health} href={`${base}/maintenance#life`} />

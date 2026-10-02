@@ -2,17 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarIcon, DropIcon, GearIcon, PlusIcon, WrenchIcon } from "@/components/icons";
+import { DropIcon, GearIcon, PlusIcon, TrendIcon, WrenchIcon } from "@/components/icons";
 import { MenuButton, useCurrentPath } from "@/components/log-menu";
 import { logLinks } from "@/lib/log-links";
 
 const tab =
-  "flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-[11px] font-semibold";
+  "flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0.5 text-xs font-semibold";
 const item = `${tab} text-muted hover:text-foreground`;
 const current = `${tab} text-lagoon`;
 
 /**
- * A pool's sections on phones (below 768 px): Today, Plan, Log (+ menu), Maintenance,
+ * A pool's sections on phones (below 768 px): Today, Trends, Log (+ menu), Maintenance,
  * Settings. Wider screens use the links on the page instead.
  */
 export function PoolBottomBar({ poolId }: { poolId: string }) {
@@ -32,9 +32,13 @@ export function PoolBottomBar({ poolId }: { poolId: string }) {
           <DropIcon />
           Today
         </Link>
-        <Link href={`${pool}#plan`} className={item}>
-          <CalendarIcon />
-          Plan
+        <Link
+          href={`${pool}/trends`}
+          aria-current={on(`${pool}/trends`) ? "page" : undefined}
+          className={on(`${pool}/trends`) ? current : item}
+        >
+          <TrendIcon />
+          Trends
         </Link>
         <div className="flex flex-1 items-stretch justify-center">
           <MenuButton
