@@ -5,6 +5,7 @@ import { CancelLink } from "@/components/form-cancel";
 import { useActionState, useState } from "react";
 import { PlacePicker } from "@/components/place-picker";
 import type { Units } from "@/lib/format";
+import type { PoolPrefill } from "@/lib/forecast/prefill";
 import { createPool, findPlaces, type CreatePoolState } from "./actions";
 
 const initial: CreatePoolState = {};
@@ -13,14 +14,23 @@ const input =
   "h-11 w-full rounded-xl border border-border bg-surface px-3 text-base text-foreground outline-none placeholder:text-muted/70 focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
 const label = "text-sm font-semibold";
 
-export function PoolForm({ defaultUnits }: { defaultUnits: Units }) {
+export function PoolForm({ defaultUnits, prefill = null }: { defaultUnits: Units; prefill?: PoolPrefill | null }) {
   const [state, action, pending] = useActionState(createPool, initial);
-  const f = state.fields ?? {};
+  const f = state.fields ?? prefill?.fields ?? {};
 
   const [units, setUnits] = useState<Units>((f.units as Units) || defaultUnits);
 
   return (
     <form action={action} className="flex max-w-xl flex-col gap-6">
+      {prefill ? (
+        <p className="rounded-xl border border-lagoon/40 bg-lagoon/5 px-4 py-3 text-sm">
+          Filled in from your forecast for {prefill.fields.place_label ?? prefill.fields.query}. Check it and give the pool a
+          name.
+          {prefill.cya !== null
+            ? ` Your forecast used stabilizer ${prefill.cya} ppm: log it with your first test so the plan uses your own number.`
+            : ""}
+        </p>
+      ) : null}
       <input type="hidden" name="units" value={units} />
       <div className="flex flex-col gap-2">
         <label htmlFor="name" className={label}>

@@ -28,9 +28,13 @@ export function refToCount(req: VisitRequest): string | null {
   if (req.header("rsc") !== null || req.header("next-router-prefetch") !== null) return null;
   const purpose = `${req.header("purpose") ?? ""} ${req.header("sec-purpose") ?? ""}`;
   if (/prefetch|prerender/i.test(purpose)) return null;
-  const agent = req.header("user-agent");
-  if (!agent || BOT.test(agent)) return null;
+  if (isBotAgent(req.header("user-agent"))) return null;
   return label;
+}
+
+/** Link previews, crawlers, uptime checks and requests without a user agent. */
+export function isBotAgent(agent: string | null): boolean {
+  return !agent || BOT.test(agent);
 }
 
 export interface FunnelRow {
