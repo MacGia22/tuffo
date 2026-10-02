@@ -77,6 +77,9 @@ What `rls.sql` proves, with two users A and B who own one pool each:
   message in 24 hours is refused; feedback goes when the account is deleted;
 - users cannot write `scans`, read or write `pool_models` or the `waitlist`, or write
   weather;
+- users cannot read `ref_visits` or call `count_ref_visit` / `users_with_tests`; the
+  server counts visits per label and day, ignores malformed labels and keeps at most 200
+  labels a day;
 - B's rows are unchanged afterwards.
 
 A new table needs its own lines in `rls.sql` for the per-user checks. The first
