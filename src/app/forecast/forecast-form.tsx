@@ -50,9 +50,11 @@ export function ForecastForm({
     const u = pickedUnits ?? (volume.trim() ? shownUnits : defaultUnits(place.label));
     const volumeL = toLiters(volume, u) ?? defaultVolumeL(u);
     const cyaValue = cya.trim() === "" ? 40 : Number(cya);
+    // The home page is static: it reads the ?ref= of the link that brought the visitor here.
+    const ref = refLabel ?? new URLSearchParams(window.location.search).get("ref");
     const href = forecastHref(
       { place: place.label, lat: place.lat, lon: place.lon, volumeL, cya: cyaValue, sanitizer, units: u },
-      { ref: refLabel },
+      { ref },
     );
     startTransition(() => router.push(href));
   }

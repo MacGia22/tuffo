@@ -142,7 +142,8 @@ The public launch (end of milestone 3) happens when all of these hold:
   from the population prior and the cell's forecast, shareable by link (weather cell only),
   then "Track my pool, free" to sign-in and a prefilled new-pool form. Nothing about the
   visitor is stored; anonymous lookups never write weather tables.
-- Next: the town box on the home page; city pages (G2).
+- The home page opens with the town box; the incoming `?ref=` is carried to sign-up.
+- Next: city pages (G2).
 
 ### 3.5 Launch checklist
 - Everything under "Public-launch gates" above, plus a pricing section on the landing

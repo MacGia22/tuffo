@@ -550,7 +550,9 @@ point is redirected to its cell. Bad volume or CYA fall back to the defaults (15
 
 ## Landing page
 
-`/` has a product screenshot (the week's plan and the trends card, light and dark, as
+`/` opens with a town or ZIP box ("See your pool's week, no sign-up", the same form as
+`/forecast`): picking a town goes to its forecast, carrying the `?ref=` of the incoming
+link on to sign-up. "Start free" stays as the secondary button. Below, a product screenshot (the week's plan and the trends card, light and dark, as
 `public/screens/*.webp`, taken from the app with demo data and marked as such), a short
 FAQ (free, Pool Math import, what data is kept) and the About section. Retake the
 screenshots when the plan or chart look changes noticeably.
