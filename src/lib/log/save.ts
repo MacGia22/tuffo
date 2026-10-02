@@ -6,6 +6,7 @@ import { CM_PER_INCH, eventKindInfo } from "@/lib/events";
 import type { Units } from "@/lib/format";
 import { isUuid, optionalNumber, text, whenFromForm } from "@/lib/form-data";
 import { recomputeAfterResponse } from "@/lib/model/recompute";
+import { refreshPlanAfterResponse } from "@/lib/plan/build";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
@@ -84,8 +85,10 @@ async function store(kind: LogKind, poolId: string, entry: { id: string; clientI
   }
   const newId = inserted?.[0]?.id;
   // A new test forms a pair with the one before it, and a cell setting changes what the
-  // cell made; other doses and events count once a later test exists.
+  // cell made: refit, then replan. Other doses and events count for the model once a later
+  // test exists, but the plan starts from what was added since the test: replan.
   if (kind === "reading" || row.kind === "cell_setting") recomputeAfterResponse(poolId);
+  else refreshPlanAfterResponse(poolId);
   return { ok: true, poolId, id: newId };
 }
 

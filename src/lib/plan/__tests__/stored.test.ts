@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { confidenceText, dayShareLeft, estimateStartFc, parseStoredPlan, planHasFcLine, planIsStale, type StoredPlan } from "../stored";
+import {
+  confidenceText,
+  dayShareLeft,
+  estimateStartFc,
+  parseStoredPlan,
+  planHasFcLine,
+  planIsStale,
+  planMissesDose,
+  type StoredPlan,
+} from "../stored";
 
 describe("estimateStartFc", () => {
   it("takes off the predicted use since the test and adds what was logged", () => {
@@ -75,5 +84,24 @@ describe("plans built late in the pool's day", () => {
     const now = Date.parse("2026-10-02T15:00:00Z");
     expect(planIsStale(plan, "2026-09-30T16:00:00Z", now, "2026-10-02")).toBe(true);
     expect(planIsStale(plan, "2026-09-30T16:00:00Z", now, "2026-10-01")).toBe(false);
+  });
+});
+
+describe("planMissesDose", () => {
+  const plan = { computedAt: "2026-10-01T06:00:00Z" };
+  const test = "2026-10-01T14:00:00Z";
+  const dose = (createdAt: string, addedAt = createdAt, chlorine = true) => ({ addedAt, createdAt, chlorine });
+
+  it("sees chlorine logged after the plan was built, since its test", () => {
+    // "I added 1 qt" at 7 PM: the plan from 6 AM still says to add it.
+    expect(planMissesDose(plan, [dose("2026-10-01T23:00:00Z")], test)).toBe(true);
+  });
+
+  it("ignores doses the plan already had, other products, and doses from before the test", () => {
+    expect(planMissesDose(plan, [dose("2026-10-01T05:00:00Z")], test)).toBe(false);
+    expect(planMissesDose(plan, [dose("2026-10-01T23:00:00Z", undefined, false)], test)).toBe(false);
+    // Logged tonight for yesterday, before the test the plan starts from.
+    expect(planMissesDose(plan, [dose("2026-10-01T23:00:00Z", "2026-09-30T20:00:00Z")], test)).toBe(false);
+    expect(planMissesDose(null, [dose("2026-10-01T23:00:00Z")], test)).toBe(false);
   });
 });

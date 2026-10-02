@@ -7,7 +7,7 @@ import type { ActivityItem } from "@/components/activity-list";
 import { planAddLabel } from "@/lib/plan/add-label";
 import { canSeePlan } from "@/lib/entitlements";
 import { refreshPlanAfterResponse } from "@/lib/plan/build";
-import { cellPercentOn, parseStoredPlan, planHasFcLine, planIsStale, type StoredPlan } from "@/lib/plan/stored";
+import { cellPercentOn, parseStoredPlan, planHasFcLine, planIsStale, planMissesDose, type StoredPlan } from "@/lib/plan/stored";
 import { adviseFor, type AdviceMeasure } from "@/lib/advice";
 import { OLD_AFTER_DAYS } from "@/lib/tiles";
 import { catalogProduct } from "@/lib/catalog";
@@ -66,6 +66,7 @@ export interface Dose {
   amount: number;
   unit: BaseUnit;
   notes: string | null;
+  created_at?: string;
 }
 
 export interface PoolEvent {
@@ -138,7 +139,7 @@ export async function loadPoolView(id: string, range: TrendRange, options: { tre
           .returns<Reading[]>(),
         supabase
           .from("doses")
-          .select("id, added_at, product_id, amount, unit, notes")
+          .select("id, added_at, product_id, amount, unit, notes, created_at")
           .eq("pool_id", id)
           .gte("added_at", since)
           .order("added_at", { ascending: false })
@@ -183,6 +184,7 @@ export async function loadPoolView(id: string, range: TrendRange, options: { tre
   // The 7-day plan, written by the server. A missing or old one is rebuilt after the
   // response, so the next visit has it; the page never waits for it.
   let plan: StoredPlan | null = null;
+  let planMissesChlorine = false;
   if (await canSeePlan()) {
     const { data: planRow } = await supabase
       .from("plans")
@@ -191,7 +193,12 @@ export async function loadPoolView(id: string, range: TrendRange, options: { tre
       .maybeSingle<{ computed_at: string; version: number; summary: unknown; days: unknown }>();
     plan = parseStoredPlan(planRow ?? null);
     const latestFcAt = allReadings.find((r) => r.fc !== null)?.taken_at ?? null;
-    if (pool.cell_id && latestFcAt && planIsStale(plan, latestFcAt, now, today)) refreshPlanAfterResponse(pool.id);
+    planMissesChlorine = planMissesDose(
+      plan,
+      (doses ?? []).map((d) => ({ addedAt: d.added_at, createdAt: d.created_at, chlorine: catalogProduct(d.product_id)?.group === "Chlorine" })),
+      latestFcAt,
+    );
+    if (pool.cell_id && latestFcAt && (planIsStale(plan, latestFcAt, now, today) || planMissesChlorine)) refreshPlanAfterResponse(pool.id);
   }
 
   const ownModel = Math.max(use?.pairs ?? 0, plan?.summary.pairs ?? 0) >= PLAN_OWN_MODEL_PAIRS;
@@ -460,6 +467,7 @@ export async function loadPoolView(id: string, range: TrendRange, options: { tre
     trend,
     activity,
     plan,
+    planMissesChlorine,
     today,
     saltStatus,
     estimateMiss,

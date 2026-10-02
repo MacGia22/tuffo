@@ -59,7 +59,7 @@ const SLOW: { key: TileKey; short: string }[] = [
 export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">) {
   const { id } = await params;
   if (!isUuid(id)) notFound();
-  const { pool, units, tz, liters, allReadings, allDoses, forecastDays, latest, advice, use, activity, plan, today, saltStatus, now } =
+  const { pool, units, tz, liters, allReadings, allDoses, forecastDays, latest, advice, use, activity, plan, planMissesChlorine, today, saltStatus, now } =
     await loadPoolView(id, "2w", { trend: false });
   const swg = pool.sanitizer === "swg";
   const base = `/app/pools/${pool.id}`;
@@ -174,7 +174,8 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
   const levels = swg ? cellLevels(pool.swg_cell_model) : null;
   const planToday = plan?.days.find((d) => d.date === today) ?? null;
   const cellNow = plan && swg ? cellPercentOn(plan.summary, today) : null;
-  const addToday = planToday && !swg ? planAddLabel(planToday, units) : null;
+  // Chlorine logged since the plan was built is not in it yet: no second "Add" today.
+  const addToday = planToday && !swg && !planMissesChlorine ? planAddLabel(planToday, units) : null;
   const addShelf = planToday ? baseToShelf(planToday.addMl, "mL", units) : null;
   const product = plan ? catalogProduct(plan.summary.product) : undefined;
   const actions = todayActions({
@@ -228,7 +229,7 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
             // A salt pool's plan without the cell's output has no meaningful FC line.
             fcEnd: planHasFcLine(plan.summary) ? d.fcEnd : null,
             algaeRisk: d.algaeRisk,
-            add: planAddLabel(d, units),
+            add: d.date === today && planMissesChlorine ? null : planAddLabel(d, units),
             cellPercent: swg ? cellPercentOn(plan.summary, d.date) : null,
           })),
         }

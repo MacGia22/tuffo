@@ -63,6 +63,22 @@ export function planIsStale(plan: StoredPlan | null, latestTestAt: string | null
   return latestTestAt !== null && Date.parse(latestTestAt) > computed;
 }
 
+/**
+ * A chlorine dose logged after the plan was built, since the test it starts from: the plan
+ * does not count it yet (it is rebuilt after the save), so today's addition must not be
+ * offered again in the meantime.
+ */
+export function planMissesDose(
+  plan: Pick<StoredPlan, "computedAt"> | null,
+  doses: { addedAt: string; createdAt?: string | null; chlorine: boolean }[],
+  latestFcAt: string | null,
+): boolean {
+  if (!plan || !latestFcAt) return false;
+  const built = Date.parse(plan.computedAt);
+  const tested = Date.parse(latestFcAt);
+  return doses.some((d) => d.chlorine && Boolean(d.createdAt) && Date.parse(d.createdAt!) > built && Date.parse(d.addedAt) >= tested);
+}
+
 /** Days of predicted use the carry-forward takes off at most (the estimate's horizon). */
 export const CARRY_FORWARD_DAYS = 10;
 

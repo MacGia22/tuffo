@@ -208,7 +208,8 @@ since, minus the predicted use since) and stores it in `plans`: nightly inside t
 job after the forecast and models, after each new, edited or removed entry, and after a
 page view that finds it missing, older than 26 hours or starting on a day already over in
 the pool's time zone. Day 0 counts only the part of the pool's local day still ahead, for
-both the predicted use and the salt cell's output. The pool page shows it as a
+both the predicted use and the salt cell's output. Until the rebuild after a chlorine dose
+lands, the page does not offer that day's addition again (`planMissesDose`). The pool page shows it as a
 7-day strip and as a dashed forecast on the chlorine chart. `canSeePlan()`
 (`src/lib/entitlements.ts`) gates it; everyone sees it during the beta.
 
