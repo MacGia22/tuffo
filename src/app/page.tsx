@@ -2,6 +2,7 @@ import Link from "next/link";
 import { TuffoLockup, TuffoMark } from "@/components/brand/logo";
 import { StartFreeLink } from "@/components/start-free-link";
 import { WaitlistForm } from "@/components/waitlist-form";
+import { ForecastForm } from "./forecast/forecast-form";
 import { serverEnv } from "@/lib/env";
 
 const steps = [
@@ -80,13 +81,22 @@ export default function Home() {
             <h1 className="text-5xl font-semibold leading-[1.02] text-foreground sm:text-6xl">
               Your pool, <span className="text-lagoon">forecast.</span>
             </h1>
+            <section
+              aria-labelledby="your-week"
+              className="flex flex-col gap-3 rounded-2xl border border-lagoon/40 bg-surface p-4 sm:p-5"
+            >
+              <h2 id="your-week" className="text-xl font-semibold">
+                See your pool&apos;s week, no sign-up
+              </h2>
+              <ForecastForm current={null} refLabel={null} />
+            </section>
             <p className="max-w-xl text-lg text-muted">
               Pool chemistry that knows your weather. Log a water test, see what the
               sun, heat and rain did between readings, get advice on what to add now,
               and a seven-day chlorine plan for your own pool.
             </p>
             {open ? (
-              <StartFreeLink className="self-start rounded-xl bg-lagoon px-6 py-3 text-base font-semibold text-white transition hover:bg-lagoon-deep">
+              <StartFreeLink className="self-start rounded-xl border border-lagoon px-6 py-3 text-base font-semibold text-lagoon transition hover:bg-lagoon/10">
                 Start free
               </StartFreeLink>
             ) : (
