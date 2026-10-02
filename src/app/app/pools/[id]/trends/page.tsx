@@ -7,6 +7,7 @@ import { bandAdvice } from "@/lib/plan/band";
 import { cellLevels } from "@/lib/salt-cells";
 import { parseRange, TREND_RANGES, DEFAULT_RANGE } from "@/lib/trends";
 import { loadPoolView } from "../pool-view";
+import { TrendsEmpty } from "./empty";
 
 export const metadata: Metadata = { title: "Trends" };
 
@@ -18,7 +19,9 @@ export default async function TrendsPage({ params, searchParams }: PageProps<"/a
   const { id } = await params;
   if (!isUuid(id)) notFound();
   const range = parseRange((await searchParams).range);
-  const { pool, trend, between, plan, today, estimateMiss } = await loadPoolView(id, range);
+  const { pool, trend, between, plan, today, estimateMiss, allReadings } = await loadPoolView(id, range);
+  // A chlorine line needs two tests.
+  const fcTests = allReadings.filter((r) => r.fc !== null).length;
   const base = `/app/pools/${pool.id}`;
   const swg = pool.sanitizer === "swg";
   const band = plan ? bandAdvice(plan, today, swg ? cellLevels(pool.swg_cell_model) : null) : null;
@@ -53,7 +56,9 @@ export default async function TrendsPage({ params, searchParams }: PageProps<"/a
         </nav>
       </div>
 
-      {trend ? (
+      {fcTests < 2 ? (
+        <TrendsEmpty base={base} fcTests={fcTests} />
+      ) : trend ? (
         <section aria-label="Chart" className="rounded-2xl border border-border bg-surface p-3 sm:p-5">
           {/* Keyed by the range so the selected day resets to today with the new columns. */}
           <TrendChart key={range} data={trend} rainHref={pool.cell_id ? `${base}/rain` : null} />

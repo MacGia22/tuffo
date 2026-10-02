@@ -486,14 +486,15 @@ export function intervalProgress(s: Pick<TaskStatus, "daysLeft" | "intervalDays"
 } | null {
   if (s.daysLeft === null) return s.pressureHigh ? { share: 1, tone: "warning" } : null;
   const share = (s.intervalDays - s.daysLeft) / s.intervalDays;
-  const tone: Tone = s.state === "overdue" ? "critical" : share >= 0.8 || s.pressureHigh ? "warning" : "good";
+  // Amber only when it falls due within the week ("soon" is at most 7 days).
+  const tone: Tone = s.state === "overdue" ? "critical" : s.state === "due" || s.state === "soon" || s.pressureHigh ? "warning" : "good";
   return { share: Math.max(0, share), tone };
 }
 
 export interface DueDay {
   date: string;
-  /** Tasks due that day; overdue ones are listed on today. */
-  tasks: { label: string; overdue: boolean }[];
+  /** Tasks due that day; overdue ones are listed on today. `soon`: due within the week. */
+  tasks: { label: string; overdue: boolean; soon: boolean }[];
 }
 
 /** The next `days` days from today, with the tasks falling due on each. */
@@ -501,17 +502,18 @@ export function dueCalendar(statuses: TaskStatus[], today: string, days = 30): D
   const out: DueDay[] = Array.from({ length: days }, (_, i) => ({ date: addDays(today, i), tasks: [] }));
   for (const s of statuses) {
     if (s.nextDue === null) {
-      if (s.pressureHigh) out[0].tasks.push({ label: s.task.label, overdue: false });
+      if (s.pressureHigh) out[0].tasks.push({ label: s.task.label, overdue: false, soon: true });
       continue;
     }
     const offset = daysBetween(today, s.nextDue);
     // Due now because the filter pressure is up: today, whatever the calendar says.
     if (s.pressureHigh && offset >= 0) {
-      out[0].tasks.push({ label: s.task.label, overdue: false });
+      out[0].tasks.push({ label: s.task.label, overdue: false, soon: true });
       continue;
     }
-    if (offset < 0) out[0].tasks.push({ label: s.task.label, overdue: true });
-    else if (offset < days) out[offset].tasks.push({ label: s.task.label, overdue: false });
+    const soon = s.state === "due" || s.state === "soon";
+    if (offset < 0) out[0].tasks.push({ label: s.task.label, overdue: true, soon: false });
+    else if (offset < days) out[offset].tasks.push({ label: s.task.label, overdue: false, soon });
   }
   return out;
 }

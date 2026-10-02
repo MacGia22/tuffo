@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { DayCard } from "@/components/day-card";
 import { ticks } from "@/lib/chart-scale";
 import { chanceOnly, formatRainAmount, isDry } from "@/lib/format";
@@ -164,6 +164,12 @@ export function TrendChart({
   const every = col >= NARROW ? 1 : Math.ceil(NARROW / Math.max(col, 1));
   const dayNum = (d: TrendDay) => String(Number(d.date.slice(8)));
 
+  function pick(e: PointerEvent<HTMLDivElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const i = Math.floor((e.clientX - rect.left - LEFT) / col);
+    if (i >= 0 && i < n) setSelected(i);
+  }
+
   function onKey(e: KeyboardEvent<HTMLDivElement>) {
     if (e.key === "ArrowLeft") setSelected((s) => Math.max(0, s - 1));
     else if (e.key === "ArrowRight") setSelected((s) => Math.min(n - 1, s + 1));
@@ -204,7 +210,7 @@ export function TrendChart({
       </figcaption>
 
       {day ? (
-        <div aria-live="polite">
+        <div aria-live="polite" className="sticky top-2 z-10 rounded-2xl bg-surface shadow-sm">
           <DayCard
             as="div"
             day={day.weekday}
@@ -247,9 +253,13 @@ export function TrendChart({
         tabIndex={0}
         onKeyDown={onKey}
         onPointerDown={(e) => {
-          const rect = e.currentTarget.getBoundingClientRect();
-          const i = Math.floor((e.clientX - rect.left - LEFT) / col);
-          if (i >= 0 && i < n) setSelected(i);
+          // Tap or drag across the plot: the same selection as the arrow keys.
+          e.currentTarget.setPointerCapture?.(e.pointerId);
+          pick(e);
+        }}
+        onPointerMove={(e) => {
+          if (e.buttons === 0 && e.pointerType === "mouse") return;
+          if (e.currentTarget.hasPointerCapture?.(e.pointerId)) pick(e);
         }}
         className="relative w-full cursor-pointer touch-pan-y select-none rounded-xl"
         style={{ height }}
@@ -544,7 +554,7 @@ export function TrendChart({
         </span>
       </div>
       <p className="text-sm text-muted">
-        Tap any day for its numbers.
+        Tap or drag across the days for their numbers.
         {showWeather ? " Rain is for your 2-mile area; correct it if your pool got more or less." : " UV and rain appear here once the weather for this pool has loaded."}
       </p>
 

@@ -327,18 +327,20 @@ describe("visual helpers", () => {
 
   it("measures the interval gone by and picks a tone", () => {
     expect(intervalProgress(by.cell_clean)).toMatchObject({ tone: "critical" });
-    // 2 of 7 days gone: under 80%.
+    // 2 of 7 days gone, due in 5 days but outside its 1-day "soon" window.
     expect(intervalProgress(by.pump_basket)).toEqual({ share: 2 / 7, tone: "good" });
-    // 334 of 365 days gone: 91%.
-    expect(intervalProgress(by.pump_oring)?.tone).toBe("warning");
+    // 334 of 365 days gone, but 31 days left: not amber yet.
+    expect(intervalProgress(by.pump_oring)?.tone).toBe("good");
+    // Within the week: amber.
+    expect(intervalProgress({ ...by.pump_oring, daysLeft: 6, state: "soon" })?.tone).toBe("warning");
     expect(intervalProgress(by.cartridge_rinse)).toBeNull();
   });
 
   it("lays the due dates over the next 30 days", () => {
     const cal = dueCalendar(statuses, today);
     expect(cal).toHaveLength(30);
-    expect(cal[0].tasks).toEqual([{ label: "Inspect the salt cell", overdue: true }]);
-    expect(cal[5]).toEqual({ date: "2026-10-06", tasks: [{ label: "Empty the pump basket", overdue: false }] });
+    expect(cal[0].tasks).toEqual([{ label: "Inspect the salt cell", overdue: true, soon: false }]);
+    expect(cal[5]).toEqual({ date: "2026-10-06", tasks: [{ label: "Empty the pump basket", overdue: false, soon: false }] });
     expect(cal.flatMap((d) => d.tasks).map((t) => t.label)).not.toContain("Lube the pump lid O-ring");
   });
 

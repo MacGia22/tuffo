@@ -8,7 +8,7 @@ import type { DueDay, LifeSpan, Tone } from "@/lib/maintenance";
 
 const FILL: Record<Tone, string> = {
   good: "bg-status-good",
-  warning: "bg-status-warning",
+  warning: "bg-bar-warning",
   critical: "bg-status-critical",
 };
 
@@ -54,7 +54,7 @@ export function IntervalBar({ share, tone, text }: { share: number; tone: Tone; 
       aria-valuemax={100}
       aria-valuenow={pct}
       aria-valuetext={text}
-      className="h-2 w-full overflow-hidden rounded-full bg-chart-grid"
+      className="h-2 w-full overflow-hidden rounded-full bg-chart-grid ring-1 ring-inset ring-border-input"
     >
       <div className={`h-full rounded-full ${FILL[tone]}`} style={{ width: `${Math.max(pct, 3)}%` }} />
     </div>
@@ -65,15 +65,40 @@ function short(date: string): string {
   return new Date(`${date}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
-/** The next 30 days, a dot on each day something falls due; a list view below. */
+function dueList(d: DueDay): string {
+  return d.tasks.map((t) => `${t.label}${t.overdue ? " (overdue)" : ""}`).join(", ");
+}
+
+/**
+ * The next 30 days, a dot on each day something falls due, with a list view. On phones
+ * the list comes first and open (the strip is too narrow to read alone); on wider
+ * screens the strip leads and the list folds away.
+ */
 export function DueStrip({ days }: { days: DueDay[] }) {
   const busy = days.filter((d) => d.tasks.length > 0);
+  const list =
+    busy.length === 0 ? (
+      <p className="text-muted">Nothing falls due in the next 30 days.</p>
+    ) : (
+      <ul className="flex flex-col gap-1">
+        {busy.map((d) => (
+          <li key={d.date}>
+            <span className="font-semibold">{d.date === days[0].date ? "Today" : short(d.date)}:</span> {dueList(d)}
+          </li>
+        ))}
+      </ul>
+    );
   return (
     <div className="flex flex-col gap-2">
+      <div className="text-sm sm:hidden">
+        <h3 className="mb-1 font-semibold">Next 30 days</h3>
+        {list}
+      </div>
       <ol className="grid grid-cols-[repeat(30,minmax(0,1fr))] gap-px" aria-label="Next 30 days">
         {days.map((d, i) => {
           const overdue = d.tasks.some((t) => t.overdue);
-          const label = `${i === 0 ? "Today" : short(d.date)}: ${d.tasks.length ? d.tasks.map((t) => `${t.label}${t.overdue ? " (overdue)" : ""}`).join(", ") : "nothing due"}`;
+          const soon = d.tasks.some((t) => t.soon);
+          const label = `${i === 0 ? "Today" : short(d.date)}: ${d.tasks.length ? dueList(d) : "nothing due"}`;
           const first = i === 0 || d.date.endsWith("-01");
           return (
             <li
@@ -92,7 +117,7 @@ export function DueStrip({ days }: { days: DueDay[] }) {
               >
                 {d.tasks.length ? (
                   <span
-                    className={`block h-2.5 w-2.5 rounded-full ring-2 ring-surface ${overdue ? "bg-status-critical" : "bg-status-warning"}`}
+                    className={`block h-2.5 w-2.5 rounded-full ring-2 ring-surface ${overdue ? "bg-status-critical" : soon ? "bg-bar-warning" : "bg-lagoon"}`}
                   />
                 ) : null}
               </span>
@@ -105,23 +130,15 @@ export function DueStrip({ days }: { days: DueDay[] }) {
           <span className="h-2.5 w-2.5 rounded-full bg-status-critical" aria-hidden="true" /> Overdue (shown on today)
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="h-2.5 w-2.5 rounded-full bg-status-warning" aria-hidden="true" /> Falls due
+          <span className="h-2.5 w-2.5 rounded-full bg-bar-warning" aria-hidden="true" /> Due this week
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="h-2.5 w-2.5 rounded-full bg-lagoon" aria-hidden="true" /> Falls due later
         </span>
       </p>
-      <details className="text-sm">
+      <details className="hidden text-sm sm:block">
         <summary className="cursor-pointer font-semibold text-lagoon">Show as a list</summary>
-        {busy.length === 0 ? (
-          <p className="mt-2 text-muted">Nothing falls due in the next 30 days.</p>
-        ) : (
-          <ul className="mt-2 flex flex-col gap-1">
-            {busy.map((d) => (
-              <li key={d.date}>
-                <span className="font-semibold">{d.date === days[0].date ? "Today" : short(d.date)}:</span>{" "}
-                {d.tasks.map((t) => `${t.label}${t.overdue ? " (overdue)" : ""}`).join(", ")}
-              </li>
-            ))}
-          </ul>
-        )}
+        <div className="mt-2">{list}</div>
       </details>
     </div>
   );
@@ -131,7 +148,8 @@ const LIFE_TONE = { fine: "good", late: "warning", past: "critical" } as const;
 
 /**
  * An item's life: a bar from install to the end of its typical life, the usual
- * replacement window shaded, today marked. `share` and window are relative to the end.
+ * replacement window hatched in a neutral tone (it is a range, not a warning), today
+ * marked. `share` and window are relative to the end.
  */
 export function LifeBar({ span, label }: { span: LifeSpan; label: string }) {
   const end = span.high * 1.2;
@@ -145,11 +163,15 @@ export function LifeBar({ span, label }: { span: LifeSpan; label: string }) {
         aria-valuemax={span.high}
         aria-valuenow={Math.round(span.ageYears * 10) / 10}
         aria-valuetext={`${label}: ${span.left}`}
-        className="relative h-3 w-full rounded-full bg-chart-grid"
+        className="relative h-3 w-full rounded-full bg-chart-grid ring-1 ring-inset ring-border-input"
       >
         <div
-          className="absolute inset-y-0 rounded-sm bg-status-warning/30"
-          style={{ left: pos(span.low), width: `calc(${pos(span.high)} - ${pos(span.low)})` }}
+          className="absolute inset-y-0 rounded-sm"
+          style={{
+            left: pos(span.low),
+            width: `calc(${pos(span.high)} - ${pos(span.low)})`,
+            backgroundImage: "repeating-linear-gradient(135deg, var(--muted) 0 1.5px, transparent 1.5px 5px)",
+          }}
           aria-hidden="true"
         />
         <div className={`absolute inset-y-0 left-0 rounded-full ${FILL[tone]}`} style={{ width: pos(span.ageYears) }} aria-hidden="true" />

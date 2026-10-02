@@ -30,3 +30,15 @@ export function innerTicks(min: number, max: number, target: number): number[] {
   const last = Math.floor(max / step + 1e-9);
   return Array.from({ length: Math.max(0, last - first + 1) }, (_, i) => Number(((first + i) * step).toFixed(3)));
 }
+
+/**
+ * The filter pressure chart's y domain, in display units: from `below` under the clean
+ * pressure (4 psi), or under the lowest reading when there is no clean one or a reading
+ * sits lower, never under 0; to 15% of the span over the highest reading or line.
+ */
+export function pressureDomain(values: number[], clean: number | null, lines: number[], below: number): [number, number] {
+  const low = Math.min(...values, ...(clean === null ? [] : [clean]));
+  const lo = Math.max(0, low - below);
+  const high = Math.max(...values, ...lines);
+  return [lo, high + Math.max(high - lo, below) * 0.15];
+}

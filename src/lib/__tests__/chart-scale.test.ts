@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { innerTicks, niceStep, ticks } from "../chart-scale";
+import { innerTicks, niceStep, pressureDomain, ticks } from "../chart-scale";
 
 describe("niceStep", () => {
   it("rounds up to 1, 2, 2.5 or 5 times a power of ten", () => {
@@ -49,5 +49,23 @@ describe("innerTicks", () => {
     expect(innerTicks(0, 10.4, 2)).toEqual([0, 10]);
     expect(innerTicks(0, 1.1, 2)).toEqual([0, 1]);
     expect(innerTicks(0, 0.5, 2)).toEqual([0, 0.25, 0.5]);
+  });
+});
+
+describe("pressureDomain", () => {
+  it("starts 4 psi under the clean pressure", () => {
+    // Clean 12, readings 12 to 18, line at 20: 8 to 20 + 15% of 12.
+    const [lo, hi] = pressureDomain([12, 15, 18], 12, [12, 20], 4);
+    expect(lo).toBe(8);
+    expect(hi).toBeCloseTo(21.8, 5);
+  });
+
+  it("goes lower for a reading under clean, and never under 0", () => {
+    expect(pressureDomain([9, 14], 12, [12, 20], 4)[0]).toBe(5);
+    expect(pressureDomain([2], 3, [3], 4)[0]).toBe(0);
+  });
+
+  it("uses the lowest reading without a clean pressure", () => {
+    expect(pressureDomain([1.0, 1.2], null, [], 0.28)[0]).toBeCloseTo(0.72, 5);
   });
 });
