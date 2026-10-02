@@ -10,7 +10,8 @@ import { healthItems, installConflicts, nextTaskChip, type TaskEquipment } from 
 import { loadPoolMaintenance } from "@/lib/maintenance-data";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { cellRatedHours } from "@/lib/salt-cells";
-import { AddEquipmentRow, BasicsForm, CellCard, DeletePoolForm, EquipmentCard, type CardFacts } from "./settings-forms";
+import { AddEquipmentRow, BasicsForm, CellCard, DeletePoolForm, EnclosureForm, EquipmentCard, type CardFacts } from "./settings-forms";
+import { isEnclosureKind } from "@/lib/enclosure";
 
 export const metadata: Metadata = { title: "Pool settings" };
 
@@ -53,7 +54,7 @@ export default async function PoolSettingsPage({ params, searchParams }: PagePro
   if (!isUuid(id)) notFound();
 
   const supabase = await createSupabaseServerClient();
-  const [{ data: pool }, { data: profile }, { data: equipment }] = await Promise.all([
+  const [{ data: pool }, { data: profile }, { data: equipment }, { data: enclosureRow, error: enclosureError }] = await Promise.all([
     supabase
       .from("pools")
       .select("id, name, volume_l, sanitizer, surface, covered, place_label, swg_cell_lb_per_day, swg_cell_model, swg_cell_installed_on")
@@ -68,6 +69,12 @@ export default async function PoolSettingsPage({ params, searchParams }: PagePro
       .order("installed_on", { ascending: false })
       .limit(200)
       .returns<EquipmentRow[]>(),
+    // Read on its own: before its migration lands the columns are missing and the card is left out.
+    supabase
+      .from("pools")
+      .select("enclosure, enclosure_sun_pct")
+      .eq("id", id)
+      .maybeSingle<{ enclosure: string | null; enclosure_sun_pct: number | null }>(),
   ]);
   if (!pool) notFound();
   const units = profile?.units ?? "us";
@@ -178,6 +185,15 @@ export default async function PoolSettingsPage({ params, searchParams }: PagePro
             covered: pool.covered,
           }}
         />
+        {!enclosureError && enclosureRow ? (
+          <EnclosureForm
+            poolId={pool.id}
+            current={{
+              enclosure: isEnclosureKind(enclosureRow.enclosure) ? enclosureRow.enclosure : null,
+              sunPct: enclosureRow.enclosure_sun_pct,
+            }}
+          />
+        ) : null}
       </section>
 
       <section aria-labelledby="where" className="flex flex-col gap-2">

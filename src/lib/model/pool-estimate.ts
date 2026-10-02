@@ -11,6 +11,7 @@ import {
   type Expectation,
 } from "./estimate";
 import type { ModelDose, ModelEvent, ModelPool, ModelPumpSchedule, ModelReading, ModelWeatherDay } from "./observations";
+import { loadSunShare } from "@/lib/model/sun-share";
 
 /**
  * The pool page's estimate: free chlorine from the last test to now, and what Tuffo
@@ -94,6 +95,7 @@ export async function loadPoolEstimate(admin: SupabaseClient, poolId: string, no
       volumeL: Number(pool.volume_l),
       sanitizer: pool.sanitizer,
       covered: pool.covered,
+      sunShare: await loadSunShare(admin, poolId),
       swgCellLbPerDay: pool.swg_cell_lb_per_day === null ? null : Number(pool.swg_cell_lb_per_day),
       timezone,
     };

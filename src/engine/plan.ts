@@ -37,6 +37,8 @@ export interface PlanPool {
   surfaceAreaM2: number | null;
   swg: boolean;
   covered: boolean;
+  /** Share of the sun a screen enclosure lets through, 0–1 (absent: none). */
+  sunShare?: number;
   surface: "plaster" | "vinyl" | "fiberglass";
   /** The salt cell's output at 100%, ppm of FC per day in this pool; null when unknown. */
   cellPpmPerDay: number | null;
@@ -165,7 +167,7 @@ export function planWeek(input: PlanInput): Plan | null {
   const floor = planFloor(fc, input.pairs);
 
   // Predicted loss per day; a day without weather takes the average of the others.
-  const state = { cya, covered: pool.covered, heavyUse: 0 };
+  const state = { cya, covered: pool.covered, heavyUse: 0, sunShare: pool.sunShare };
   const known = input.days.map((d) => {
     const drivers = dayDrivers(d.weather, state);
     return drivers ? predictLoss(input.coefficients, drivers) : null;

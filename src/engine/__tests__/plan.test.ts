@@ -253,3 +253,15 @@ describe("planWeek from a time late in the day", () => {
     expect(planFloor({ min: 3, targetLow: 5, targetHigh: 7, slam: 16 }, 4)).toBe(4);
   });
 });
+
+describe("planWeek under a screen enclosure", () => {
+  it("takes the screen's share off the sun loss (worked numbers)", () => {
+    // Sunny day at CYA 40: 0.5 base + 0.45 × 10 × 1/3 sun + 0.36 heat = 2.36 ppm. Under a
+    // standard screen (70% of the sun): 0.5 + 1.5 × 0.7 + 0.36 = 1.91 ppm.
+    const open = planWeek(base)!;
+    const screened = planWeek({ ...base, pool: { ...base.pool, sunShare: 0.7 } })!;
+    expect(open.days[0].lossPpm).toBeCloseTo(2.36, 2);
+    expect(screened.days[0].lossPpm).toBeCloseTo(1.91, 2);
+  });
+});
+

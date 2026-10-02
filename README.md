@@ -313,7 +313,9 @@ The bottom of the settings page deletes the pool after its name is typed (cascad
 every row for that pool; a weather cell no pool uses stops being refreshed).
 
 `/app/pools/[id]/settings` edits the pool's name, volume, sanitizer, surface and cover (a
-change refits the model and plan) and links to the location map. Every piece of equipment,
+change refits the model and plan), a screen enclosure ("pool cage": the kind suggests the
+share of sun that gets through, 70% standard, 55% fine, 30% solar screen, and the owner can
+type their own; `src/lib/enclosure.ts`) and links to the location map. Every piece of equipment,
 the salt cell included, uses the same card: type, model, install date, a mini life bar, the
 next maintenance task as one chip (`nextTaskChip` in `src/lib/maintenance.ts`) and links to
 Maintenance, the pump schedule and the cell setting. Equipment lives in `pool_equipment`:
@@ -449,7 +451,8 @@ the fit in `pool_models` (server-only: users never read it, the page shows a fig
   what the cell makes per day at its current setting) and pairs without weather are
   skipped.
 - Drivers per day: base demand; UV dose (peak UV × sunny share of 12 h) × a stabilizer
-  shield 1 / (1 + CYA / 20) × 0.1 under a cover; °C of daily high above 25; cm of rain;
+  shield 1 / (1 + CYA / 20) × 0.1 under a cover × the enclosure's sun share
+  (`pools.enclosure_sun_pct`, read on its own so it fails open to 100%); °C of daily high above 25; cm of rain;
   heavy-use events per day. CYA is the latest test (40 ppm assumed until tested).
 - Fit: ridge regression towards a population prior (the default, blended with the fits
   of pools that have 6+ pairs), weather coefficients kept at zero or above. Stored:

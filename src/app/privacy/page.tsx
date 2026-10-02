@@ -33,7 +33,8 @@ export default function PrivacyPage() {
       </p>
       <h3>Your pools</h3>
       <p>
-        For each pool, the name you give it, its volume, surface and sanitizer, whether it has a cover, and optional
+        For each pool, the name you give it, its volume, surface and sanitizer, whether it has a cover, any screen enclosure over it
+        and the share of sun you set for it, and optional
         numbers such as your fill water&apos;s calcium or your salt cell&apos;s model and output. For a salt pool, also
         the pump schedules you enter (run times, speeds, whether the cell runs) and the dates they started. If you enter the
         rain that fell at your pool on a day, that amount and date. The equipment you add (pump, chlorine feeder,

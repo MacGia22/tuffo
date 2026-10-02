@@ -119,6 +119,8 @@ migration must survive a second run.
   `pool_pressure`: filter gauge readings (`kpa`, `read_on`, `clean` for the reading right
   after cleaning). Owner reads, inserts and deletes. `pools.maintenance_intervals` (JSON,
   days per task id) and `pools.swg_cell_installed_on` hold the owner's settings;
+  `pools.enclosure` (screen kind) and `pools.enclosure_sun_pct` (5–100, share of sun through it)
+  the screen enclosure;
   `alert_settings.maintenance` switches the reminder email on.
 - `pool_rain`: the rain an owner entered for a day at the pool (mm, one row per pool and
   day), used instead of the weather cell's rain; owner reads, inserts, updates and deletes.

@@ -21,6 +21,8 @@ export interface ModelPool {
   volumeL: number;
   sanitizer: "chlorine" | "swg";
   covered: boolean;
+  /** Share of the sun a screen enclosure lets through, 0–1 (absent: none). */
+  sunShare?: number;
   swgCellLbPerDay: number | null;
   timezone: string;
 }
@@ -229,7 +231,7 @@ export function buildTestPairs(input: {
 
     let drivers: Drivers | null = null;
     if (days >= MIN_DAYS && days <= MAX_DAYS) {
-      const state = { cya: cyaAt(t1, input.readings), covered: coverAt(t0, pool, events), heavyUse: 0 };
+      const state = { cya: cyaAt(t1, input.readings), covered: coverAt(t0, pool, events), heavyUse: 0, sunShare: pool.sunShare };
       const shares = dayShares(a.taken_at, b.taken_at, pool.timezone);
       const total = shares.reduce((sum, s) => sum + s.share, 0);
       const sums = Object.fromEntries(FEATURES.map((f) => [f, 0])) as Drivers;
