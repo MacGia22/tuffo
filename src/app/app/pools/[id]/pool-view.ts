@@ -18,7 +18,7 @@ import { chlorineUse } from "@/lib/model/usage";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { retryAllOnClockSkew } from "@/lib/supabase/retry";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { buildTrend, rangeLookbackDays, rangeStart, type TrendRange } from "@/lib/trends";
+import { buildTrend, DAYS_AHEAD, rangeLookbackDays, rangeStart, type TrendRange } from "@/lib/trends";
 import { FRESH_HOURS, refreshCellIfStale } from "@/lib/weather/job";
 import { loadOwnRain, withOwnRain } from "@/lib/weather/own-rain";
 import { localDateRange, summarizeBetween, type WeatherDay } from "@/lib/weather/summary";
@@ -212,7 +212,7 @@ export async function loadPoolView(id: string, range: TrendRange, options: { tre
         .eq("cell_id", pool.cell_id)
         .gte("date", today)
         .order("date")
-        .limit(7)
+        .limit(DAYS_AHEAD + 1)
         .returns<WeatherRow[]>(),
       supabase
         .from("weather_cells")

@@ -70,7 +70,7 @@ CI (`.github/workflows/ci.yml`) runs the same checks on every push and pull requ
 - Next.js 16 App Router, server actions with `useActionState`, `after()` for background
   work, `proxy.ts` (not middleware). Read `node_modules/next/dist/docs/` when unsure.
 - Tailwind 4 with the brand tokens in `src/app/globals.css`; charts use the
-  `--chart-*` tokens and follow the rules in `src/components/trend-charts.tsx`
+  `--chart-*` tokens and follow the rules in `src/components/trend-chart.tsx`
   (one scale per panel, no dual axes, table view, keyboard access).
 - Copy: short, plain, specific, US English, units always shown. No marketing adjectives.
 - Tests: vitest next to the code in `__tests__` folders; pure functions over mocks.

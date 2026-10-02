@@ -129,7 +129,7 @@ export function NextSevenDays({ cards, children }: { cards: WeekCard[]; children
           <li
             key={c.date}
             aria-current={c.today ? "date" : undefined}
-            className={`flex w-28 shrink-0 snap-start flex-col gap-1.5 rounded-2xl p-3 text-sm ${
+            className={`flex w-28 shrink-0 snap-start flex-col lg:w-auto lg:flex-1 gap-1.5 rounded-2xl p-3 text-sm ${
               c.today ? "border-2 border-lagoon bg-surface" : c.risk ? "border border-chip-warn-fg/40 bg-chip-warn-bg/60" : "border border-border bg-surface"
             }`}
           >
@@ -138,7 +138,12 @@ export function NextSevenDays({ cards, children }: { cards: WeekCard[]; children
               <span className="text-xs text-muted">{c.dateText}</span>
             </p>
             {c.uv ? <UvChip index={c.uv.index} /> : null}
-            {c.rain ? <p className="text-xs">{c.rain === "Dry" ? "Dry" : <>Rain {c.rain}</>}</p> : null}
+            {c.rain ? (
+              <p className="text-xs">
+                {c.rain === "Dry" ? null : <span className="sr-only">Rain </span>}
+                {c.rain}
+              </p>
+            ) : null}
             {c.fc ? (
               <p className="text-xs text-muted">
                 FC by evening <span className="font-semibold text-foreground">{c.fc}</span>

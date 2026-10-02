@@ -14,7 +14,7 @@ import { uvLevel, UV_LEVEL_LABEL, UV_LEVELS, type UvLevel } from "@/lib/uv";
 
 const LEFT = 34;
 const RIGHT = 10;
-const TITLE = 20;
+const TITLE = 26;
 const GAP = 14;
 const FC_H = 170;
 const PH_H = 80;
@@ -144,10 +144,9 @@ export function TrendChart({
     return p.x - a.x <= 10 ? [`M${xAt(a.x).toFixed(1)},${yPh(a.ph as number).toFixed(1)}L${xAt(p.x).toFixed(1)},${yPh(p.ph as number).toFixed(1)}`] : [];
   });
 
-  // Value labels: every test when columns are wide enough, else the latest only.
+  // Value labels: the latest test, and any other with room before the next one.
   const fcPoints = data.points.filter((p) => p.fc !== null);
-  const labelAll = col >= 18;
-  const showLabel = (k: number, total: number) => labelAll || k === total - 1;
+  const roomy = (pts: typeof fcPoints, k: number) => k === pts.length - 1 || (pts[k + 1].x - pts[k].x) * col >= 26;
 
   // Day axis: thin out the day numbers on narrow columns.
   const every = col >= NARROW ? 1 : Math.ceil(NARROW / Math.max(col, 1));
@@ -274,25 +273,25 @@ export function TrendChart({
             {data.forecastFrom !== null ? (
               <g>
                 <rect x={xAt(nowX)} y={top.fc} width={Math.max(0, LEFT + plot - xAt(nowX))} height={FC_H} className="fill-chart-grid" fillOpacity={0.45} />
-                <text x={LEFT + plot} y={top.fc - 6} textAnchor="end" className="fill-muted text-[11px]">
+                <text x={LEFT + plot} y={top.fc - 10} textAnchor="end" className="fill-muted text-[11px]">
                   Forecast →
                 </text>
               </g>
             ) : null}
 
             {/* Panel titles */}
-            <text x={0} y={top.fc - 6} className="fill-foreground text-[12px] font-semibold">
+            <text x={0} y={top.fc - 10} className="fill-foreground text-[12px] font-semibold">
               Free chlorine (ppm)
             </text>
-            <text x={0} y={top.ph - 6} className="fill-foreground text-[12px] font-semibold">
+            <text x={0} y={top.ph - 10} className="fill-foreground text-[12px] font-semibold">
               pH
             </text>
             {showWeather ? (
               <>
-                <text x={0} y={top.uv - 6} className="fill-foreground text-[12px] font-semibold">
+                <text x={0} y={top.uv - 10} className="fill-foreground text-[12px] font-semibold">
                   Peak UV
                 </text>
-                <text x={0} y={top.rain - 6} className="fill-foreground text-[12px] font-semibold">
+                <text x={0} y={top.rain - 10} className="fill-foreground text-[12px] font-semibold">
                   Rain ({rainUnit})
                 </text>
               </>
@@ -316,13 +315,13 @@ export function TrendChart({
               className="fill-chart-chem"
               fillOpacity={0.12}
             />
-            <text x={LEFT + 4} y={yFc(data.fcBand.high) + 12} className="fill-muted text-[11px]">
+            <text x={LEFT + plot - 4} y={yFc(data.fcBand.high) + 12} textAnchor="end" className="fill-muted text-[11px]">
               Target {data.fcBand.low}–{data.fcBand.high}
             </text>
             {data.fcMin !== null ? (
               <g>
                 <line x1={LEFT} x2={LEFT + plot} y1={yFc(data.fcMin)} y2={yFc(data.fcMin)} className="stroke-status-critical" strokeWidth={1.25} strokeDasharray="5 4" />
-                <text x={LEFT + plot - 2} y={yFc(data.fcMin) - 4} textAnchor="end" className="fill-muted text-[11px]">
+                <text x={LEFT + plot - 4} y={yFc(data.fcMin) + 13} textAnchor="end" className="fill-muted text-[11px]">
                   Never below {data.fcMin}
                 </text>
               </g>
@@ -348,7 +347,7 @@ export function TrendChart({
             {fcPoints.map((p, k) => (
               <g key={`fc-${p.x}`}>
                 <circle cx={xAt(p.x)} cy={yFc(p.fc as number)} r={4.5} className="fill-chart-chem stroke-surface" strokeWidth={2} />
-                {showLabel(k, fcPoints.length) ? (
+                {roomy(fcPoints, k) ? (
                   <text x={xAt(p.x)} y={yFc(p.fc as number) - 9} textAnchor="middle" className="fill-foreground text-[11px] font-semibold tabular-nums">
                     {f1(p.fc as number)}
                   </text>
@@ -385,7 +384,7 @@ export function TrendChart({
             {phPoints.map((p, k) => (
               <g key={`ph-${p.x}`}>
                 <circle cx={xAt(p.x)} cy={yPh(p.ph as number)} r={4} className="fill-chart-chem stroke-surface" strokeWidth={2} />
-                {showLabel(k, phPoints.length) ? (
+                {roomy(phPoints, k) ? (
                   <text x={xAt(p.x)} y={yPh(p.ph as number) - 8} textAnchor="middle" className="fill-foreground text-[11px] font-semibold tabular-nums">
                     {fPh(p.ph as number)}
                   </text>
@@ -450,7 +449,7 @@ export function TrendChart({
 
             {/* Today */}
             <line x1={xAt(nowX)} x2={xAt(nowX)} y1={top.fc} y2={top.axis - 4} className="stroke-foreground" strokeOpacity={0.55} strokeWidth={1} />
-            <text x={xAt(nowX)} y={top.fc - 6} textAnchor="middle" className="fill-foreground text-[11px] font-semibold">
+            <text x={xAt(nowX)} y={top.fc - 10} textAnchor="middle" className="fill-foreground text-[11px] font-semibold">
               Today
             </text>
 

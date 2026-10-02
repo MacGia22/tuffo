@@ -12,7 +12,7 @@ export const UV_CLASS: Record<UvLevel, string> = {
 /** "UV 7 · High" in the level's colour. */
 export function UvChip({ index }: { index: number }) {
   return (
-    <span className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ${UV_CLASS[uvLevel(index)]}`}>
+    <span className={`inline-block self-start rounded-xl px-2 py-0.5 text-xs font-semibold leading-tight ${UV_CLASS[uvLevel(index)]}`}>
       UV {uvText(index)}
     </span>
   );
