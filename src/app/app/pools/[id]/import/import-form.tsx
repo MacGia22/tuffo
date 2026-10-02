@@ -4,15 +4,17 @@ import Link from "next/link";
 import { CancelLink } from "@/components/form-cancel";
 import { useMemo, useState } from "react";
 import type { ImportSummary } from "@/app/api/pools/[id]/import/route";
-import { parseCsv, type CsvTable } from "@/lib/import/csv";
+import { parseCsv, type CsvTable, type Delimiter } from "@/lib/import/csv";
 import { guessDateOrder, type DateOrder } from "@/lib/import/dates";
 import {
+  guessDecimalMark,
   guessMapping,
   guessTempUnit,
   IMPORT_FIELDS,
   MAX_IMPORT_BYTES,
   MAX_IMPORT_ROWS,
   planImport,
+  type DecimalMark,
   type ImportField,
   type Mapping,
 } from "@/lib/import/readings";
@@ -22,6 +24,8 @@ const select = "h-10 w-full rounded-xl border border-border bg-surface px-2 text
 
 interface Choices {
   csv: string;
+  delimiter: Delimiter;
+  decimal: DecimalMark;
   mapping: Mapping;
   dateOrder: DateOrder;
   tempUnit: "F" | "C";
@@ -76,6 +80,8 @@ function describe(summary: ImportSummary): string[] {
 export function ImportForm({ poolId, units, timeZone }: { poolId: string; units: Units; timeZone: string }) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [mapping, setMapping] = useState<Mapping>({});
+  const [delimiter, setDelimiter] = useState<Delimiter>(",");
+  const [decimal, setDecimal] = useState<DecimalMark>(".");
   const [dateOrder, setDateOrder] = useState<DateOrder>("mdy");
   const [tempUnit, setTempUnit] = useState<"F" | "C">(units === "us" ? "F" : "C");
   const [importNearDuplicates, setImportNearDuplicates] = useState(false);
@@ -86,8 +92,8 @@ export function ImportForm({ poolId, units, timeZone }: { poolId: string; units:
   const [done, setDone] = useState<ImportSummary | null>(null);
 
   const preview = useMemo(
-    () => (loaded ? planImport(loaded.table, { mapping, dateOrder, tempUnit, timeZone }).rows.slice(0, 8) : []),
-    [loaded, mapping, dateOrder, tempUnit, timeZone],
+    () => (loaded ? planImport(loaded.table, { mapping, dateOrder, tempUnit, decimal, timeZone }).rows.slice(0, 8) : []),
+    [loaded, mapping, dateOrder, tempUnit, decimal, timeZone],
   );
 
   async function send(next: Choices, dryRun: boolean) {
@@ -122,30 +128,45 @@ export function ImportForm({ poolId, units, timeZone }: { poolId: string; units:
       setError("Files up to 1 MB, please. Split a larger export into years.");
       return;
     }
-    const csv = await file.text();
-    const table = parseCsv(csv);
+    await load(file.name, await file.text());
+  }
+
+  /** Reads the file with a separator (its own guess unless chosen) and guesses the rest again. */
+  async function load(name: string, csv: string, separator?: Delimiter) {
+    const table = parseCsv(csv, separator);
     if (table.headers.length === 0 || table.rows.length === 0) {
       setError("That file has no rows. Choose a CSV with a header line and one test per line.");
       return;
     }
+    const sep = table.delimiter ?? ",";
     const guessed = guessMapping(table.headers);
     const order = guessed.when === undefined ? "mdy" : guessDateOrder(table.rows.map((r) => r[guessed.when!] ?? ""));
     const unit = guessTempUnit(guessed.water_temp === undefined ? undefined : table.headers[guessed.water_temp]) ?? tempUnit;
-    setLoaded({ name: file.name, csv, table });
+    const numberColumns = Object.entries(guessed)
+      .filter(([key]) => key !== "when" && key !== "notes")
+      .map(([, i]) => i as number);
+    const mark = guessDecimalMark(table.rows.slice(0, 200).flatMap((r) => numberColumns.map((i) => r[i] ?? "")), sep);
+    setLoaded({ name, csv, table });
+    setDelimiter(sep);
+    setDecimal(mark);
     setMapping(guessed);
     setDateOrder(order);
     setTempUnit(unit);
     setImportNearDuplicates(false);
     setLogUpkeep(false);
-    await send({ csv, mapping: guessed, dateOrder: order, tempUnit: unit, importNearDuplicates: false, logUpkeep: false }, true);
+    await send(
+      { csv, delimiter: sep, decimal: mark, mapping: guessed, dateOrder: order, tempUnit: unit, importNearDuplicates: false, logUpkeep: false },
+      true,
+    );
   }
 
-  const choices = (): Omit<Choices, "csv"> => ({ mapping, dateOrder, tempUnit, importNearDuplicates, logUpkeep });
+  const choices = (): Omit<Choices, "csv"> => ({ delimiter, decimal, mapping, dateOrder, tempUnit, importNearDuplicates, logUpkeep });
 
   function change(next: Partial<Omit<Choices, "csv">>) {
     if (!loaded) return;
     const merged = { ...choices(), ...next };
     if (next.mapping) setMapping(next.mapping);
+    if (next.decimal) setDecimal(next.decimal);
     if (next.dateOrder) setDateOrder(next.dateOrder);
     if (next.tempUnit) setTempUnit(next.tempUnit);
     if (next.importNearDuplicates !== undefined) setImportNearDuplicates(next.importNearDuplicates);
@@ -200,6 +221,28 @@ export function ImportForm({ poolId, units, timeZone }: { poolId: string; units:
           <fieldset className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-4">
             <legend className="px-1 text-sm font-semibold">Which column is which</legend>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <label className="flex flex-col gap-1 text-xs text-muted">
+                Columns are separated by
+                <select
+                  value={delimiter}
+                  onChange={(e) => {
+                    setSummary(null);
+                    void load(loaded.name, loaded.csv, e.target.value as Delimiter);
+                  }}
+                  className={select}
+                >
+                  <option value=",">Commas (,)</option>
+                  <option value=";">Semicolons (;)</option>
+                  <option value={"\t"}>Tabs</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-muted">
+                Numbers are written
+                <select value={decimal} onChange={(e) => change({ decimal: e.target.value as DecimalMark })} className={select}>
+                  <option value=".">3.5 and 3,200</option>
+                  <option value=",">3,5 and 3.200</option>
+                </select>
+              </label>
               {IMPORT_FIELDS.map((field) => (
                 <label key={field.key} className="flex flex-col gap-1 text-xs text-muted">
                   {field.label}

@@ -116,13 +116,50 @@ export function guessTempUnit(header: string | undefined): "F" | "C" | null {
   return null;
 }
 
-/** "3.5", "3,5", "80 ppm", "7.4 pH" → number; "", "-", "n/a" → null; anything else → NaN. */
-export function parseImportNumber(raw: string | undefined): number | null {
+/** How the file writes 3½: "3.5" (thousands as "3,200") or "3,5" (thousands as "3.200"). */
+export type DecimalMark = "." | ",";
+
+const GROUPED_COMMA = /^\d{1,3}(,\d{3})+(\.\d+)?$/;
+const GROUPED_DOT = /^\d{1,3}(\.\d{3})+(,\d+)?$/;
+
+/**
+ * "3.5", "80 ppm", "7.4 pH", "3,200" → number with a decimal point; with a decimal comma
+ * "3,5" and "3.200" (3,200). A lone comma that cannot be thousands ("7,4") is a decimal
+ * either way. "", "-", "n/a" → null; anything else → NaN.
+ */
+export function parseImportNumber(raw: string | undefined, decimal: DecimalMark = "."): number | null {
   const value = (raw ?? "").trim().toLowerCase();
   if (value === "" || value === "-" || value === "—" || value === "n/a" || value === "na" || value === "null") return null;
-  const cleaned = value.replace(/\s*(ppm|ppb|ph|°f|°c|f|c)$/, "").replace(/^(\d+),(\d+)$/, "$1.$2").replace(/,/g, "");
+  let cleaned = value.replace(/\s*(ppm|ppb|ph|°f|°c|f|c)$/, "").replace(/\s/g, "");
+  if (decimal === ",") {
+    if (GROUPED_DOT.test(cleaned)) cleaned = cleaned.replace(/\./g, "");
+    cleaned = cleaned.replace(",", ".");
+  } else if (GROUPED_COMMA.test(cleaned)) {
+    cleaned = cleaned.replace(/,/g, "");
+  } else {
+    cleaned = cleaned.replace(/^(-?\d+),(\d+)$/, "$1.$2");
+  }
   const n = Number(cleaned);
   return cleaned !== "" && Number.isFinite(n) ? n : Number.NaN;
+}
+
+/**
+ * The decimal mark the number cells suggest: "7,4" or "0,25" mean a comma, "3,200" or
+ * "1,200.5" a point. With no sign either way, a comma-separated file uses a point and a
+ * semicolon- or tab-separated one (a European export) a comma.
+ */
+export function guessDecimalMark(cells: string[], delimiter: string = ","): DecimalMark {
+  let comma = 0;
+  let point = 0;
+  for (const raw of cells) {
+    const v = raw.trim().replace(/\s*(ppm|ppb|ph|°f|°c|f|c)$/i, "");
+    if (/^-?\d+,(\d{1,2}|\d{4,})$/.test(v) || (GROUPED_DOT.test(v) && v.includes(","))) comma += 1;
+    else if (/^-?\d+\.\d+$/.test(v) || (GROUPED_COMMA.test(v) && !/^\d{1,3},\d{3}$/.test(v)) || /,\d{3}\.\d/.test(v)) point += 1;
+    else if (/^\d{1,3},\d{3}$/.test(v)) point += 0.5;
+  }
+  if (comma > point) return ",";
+  if (point > comma) return ".";
+  return delimiter === "," ? "." : ",";
 }
 
 /** "True", "yes", "1", "x" → true; anything else (blank, "False") → false. */
@@ -135,6 +172,8 @@ export interface ImportOptions {
   dateOrder: DateOrder;
   tempUnit: "F" | "C";
   timeZone: string;
+  /** How numbers are written; a point unless set. */
+  decimal?: DecimalMark;
   now?: number;
 }
 
@@ -209,7 +248,7 @@ export function planImport(table: CsvTable, options: ImportOptions): ImportPlan 
     const values: Partial<Record<NumberField, number>> = {};
     let bad: string | null = null;
     for (const field of NUMBER_FIELDS) {
-      const n = parseImportNumber(cell(field));
+      const n = parseImportNumber(cell(field), options.decimal);
       if (n === null) continue;
       const range = RANGES[field];
       if (Number.isNaN(n)) bad ??= `${range.label} "${cell(field)}" is not a number.`;
@@ -218,7 +257,7 @@ export function planImport(table: CsvTable, options: ImportOptions): ImportPlan 
     }
 
     let waterTempC: number | null = null;
-    const temp = parseImportNumber(cell("water_temp"));
+    const temp = parseImportNumber(cell("water_temp"), options.decimal);
     if (temp !== null) {
       const c = options.tempUnit === "F" ? ((temp - 32) * 5) / 9 : temp;
       if (Number.isNaN(temp) || c < -5 || c > 60) bad ??= `Water temperature "${cell("water_temp")}" does not look right.`;

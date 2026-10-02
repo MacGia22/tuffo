@@ -243,6 +243,8 @@ lowest setting that holds free chlorine all week, picked among the settings the 
 control offers (`levels` in `src/lib/salt-cells.ts`: CircuPool CORE 25/50/75/100%, EDGE
 12.5% steps, Pentair IntelliChlor power center 20% steps), or in 5% steps for dial cells
 (Hayward AquaRite, CircuPool RJ Plus) and cells entered by rating. When free chlorine starts
+below the target and one weekly setting would climb past it, the plan runs a higher setting
+for the first days and then a lower weekly one, keeping above the floor. When it starts
 above the target, the plan first runs a lower setting (or the cell off) for as many days as
 the floor allows, picking the start that leaves least chlorine above the band, then the weekly
 setting (`swgStart` in the plan; the Today line, the note, the setting box, cards, alerts and
@@ -276,7 +278,9 @@ email alerts, each linking to where it is done.
 The pool page ("Today") runs: the name and gear, the last test card ("Tested 5 days ago",
 "Time to test" after 7 days, Log a test), Water now, What to do now (`src/lib/today.ts`: the
 most urgent action highlighted with the button that logs it, the rest with when: advice
-from each measure's newest test (none once the tile says "N days ago"), today's plan step, the plan leaving the target band, maintenance due,
+from each measure's newest test (none once the tile says "N days ago"; every dose carries
+a never-mix handling note, and a chlorine dose stops at 8 ppm per addition with a retest
+for the rest), today's plan step, the plan leaving the target band, maintenance due,
 monthly retests), Next 7 days (day cards with UV, rain and chance, FC by evening and the
 day's action), a link to Trends, then the salt cell, equipment health, chlorine use,
 activity and test history. On wider screens a Log menu (with Import CSV and Send feedback)
@@ -365,8 +369,8 @@ month they run out at today's pump hours and setting. The pool page has a compac
 and rain with one column per day shared by every row; tap, click or the arrow keys select
 a day (today by default) and the readout above the chart gives its numbers, with "Rain at
 my pool was different" for past days. Ranges: 2 weeks (the default: 7 days back, today and
-7 days ahead), 30 or 90 days, or Season (from the first test of the year, at least two
-weeks, at most a year; `rangeStart` in `src/lib/trends.ts`), as `?range=`. UV cells use the
+7 days ahead), 30 or 90 days, or Season (from the first test of the pool year, which starts
+January 1, or July 1 for pools south of the equator; at least two weeks, at most a year; `rangeStart` in `src/lib/trends.ts`), as `?range=`. UV cells use the
 WHO levels (`src/lib/uv.ts`, `--uv-*` tokens); rain is 1 in = 40 px. Under the chart: a
 warning when the plan leaves the target band, and "Between your last two tests" (a plain
 sentence and four stats from the pool's last two free chlorine tests and the weather
@@ -412,7 +416,9 @@ alert goes at the same hour; sending at each person's local morning waits for Ve
 `/app/pools/[id]/import` (linked from the pool page as **Import CSV**) reads a CSV of
 water tests: Pool Math's "Export All Test Logs (.csv)" or any sheet with a date column.
 The browser parses it for the column mapping and a preview; `POST /api/pools/[id]/import`
-parses it again with the same code (`src/lib/import/`), checks ranges, reads times
+parses it again with the same code (`src/lib/import/`). The column separator (comma,
+semicolon or tab) and the number format ("3.5 and 3,200" or "3,5 and 3.200") are guessed
+from the file and can be changed above the column choices. It checks ranges, reads times
 without a zone in the pool's time zone, and drops rows in the same minute as another row
 or a test already logged. Rows on the same day as a logged test with the same results
 (`src/lib/import/logged.ts`: every result both have agrees) are shown as near-duplicates

@@ -160,6 +160,18 @@ describe("planWeek, salt pool", () => {
     expect(planWeek({ ...salt, pool: { ...salt.pool, cellLevels: [25, 50, 75, 100] } })!.swgStart).toBeNull();
   });
 
+  it("boosts a low start, then drops to a weekly setting instead of climbing all week (worked numbers)", () => {
+    // FC 1.0, floor 4.5, target 4–6, 1.86 ppm/day used. Reaching 4.5 tonight takes 50%
+    // (1 + 5.59 − 1.86 = 4.73); kept all week, 50% climbs 3.73 ppm a day to 27 ppm by day 7.
+    // Instead: 60% for a day (1 + 6.71 − 1.86 = 5.85), then 15% (1.68 − 1.86 = −0.18 a day),
+    // which stays inside the band and above the floor all week.
+    const low = planWeek({ ...salt, water: { ...salt.water, fc: 1 } })!;
+    expect(low.swgStart).toEqual({ percent: 60, until: "2026-10-02" });
+    expect(low.swgPercent).toBe(15);
+    expect(low.days.map((d) => d.fcEnd)).toEqual([5.85, 5.67, 5.49, 5.3, 5.12, 4.94, 4.76]);
+    expect(low.days.every((d) => d.fcEnd >= low.floor)).toBe(true);
+  });
+
   it("runs a cell with set levels at its top setting when it cannot keep up", () => {
     const small = planWeek({ ...salt, pool: { ...salt.pool, cellPpmPerDay: 1, cellLevels: [20, 40, 60, 80, 100] } })!;
     expect(small.swgPercent).toBe(100);

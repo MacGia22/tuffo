@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { doseFor, doseForPh } from "@/engine/server";
-import { adviseFor, type AdviceReading, type LoggedDose } from "../advice";
+import { NEVER_MIX_NOTE, adviseFor, type AdviceReading, type LoggedDose } from "../advice";
 
 const pool = { volumeL: 56781, sanitizer: "chlorine" as const, surface: "plaster" as const }; // 15,000 gal
 
@@ -306,5 +306,30 @@ describe("adviseFor with values from different tests", () => {
     expect(adviseFor(pool, { ...balanced, waterTempC: null }).assumptions).toContain(
       "No water temperature; the saturation index assumes 27 °C (81 °F).",
     );
+  });
+});
+
+describe("chlorine safety", () => {
+  const tenK = { volumeL: 37_854, sanitizer: "chlorine" as const, surface: "plaster" as const };
+
+  it("adds at most 8 ppm of chlorine at once and says to retest for the rest", () => {
+    // CYA 100, FC 0: the aim is above 8 ppm, so the dose stops at 8 ppm (worked: 8 × 37,854 L ÷ 125 g/L ≈ 2,423 mL).
+    const advice = adviseFor(tenK, { ...balanced, fc: 0, cya: 100 });
+    const fc = advice.items.find((i) => i.measure === "fc")!;
+    const aim = (advice.targets.fc.targetLow + advice.targets.fc.targetHigh) / 2;
+    expect(aim).toBeGreaterThan(8);
+    expect(fc.dose!.effects.fc).toBeCloseTo(8, 5);
+    expect(fc.dose!.amount).toBeCloseTo(2423, -1);
+    expect(fc.dose!.notes.some((n) => n.includes("the most in one addition"))).toBe(true);
+    // Below the cap nothing changes: FC 3 at CYA 40 gets its whole way to the aim.
+    const small = adviseFor(tenK, { ...balanced, fc: 1, cya: 40 }).items.find((i) => i.measure === "fc")!;
+    expect(small.dose!.notes.some((n) => n.includes("the most in one addition"))).toBe(false);
+  });
+
+  it("puts the never-mix note on every dose", () => {
+    const advice = adviseFor(tenK, { ...balanced, fc: 1, ph: 8.0, ch: 150 });
+    const doses = advice.items.filter((i) => i.dose);
+    expect(doses.length).toBeGreaterThanOrEqual(2);
+    for (const item of doses) expect(item.dose!.notes).toContain(NEVER_MIX_NOTE);
   });
 });

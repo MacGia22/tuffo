@@ -287,11 +287,43 @@ export function planWeek(input: PlanInput): Plan | null {
           }
         }
       }
+      // Starting below the band, the setting that brings FC up in time keeps climbing all
+      // week: run it (or a higher one) for the first days, then a lower weekly setting. Of
+      // the schedules that hold the floor, keep the one that leaves the least FC above the
+      // band (ties: the higher weekly setting, then the gentler, shorter boost).
+      let weekly = chosen;
+      if (!capped && water.fc < fc.targetLow && best.excess > 1e-9) {
+        const boost = (start: number, k: number, after: number) => {
+          let level = water.fc;
+          return losses.map((loss, i) => (level = Math.max(0, level + (cell * (i < k ? start : after) * dayShare(i)) / 100 - loss)));
+        };
+        let found: { excess: number; start: number; k: number; after: number } | null = null;
+        for (const after of candidates.filter((p) => p < chosen)) {
+          for (const start of candidates.filter((p) => p > after)) {
+            for (let k = 1; k < days; k += 1) {
+              const path = boost(start, k, after);
+              if (!holds(path)) continue;
+              const excess = over(path);
+              const better =
+                !found ||
+                excess < found.excess - 1e-9 ||
+                (Math.abs(excess - found.excess) < 1e-9 &&
+                  (after > found.after || (after === found.after && (start < found.start || (start === found.start && k < found.k)))));
+              if (better) found = { excess, start, k, after };
+            }
+          }
+        }
+        if (found && found.excess < best.excess - 1e-9) {
+          best = { excess: found.excess, start: found.start, k: found.k };
+          weekly = found.after;
+          swgPercent = weekly;
+        }
+      }
       const startDays = best.k;
       if (startDays > 0) swgStart = { percent: best.start, until: input.days[startDays].date };
       // Not rounded: the setting was chosen on the exact output (a rounded one can end a day
       // a hundredth under the floor).
-      for (let i = 0; i < days; i += 1) adds.push((cell * (i < startDays ? best.start : chosen) * dayShare(i)) / 100);
+      for (let i = 0; i < days; i += 1) adds.push((cell * (i < startDays ? best.start : weekly) * dayShare(i)) / 100);
     } else {
       // Unknown cell: show the week's use only.
       for (let i = 0; i < days; i += 1) adds.push(0);

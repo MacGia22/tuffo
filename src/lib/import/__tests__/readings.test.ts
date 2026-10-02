@@ -7,6 +7,7 @@ import {
   guessTempUnit,
   MAX_IMPORT_ROWS,
   parseImportFlag,
+  guessDecimalMark,
   parseImportNumber,
   planImport,
 } from "../readings";
@@ -43,11 +44,36 @@ describe("guessMapping", () => {
   });
 });
 
+describe("numbers with a decimal comma", () => {
+  it("reads 3,5 as 3.5 and 3.200 as 3,200 when the file uses commas for decimals", () => {
+    expect(parseImportNumber("3,200", ",")).toBe(3.2);
+    expect(parseImportNumber("3.200", ",")).toBe(3200);
+    expect(parseImportNumber("1.200,5", ",")).toBe(1200.5);
+    expect(parseImportNumber("7,4", ",")).toBe(7.4);
+    expect(parseImportNumber("7.4", ",")).toBe(7.4);
+  });
+
+  it("guesses the decimal mark from the cells, then from the separator", () => {
+    expect(guessDecimalMark(["7,4", "3200", "80"], ";")).toBe(",");
+    expect(guessDecimalMark(["7.4", "3,200", "80"], ",")).toBe(".");
+    expect(guessDecimalMark(["3,200", "80"], ",")).toBe(".");
+    expect(guessDecimalMark(["80", "300"], ";")).toBe(",");
+    expect(guessDecimalMark(["80", "300"], ",")).toBe(".");
+  });
+
+  it("reads a semicolon file with decimal commas end to end", () => {
+    const table = parseCsv("Date;FC;pH;Salt\n27.09.2026 08:30;3,5;7,4;3.200\n", ";");
+    const plan = planImport(table, { mapping: { when: 0, fc: 1, ph: 2, salt: 3 }, dateOrder: "dmy", tempUnit: "C", decimal: ",", timeZone: tz, now });
+    expect(plan.rows[0].values).toEqual({ fc: 3.5, ph: 7.4, salt: 3200 });
+  });
+});
+
 describe("parseImportNumber", () => {
   it("reads numbers with units and decimal commas; blanks are null", () => {
     expect(parseImportNumber("3.5")).toBe(3.5);
     expect(parseImportNumber("7,4")).toBe(7.4);
-    expect(parseImportNumber("3,200")).toBe(3.2); // ambiguous: a decimal comma wins
+    expect(parseImportNumber("3,200")).toBe(3200); // a decimal point file: thousands
+    expect(parseImportNumber("1,200.5")).toBe(1200.5);
     expect(parseImportNumber("3200 ppm")).toBe(3200);
     expect(parseImportNumber("")).toBeNull();
     expect(parseImportNumber("n/a")).toBeNull();
