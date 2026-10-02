@@ -22,6 +22,10 @@ export async function GET(request: Request) {
   try {
     const admin = createSupabaseAdminClient();
     const result = await runWeatherJob(admin);
+    // Weather failures must be visible (logs and Sentry), not only in the cron's response body.
+    if (result.errors.length > 0) {
+      console.error(`[weather] nightly: ${result.failed} failed of ${result.batches} batches: ${result.errors.join("; ").slice(0, 500)}`);
+    }
     const models = await recomputeAllModels(admin);
     // After the forecast is stored and the models refitted.
     const plans = await refreshAllPlans(admin);
