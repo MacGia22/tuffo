@@ -14,7 +14,7 @@
   --sun: #f5b301;
   /* Chart marks, validated with the dataviz six checks on the card surface (#ffffff). */
   --chart-chem: #0e7c9e;
-  --chart-uv: #c98500;
+  --chart-uv: #b87900;
   --chart-rain: #4a3aa7;
   --chart-grid: #e3ebf0;
   --chart-axis: #c5d3dd;
@@ -22,6 +22,30 @@
   --status-good: #0ca30c;
   --status-warning: #fab219;
   --status-critical: #d03b3b;
+  /* Status chips on the tiles: background / text pairs, text at 4.5:1 or more. */
+  --chip-ok-bg: #e3f4e3;
+  --chip-ok-fg: #0a5c0a;
+  --chip-warn-bg: #fde9b8;
+  --chip-warn-fg: #6b4700;
+  --chip-critical-bg: #fbe0e0;
+  --chip-critical-fg: #8f1f1f;
+  --chip-critical-border: #d03b3b;
+  --chip-none-bg: #eef3f6;
+  --chip-none-fg: #3b5468;
+  /*
+   * UV index levels (WHO categories), the same fills and text in both modes. Extreme is
+   * #9a6500 rather than #b87900: white text on #b87900 is 3.6:1, on #9a6500 5.0:1.
+   */
+  --uv-low: #fdf3dc;
+  --uv-low-fg: #0b2e4f;
+  --uv-moderate: #f8de9e;
+  --uv-moderate-fg: #0b2e4f;
+  --uv-high: #f0c25a;
+  --uv-high-fg: #0b2e4f;
+  --uv-very-high: #d99a12;
+  --uv-very-high-fg: #0b2e4f;
+  --uv-extreme: #9a6500;
+  --uv-extreme-fg: #ffffff;
 }
 
 @theme inline {
@@ -43,6 +67,25 @@
   --color-status-good: var(--status-good);
   --color-status-warning: var(--status-warning);
   --color-status-critical: var(--status-critical);
+  --color-chip-ok-bg: var(--chip-ok-bg);
+  --color-chip-ok-fg: var(--chip-ok-fg);
+  --color-chip-warn-bg: var(--chip-warn-bg);
+  --color-chip-warn-fg: var(--chip-warn-fg);
+  --color-chip-critical-bg: var(--chip-critical-bg);
+  --color-chip-critical-fg: var(--chip-critical-fg);
+  --color-chip-critical-border: var(--chip-critical-border);
+  --color-chip-none-bg: var(--chip-none-bg);
+  --color-chip-none-fg: var(--chip-none-fg);
+  --color-uv-low: var(--uv-low);
+  --color-uv-low-fg: var(--uv-low-fg);
+  --color-uv-moderate: var(--uv-moderate);
+  --color-uv-moderate-fg: var(--uv-moderate-fg);
+  --color-uv-high: var(--uv-high);
+  --color-uv-high-fg: var(--uv-high-fg);
+  --color-uv-very-high: var(--uv-very-high);
+  --color-uv-very-high-fg: var(--uv-very-high-fg);
+  --color-uv-extreme: var(--uv-extreme);
+  --color-uv-extreme-fg: var(--uv-extreme-fg);
   --font-sans: var(--font-manrope);
   --font-display: var(--font-sora);
 }
@@ -62,6 +105,16 @@
     --chart-rain: #8a6cf0;
     --chart-grid: #1f3344;
     --chart-axis: #2b4356;
+    /* Chip pairs for the dark surface; text 8:1 or more, the critical border 4.8:1. */
+    --chip-ok-bg: #123a1e;
+    --chip-ok-fg: #a8e3a8;
+    --chip-warn-bg: #3d2e07;
+    --chip-warn-fg: #f6d27a;
+    --chip-critical-bg: #4a1919;
+    --chip-critical-fg: #ffb9b9;
+    --chip-critical-border: #e5605f;
+    --chip-none-bg: #1c2e3c;
+    --chip-none-fg: #b7c7d6;
   }
 }
 
