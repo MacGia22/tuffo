@@ -1,4 +1,5 @@
 import { PLAN_MAX_ADDITION_PPM } from "@/engine/server";
+import { DayCard } from "@/components/day-card";
 import { WaitlistForm } from "@/components/waitlist-form";
 import type { ForecastInput } from "@/lib/forecast/params";
 import type { ForecastDayView, ForecastView } from "@/lib/forecast/view";
@@ -35,7 +36,7 @@ export function Result({
   return (
     <section aria-labelledby="week" className="flex flex-col gap-5">
       {notices.length > 0 ? (
-        <ul role="status" className="flex flex-col gap-1 rounded-xl border border-sun/60 bg-sun/10 px-4 py-3 text-sm">
+        <ul role="status" className="flex flex-col gap-1 rounded-xl border border-chip-warn-fg/40 bg-chip-warn-bg px-4 py-3 text-sm text-chip-warn-fg">
           {notices.map((n) => (
             <li key={n}>{n}</li>
           ))}
@@ -80,7 +81,7 @@ export function Result({
       <div className="flex flex-col gap-2">
         <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
           {view.days.map((d) => (
-            <DayCard key={d.date} day={d} salt={Boolean(salt)} min={view.target.min} />
+            <ForecastDay key={d.date} day={d} salt={Boolean(salt)} min={view.target.min} />
           ))}
         </ol>
         {view.weekAdd ? (
@@ -161,27 +162,29 @@ export function Result({
   );
 }
 
-function DayCard({ day, salt, min }: { day: ForecastDayView; salt: boolean; min: number }) {
-  const border = day.algaeRisk ? "border-sun bg-sun/10" : day.today ? "border-2 border-lagoon bg-surface" : "border-border bg-surface";
+function ForecastDay({ day, salt, min }: { day: ForecastDayView; salt: boolean; min: number }) {
   return (
-    <li className={`flex flex-col gap-1 rounded-2xl border p-3 text-sm ${border}`} aria-current={day.today ? "date" : undefined}>
-      <p className="text-xs font-semibold text-muted">
-        {day.today ? <span className="text-lagoon">Today</span> : day.day} · {day.label}
-      </p>
-      <p className="font-display font-semibold">
-        {salt ? `Cell needs ${day.usePpm} ppm` : day.add ? `Add ${day.add} of 12.5% chlorine` : "Nothing to add"}
-      </p>
-      {salt ? null : <p className="text-xs text-muted">Sun and heat use ≈ {day.useText}</p>}
+    <DayCard
+      day={day.today ? "Today" : day.day}
+      dateText={day.label}
+      today={day.today}
+      ahead={!day.today}
+      risk={day.algaeRisk ? `Algae risk: below ${min} ppm` : null}
+      actions={[salt ? `Cell needs ${day.usePpm} ppm` : day.add ? `Add ${day.add} of 12.5% chlorine` : "Nothing to add"]}
+      fc={day.fcEvening}
+      uv={day.uv}
+      rain={day.rainNote}
+    >
       <p className="text-xs text-muted">
-        UV {day.uv ?? "–"} · {day.high ?? "–"} · {day.rainNote}
+        High {day.high ?? "–"}
+        {salt ? "" : ` · sun and heat use ≈ ${day.useText}`}
       </p>
-      {day.algaeRisk ? <p className="text-xs font-semibold">Algae risk: below {min} ppm</p> : null}
       {day.dilutionPercent !== null ? (
         <p className="text-xs">
           Heavy rain replaces about {day.dilutionPercent}% of the water
           {day.cyaAfter !== null ? `: stabilizer about ${day.cyaAfter} ppm after` : ""}.
         </p>
       ) : null}
-    </li>
+    </DayCard>
   );
 }

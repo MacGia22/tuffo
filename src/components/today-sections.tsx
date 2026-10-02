@@ -1,6 +1,6 @@
 import Link from "next/link";
+import { DayCard } from "@/components/day-card";
 import type { ReactNode } from "react";
-import { UvChip } from "@/components/uv-chip";
 import type { TestStatus, TodayAction, WeekCard } from "@/lib/today";
 
 const primary =
@@ -30,13 +30,23 @@ export function TestStatusCard({ status, logHref }: { status: TestStatus; logHre
   );
 }
 
-function Pill({ text, tone }: { text: string; tone: "today" | "plain" }) {
+const PILL: Record<"first" | "warn" | "critical" | "plain", string> = {
+  first: "bg-action text-white",
+  warn: "bg-chip-warn-fg text-chip-warn-bg",
+  critical: "bg-chip-critical-fg text-chip-critical-bg",
+  plain: "bg-chip-none-bg text-chip-none-fg",
+};
+
+/** The first card: lagoon, unless it is a warning (amber) or critical (red). */
+const FIRST: Record<"first" | "warn" | "critical", string> = {
+  first: "border-lagoon bg-lagoon/10",
+  warn: "border-chip-warn-fg/40 bg-chip-warn-bg",
+  critical: "border-chip-critical-border bg-chip-critical-bg",
+};
+
+function Pill({ text, tone }: { text: string; tone: keyof typeof PILL }) {
   return (
-    <span
-      className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-        tone === "today" ? "bg-chip-warn-fg text-chip-warn-bg" : "bg-chip-none-bg text-chip-none-fg"
-      }`}
-    >
+    <span className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${PILL[tone]}`}>
       {text}
     </span>
   );
@@ -72,12 +82,12 @@ export function WhatToDoNow({
             <li
               key={a.id}
               className={`flex flex-col gap-2 rounded-2xl border p-4 ${
-                i === 0 ? "border-chip-warn-fg/40 bg-chip-warn-bg/60" : "border-border bg-surface"
+                i === 0 ? FIRST[a.tone ?? "first"] : a.tone === "critical" ? "border-chip-critical-border bg-surface" : "border-border bg-surface"
               }`}
             >
               <div className="flex items-start justify-between gap-3">
                 <h3 className={`font-sans font-semibold ${i === 0 ? "text-lg" : "text-base"}`}>{a.title}</h3>
-                <Pill text={a.pill} tone={i === 0 ? "today" : "plain"} />
+                <Pill text={a.pill} tone={a.tone ?? (i === 0 ? "first" : "plain")} />
               </div>
               <p className="text-sm text-muted">{a.why}</p>
               {a.notes ? (
@@ -129,36 +139,19 @@ export function NextSevenDays({ cards, children }: { cards: WeekCard[]; children
       </div>
       <ol className="-mx-5 flex snap-x gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:px-0">
         {cards.map((c) => (
-          <li
+          <DayCard
             key={c.date}
-            aria-current={c.today ? "date" : undefined}
-            className={`flex w-28 shrink-0 snap-start flex-col lg:w-auto lg:flex-1 gap-1.5 rounded-2xl p-3 text-sm ${
-              c.today ? "border-2 border-lagoon bg-surface" : c.risk ? "border border-chip-warn-fg/40 bg-chip-warn-bg/60" : "border border-border bg-surface"
-            }`}
-          >
-            <p className="leading-tight">
-              <span className={`block font-semibold ${c.today ? "text-lagoon" : ""}`}>{c.day}</span>
-              <span className="text-xs text-muted">{c.dateText}</span>
-            </p>
-            {c.uv ? <UvChip index={c.uv.index} /> : null}
-            {c.rain ? (
-              <p className="text-xs">
-                {c.rain === "Dry" ? null : <span className="sr-only">Rain </span>}
-                {c.rain}
-              </p>
-            ) : null}
-            {c.fc ? (
-              <p className="text-xs text-muted">
-                FC by evening <span className="font-semibold text-foreground">{c.fc}</span>
-              </p>
-            ) : null}
-            {c.actions.map((a) => (
-              <p key={a} className="font-semibold leading-tight">
-                {a}
-              </p>
-            ))}
-            {c.risk ? <p className="text-xs font-semibold text-chip-warn-fg">May run low</p> : null}
-          </li>
+            day={c.day}
+            dateText={c.dateText}
+            today={c.today}
+            ahead={!c.today}
+            risk={c.risk ? "May run low" : null}
+            actions={c.actions}
+            fc={c.fc}
+            uv={c.uv?.index ?? null}
+            rain={c.rain}
+            className="w-28 shrink-0 snap-start lg:w-auto lg:flex-1"
+          />
         ))}
       </ol>
       {children}

@@ -46,7 +46,7 @@ function day(date: string): string {
 
 const STATE_STYLE: Record<TaskState, string> = {
   overdue: "border-red-300 bg-red-50/60 dark:border-red-900 dark:bg-red-950/40",
-  due: "border-sun/70 bg-sun/10",
+  due: "border-chip-warn-fg/40 bg-chip-warn-bg",
   soon: "border-lagoon/40 bg-lagoon/5",
   ok: "border-border bg-surface",
   unknown: "border-border bg-surface",

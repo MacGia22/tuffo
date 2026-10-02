@@ -57,6 +57,8 @@ export interface TodayAction {
   notes?: string[];
   /** A maintenance task: the card logs it done with its own form. */
   task?: { id: string; label: string };
+  /** A warning (something is off) or critical (algae risk): the only cards in amber or red. */
+  tone?: "warn" | "critical";
 }
 
 export interface AdviceAction {
@@ -110,6 +112,8 @@ export function todayActions(input: ActionsInput): TodayAction[] {
       title: dose ? `Add ${dose.text}` : a.title,
       why: dose ? `${sentence(a.title)} ${sentence(a.detail)}` : sentence(a.detail),
       pill: a.severity === "act" ? "Today" : "This week",
+      // Below free chlorine's minimum is critical (the tile's "Too low"); other actions are warnings.
+      tone: a.severity !== "act" ? undefined : a.measure === "fc" && /below the minimum/.test(a.title) ? "critical" : "warn",
       button: dose ? { label: `I added ${dose.amount}`, href: dose.href } : undefined,
       notes: dose?.notes.length ? dose.notes : undefined,
     });
@@ -144,6 +148,7 @@ export function todayActions(input: ActionsInput): TodayAction[] {
       title: sentence(what).replace(/^./, (c) => c.toUpperCase()).replace(/\.$/, ""),
       why: why ? sentence(why) : "On the plan for this week.",
       pill: input.band.direction === "low" ? "Today" : "This week",
+      tone: input.band.direction === "low" ? "critical" : "warn",
     });
   }
 
@@ -155,6 +160,7 @@ export function todayActions(input: ActionsInput): TodayAction[] {
         title: m.label,
         why: "Due now: the filter pressure is up.",
         pill: d !== null && d < 0 ? "Overdue" : "Today",
+        tone: "warn",
         task: { id: m.id, label: m.label },
       });
       continue;
@@ -164,6 +170,7 @@ export function todayActions(input: ActionsInput): TodayAction[] {
       title: m.label,
       why: `Due ${m.relative}.`,
       pill: d === null || m.nextDue === null ? "This week" : d < 0 ? "Overdue" : d === 0 ? "Today" : `Around ${shortDate(m.nextDue)}`,
+      tone: d !== null && d < 0 ? "warn" : undefined,
       task: { id: m.id, label: m.label },
     });
   }

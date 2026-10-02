@@ -43,7 +43,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         </p>
       </div>
       {failed ? (
-        <p role="alert" className="rounded-xl border border-sun/60 bg-sun/10 px-4 py-3 text-sm">
+        <p role="alert" className="rounded-xl border border-chip-warn-fg/40 bg-chip-warn-bg text-chip-warn-fg px-4 py-3 text-sm">
           {failed === "beta"
             ? "Tuffo is in private beta. That Google account's address is not on the list yet. Use the address you were invited with."
             : failed === "google"

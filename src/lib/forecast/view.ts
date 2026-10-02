@@ -51,6 +51,8 @@ export interface ForecastDayView {
   usePpm: number;
   /** Manual pools: liquid chlorine 12.5% to add, "1.25 qt" / "1.5 L"; null for nothing. */
   add: string | null;
+  /** Free chlorine by evening on the plan, "≈ 7.8"; null when the plan has no line. */
+  fcEvening: string | null;
   /** Chlorine used that day, ppm, to 0.1 (the card's "Sun and heat use ≈ 1.8 ppm"). */
   useText: string;
   algaeRisk: boolean;
@@ -195,6 +197,7 @@ export function buildForecastView({ input, plan, weather, sunShare, summerDayPpm
       rainfall: rainText(d.rainMm, units),
       rainNote: rainLabel(d.rainMm ?? 0, w?.rainChance ?? null, units) ?? "Dry",
       today: i === 0,
+      fcEvening: swg && plan.swgPercent === null ? null : `≈ ${roundTo(d.fcEnd, 0.1).toFixed(1)}`,
       usePpm: roundTo(d.lossPpm, 0.5),
       useText: `${roundTo(d.lossPpm, 0.1).toFixed(1)} ppm`,
       add: swg ? null : liquidChlorine(d.addPpm, input.volumeL, units),

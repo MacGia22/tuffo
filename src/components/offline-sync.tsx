@@ -88,7 +88,7 @@ export function OfflineSync({ userId }: { userId: string }) {
   if (waiting.length === 0 && refused.length === 0) {
     if (!online) {
       return (
-        <p role="status" className="rounded-xl bg-sun/10 px-4 py-2 text-sm">
+        <p role="status" className="rounded-xl bg-chip-warn-bg px-4 text-chip-warn-fg py-2 text-sm">
           You are offline. Tests, doses and events you log are kept on this device and sent when you are back.
         </p>
       );
@@ -101,7 +101,7 @@ export function OfflineSync({ userId }: { userId: string }) {
   }
 
   return (
-    <section role="status" aria-label="Waiting to send" className="flex flex-col gap-2 rounded-2xl border border-sun/60 bg-sun/10 px-4 py-3 text-sm">
+    <section role="status" aria-label="Waiting to send" className="flex flex-col gap-2 rounded-2xl border border-chip-warn-fg/40 bg-chip-warn-bg text-chip-warn-fg px-4 py-3 text-sm">
       {waiting.length > 0 ? (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p>

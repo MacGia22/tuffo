@@ -6,7 +6,7 @@ export function FeedbackStatusBadge({ status }: { status: FeedbackStatus }) {
     status === "done"
       ? "border-lagoon text-lagoon-deep"
       : status === "planned"
-        ? "border-sun text-foreground"
+        ? "border-chip-warn-fg text-foreground"
         : "border-border text-muted";
   return <span className={`rounded-full border px-2 py-0.5 ${tone}`}>{STATUS_LABELS[status]}</span>;
 }

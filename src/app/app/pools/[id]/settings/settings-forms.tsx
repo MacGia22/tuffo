@@ -330,9 +330,9 @@ export interface CardFacts {
 }
 
 const CHIP_BG: Record<Tone, string> = {
-  good: "bg-status-good/15",
-  warning: "bg-status-warning/25",
-  critical: "bg-status-critical/15",
+  good: "bg-chip-ok-bg text-chip-ok-fg",
+  warning: "bg-chip-warn-bg text-chip-warn-fg",
+  critical: "bg-chip-critical-bg text-chip-critical-fg",
 };
 
 /** The one card every piece of equipment uses: what it is, its age, what is next. */
@@ -378,7 +378,7 @@ function ItemCard({
         )}
       </h3>
       {facts.warning ? (
-        <p className="flex items-start gap-1.5 rounded-lg bg-status-warning/20 px-2.5 py-1.5 text-xs text-foreground">
+        <p className="flex items-start gap-1.5 rounded-lg bg-chip-warn-bg px-2.5 py-1.5 text-xs text-chip-warn-fg">
           <ToneIcon tone="warning" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>{facts.warning}</span>
         </p>

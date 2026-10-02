@@ -73,6 +73,7 @@ function day(over: Partial<ForecastDayView>): ForecastDayView {
     today: false,
     usePpm: 2,
     useText: "2.0 ppm",
+    fcEvening: null,
     add: null,
     algaeRisk: false,
     dilutionPercent: null,
@@ -162,6 +163,8 @@ describe("buildForecastView", () => {
     expect(view.days[0].rainNote).toBe("Dry");
     expect(view.days[3].rainNote).toBe("1.4 in");
     expect(view.days[0].useText).toBe("2.1 ppm"); // 2.149… to 0.1
+    // The plan's evening level, rounded: what the card shows as "FC by evening".
+    expect(view.days[0].fcEvening).toBe(`≈ ${(Math.round(plan.days[0].fcEnd * 10) / 10).toFixed(1)}`);
     // The week's additions together: Σ addPpm × 56,781 L ÷ 125 mg/mL, in quarts to 0.25.
     const ppm = plan.days.reduce((sum, d) => sum + d.addPpm, 0);
     const qt = Math.round(((ppm * 56_781) / 125 / 946.352946) * 4) / 4;

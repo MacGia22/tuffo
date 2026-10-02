@@ -188,7 +188,7 @@ export default async function PoolsPage() {
 
 function PoolFacts({ facts }: { facts: CardFacts | undefined }) {
   if (!facts) return null;
-  const warn = "bg-sun/20 text-foreground";
+  const warn = "bg-chip-warn-bg text-chip-warn-fg";
   const calm = "bg-lagoon/10 text-lagoon-deep dark:text-ice";
   const plain = "bg-background text-muted";
   return (
