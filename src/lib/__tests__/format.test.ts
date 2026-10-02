@@ -19,5 +19,10 @@ describe("formatRainAmount", () => {
     expect(formatRainAmount(19.8, "us")).toBe("0.78 in");
     expect(formatRainAmount(0.4, "metric")).toBe("0.4 mm");
     expect(formatRainAmount(6.4, "metric")).toBe("6 mm");
+    // A trace, and none at all.
+    expect(formatRainAmount(0.1, "us", 1)).toBe("< 0.01 in");
+    expect(formatRainAmount(0.02, "metric")).toBe("< 0.1 mm");
+    expect(formatRainAmount(0, "us", 1)).toBe("0 in");
+    expect(formatRainAmount(0, "metric")).toBe("0 mm");
   });
 });

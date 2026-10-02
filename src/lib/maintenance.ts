@@ -303,7 +303,7 @@ export interface MaintenanceInput {
   today: string;
   /**
    * When each current item was installed (YYYY-MM-DD). Completions before it belonged to
-   * the item it replaced, and a "replace" task counts the install as done.
+   * the item it replaced, and a "replace" task counts the install as done (within one interval).
    */
   installedOn?: Partial<Record<TaskEquipment, string | null>>;
 }
@@ -321,7 +321,13 @@ export function maintenanceStatus(input: MaintenanceInput): TaskStatus[] {
           .map((d) => d.doneOn.slice(0, 10))
           .sort()
           .pop() ?? null;
-      const lastDone = logged ?? (installed && task.id.endsWith("_replace") && installed <= input.today ? installed : null);
+      // A new item comes with a new cartridge or sand, so its install counts as the last
+      // replacement while that is within one interval; an older item may have had one since.
+      const fromInstall =
+        installed && task.id.endsWith("_replace") && installed <= input.today && addDays(installed, intervalDays) >= input.today
+          ? installed
+          : null;
+      const lastDone = logged ?? fromInstall;
       const p = input.pressure;
       const pressureHigh = Boolean(task.pressure && p?.high && (!lastDone || p.latest.readOn >= lastDone));
       const nextDue = lastDone ? addDays(lastDone, intervalDays) : null;

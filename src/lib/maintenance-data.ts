@@ -61,9 +61,14 @@ interface PoolRow {
   swg_cell_model: string | null;
 }
 
+/** The pool's date today; UTC for a missing or unknown zone (the alert job runs every pool). */
 export function poolLocalDate(timeZone: string | null, now = Date.now()): string {
   const iso = new Date(now).toISOString();
-  return localDateRange(iso, iso, timeZone ?? "UTC").to;
+  try {
+    return localDateRange(iso, iso, timeZone ?? "UTC").to;
+  } catch {
+    return iso.slice(0, 10);
+  }
 }
 
 export async function loadPoolMaintenance(

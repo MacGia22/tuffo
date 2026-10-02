@@ -176,5 +176,9 @@ describe("weekCards", () => {
     expect(card(0.4, 10, "metric")).toBe("0.4 mm · 10%");
     expect(card(0.2, 10, "metric")).toBe("Dry");
     expect(card(0.2, 40, "us")).toBe("0.01 in · 40%");
+    // A chance with no amount (common in the forecast) gives the chance alone.
+    expect(card(0, 40, "us")).toBe("40% chance");
+    expect(card(0.1, 40, "us")).toBe("< 0.01 in · 40%");
+    expect(card(0, 40, "metric")).toBe("40% chance");
   });
 });

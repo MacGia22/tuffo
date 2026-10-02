@@ -77,7 +77,11 @@ export function estimateFcSeries(input: EstimateInput): EstimatePoint[] | null {
     const t = Date.parse(iso);
     return t >= t0 && t <= t1;
   };
-  if (input.events.some((e) => inside(e.occurred_at) && (e.kind === "refill" || e.kind === "drain_refill"))) return null;
+  // No estimate across a refill; one logged with the next test came after that test.
+  const refilled = input.events.some(
+    (e) => (e.kind === "refill" || e.kind === "drain_refill") && inside(e.occurred_at) && Date.parse(e.occurred_at) < t1,
+  );
+  if (refilled) return null;
 
   const cell = cellPpmPerDay(pool);
   if (cell === null) return null;

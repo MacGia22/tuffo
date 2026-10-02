@@ -380,15 +380,19 @@ export function adviseFor(
     );
   } else if (r.ch !== null) {
     const { low, high } = targets.ch;
-    if (r.ch < low) {
-      const dose = doseFor("calcium-chloride-77", low + 50 - r.ch, L);
+    // Cal-hypo logged since the test (the only calcium here) is taken off the dose.
+    const fromCalHypo = added(raising("ch"), "ch");
+    const short = low + 50 - r.ch - fromCalHypo;
+    if (r.ch < low && short > 0) {
+      const dose = doseFor("calcium-chloride-77", short, L);
+      const counted = fromCalHypo >= 1 ? ` The dose counts about ${Math.round(fromCalHypo)} ppm from the cal-hypo added since.` : "";
       items.push({
         measure: "ch",
         severity: pool.surface === "plaster" ? "act" : "ok",
         title: `Calcium ${Math.round(r.ch)} ppm is low`,
         detail:
           pool.surface === "plaster"
-            ? `Raise it to about ${low + 50} ppm with calcium chloride to protect the plaster.`
+            ? `Raise it to about ${low + 50} ppm with calcium chloride to protect the plaster.${counted}`
             : "Not a problem for a vinyl or fiberglass pool.",
         dose: pool.surface === "plaster" ? dose : undefined,
       });
@@ -523,6 +527,10 @@ export function adviseFor(
     });
     const verdict = saturationVerdict(csi);
     csiResult = { value: csi, verdict, assumedTemp: r.waterTempC === null };
+  }
+  // A card only while pH, TA and CH are all current (the line under the tiles still shows it).
+  if (csiResult && card("ph") && card("ta") && card("ch")) {
+    const { value: csi, verdict } = csiResult;
     if (r.waterTempC === null) assumptions.push("No water temperature; the saturation index assumes 27 °C (81 °F).");
     items.push({
       measure: "csi",

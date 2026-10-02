@@ -238,6 +238,10 @@ describe("adviseFor with values from different tests", () => {
     expect(advice.items.find((i) => i.measure === "ch")).toBeUndefined();
     expect(advice.items.find((i) => i.measure === "cya")).toBeUndefined();
     expect(advice.targets.fc.targetLow).toBe(7);
+    // Nor a saturation card from an old calcium test; the index itself stays for the line under the tiles.
+    expect(advice.items.find((i) => i.measure === "csi")).toBeUndefined();
+    expect(advice.csi).not.toBeNull();
+    expect(adviseFor(tenK, { ...balanced, ch: 150, cya: 60 }).items.find((i) => i.measure === "csi")).toBeDefined();
   });
 
   it("reads free chlorine from its own test when the latest one is pH only", () => {
@@ -261,6 +265,14 @@ describe("adviseFor with values from different tests", () => {
     const ch = advice.items.find((i) => i.measure === "ch")!;
     expect(ch).toMatchObject({ severity: "act", title: "Calcium 200 ppm is low" });
     expect(ch.dose?.productId).toBe("calcium-chloride-77");
+    // Its calcium comes off the dose: 300 − 200 − 8.75 × 0.705 = 93.8 ppm, × 37,854 L ÷ 694.4 mg/g = 5,115 g.
+    expect(ch.dose!.amount).toBeCloseTo(5115, -1);
+    expect(ch.detail).toContain("counts about 6 ppm from the cal-hypo added since");
+    // Ten pounds (+62 ppm) covers CH 240 to 300: no calcium card.
+    const lots = adviseFor(tenK, { ...balanced, ch: 240 }, [lb("cal-hypo-73", "2026-10-01T20:00:00Z", 4536)], undefined, {
+      testedAt: "2026-10-01T16:00:00Z",
+    });
+    expect(lots.items.find((i) => i.measure === "ch")).toBeUndefined();
   });
 
   it("counts the soda ash for pH in the baking soda for TA", () => {

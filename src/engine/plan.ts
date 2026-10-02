@@ -244,13 +244,18 @@ export function planWeek(input: PlanInput): Plan | null {
         let level = water.fc;
         return losses.map((loss, i) => (level = Math.max(0, level + (cell * percent * dayShare(i)) / 100 - loss)));
       };
+      // A first day with only hours left need not reach the floor by midnight: it has to make
+      // that share of the way up from below it (all of it on a whole day).
+      const dayFloor = (i: number) =>
+        i === 0 && share < 1 && water.fc < floor ? water.fc + share * (floor - water.fc) : floor;
+      const holds = (path: number[]) => path.every((v, i) => v >= dayFloor(i));
       // The settings the cell's control offers (plus off), or any 5% step.
       const candidates = pool.cellLevels?.length
         ? [0, ...pool.cellLevels.filter((l) => l > 0 && l <= 100)].sort((a, b) => a - b)
         : Array.from({ length: 100 / SWG_STEP_PERCENT + 1 }, (_, i) => i * SWG_STEP_PERCENT);
       let chosen: number | null = null;
       for (const p of candidates) {
-        if (ends(p).every((v) => v >= floor)) {
+        if (holds(ends(p))) {
           chosen = p;
           break;
         }
@@ -274,7 +279,7 @@ export function planWeek(input: PlanInput): Plan | null {
         for (const start of candidates.filter((p) => p < chosen)) {
           for (let k = 1; k < days; k += 1) {
             const path = schedule(start, k);
-            if (!path.every((v) => v >= floor)) break;
+            if (!holds(path)) break;
             const excess = over(path);
             if (excess < best.excess - 1e-9 || (Math.abs(excess - best.excess) < 1e-9 && start > best.start && best.k > 0)) {
               best = { excess, start, k };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cellBounds, cellFor, cellNear, cellsInView, wrapLon } from "../cells";
+import { cellBounds, cellFor, cellNear, cellsInView, lonNear, wrapLon } from "../cells";
 
 describe("cellFor", () => {
   it("snaps to the 0.03° grid", () => {
@@ -33,6 +33,15 @@ describe("cellBounds", () => {
     expect(w).toBeCloseTo(-82.665, 6);
     expect(e).toBeCloseTo(-82.635, 6);
   });
+
+  it("draws a square past 180° on the town's side", () => {
+    // Taveuni, Fiji, at 179.97: the square east of 180° is the cell at −179.97.
+    const [[, w], [, e]] = cellBounds({ lat: -16.8, lon: -179.97 }, 179.97);
+    expect(w).toBeCloseTo(180.015, 6);
+    expect(e).toBeCloseTo(180.045, 6);
+    expect(lonNear(-179.97, 179.97)).toBeCloseTo(180.03, 9);
+    expect(lonNear(-82.65, -82.6)).toBe(-82.65);
+  });
 });
 
 describe("cellsInView", () => {
@@ -42,6 +51,12 @@ describe("cellsInView", () => {
     expect(cells).toHaveLength(9);
     expect(cells.map((c) => c.id)).toContain("27.78,-82.65");
     expect(new Set(cells.map((c) => c.id)).size).toBe(9);
+  });
+
+  it("lists the cells on the other side of 180° when the view crosses it", () => {
+    const ids = cellsInView(-16.82, 179.95, -16.78, 180.05)!.map((c) => c.id);
+    expect(ids).toContain("-16.80,179.97");
+    expect(ids).toContain("-16.80,-179.97");
   });
 
   it("gives up when zoomed out too far", () => {

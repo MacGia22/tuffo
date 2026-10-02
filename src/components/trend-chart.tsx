@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { ticks } from "@/lib/chart-scale";
-import { formatRainAmount, isDry } from "@/lib/format";
+import { chanceOnly, formatRainAmount, isDry } from "@/lib/format";
 import { fcForDay, type TrendData, type TrendDay } from "@/lib/trends";
 import { uvLevel, UV_LEVEL_LABEL, UV_LEVELS, type UvLevel } from "@/lib/uv";
 
@@ -191,7 +191,9 @@ export function TrendChart({
       ? null
       : isDry(day.rainMm, day.rainChance)
         ? "dry"
-        : `${formatRainAmount(day.rainMm, data.units)}${day.rainChance !== null ? ` · ${Math.round(day.rainChance)}% chance` : ""}${day.ownRain ? " at your pool" : ""}`;
+        : chanceOnly(day.rainMm, day.rainChance)
+          ? `${Math.round(day.rainChance!)}% chance`
+          : `${formatRainAmount(day.rainMm, data.units)}${day.rainChance !== null ? ` · ${Math.round(day.rainChance)}% chance` : ""}${day.ownRain ? " at your pool" : ""}`;
 
   return (
     <figure className="flex flex-col gap-3">

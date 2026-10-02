@@ -216,6 +216,26 @@ describe("planWeek from a time late in the day", () => {
     expect(plan.days.every((d) => d.fcEnd >= plan.floor)).toBe(true);
   });
 
+  it("does not ask a salt cell to reach the floor in the hour left (worked numbers)", () => {
+    const cell = (1.4 * 453.592 * 1000) / 56781; // 11.18 ppm/day at 100%
+    const salt: PlanInput = {
+      ...base,
+      pool: { ...base.pool, swg: true, cellPpmPerDay: cell },
+      water: { fc: 4, cya: 70, ch: 300, salt: 3200 },
+      days: [1, 2, 3, 4, 5, 6, 7].map((n) => day(n, SUNNY)),
+    };
+    // FC 4.0 at 11 PM, floor 4.5, 1.86 ppm/day used. Tonight has to make 1/24 of the way:
+    // 4.0 + 0.5 / 24 = 4.021. 20%: 4.0 + (2.236 − 1.86) / 24 = 4.016, short; 25%: 4.0 +
+    // (2.795 − 1.86) / 24 = 4.039, then +0.94 a day. Reaching 4.5 by midnight would take 100%.
+    const late = planWeek({ ...salt, firstDayShare: 1 / 24 })!;
+    expect(late.swgPercent).toBe(25);
+    expect(late.capped).toBe(false);
+    expect(late.days[0].fcEnd).toBeCloseTo(4.04, 2);
+    expect(late.days.slice(1).every((d) => d.fcEnd >= late.floor)).toBe(true);
+    // From midnight the whole day is ahead, and the same setting is needed: 4.0 + 0.935 = 4.94.
+    expect(planWeek(salt)!.swgPercent).toBe(25);
+  });
+
   it("exports the floor it plans to", () => {
     expect(planFloor({ min: 3, targetLow: 5, targetHigh: 7, slam: 16 }, 0)).toBe(4.5);
     expect(planFloor({ min: 3, targetLow: 5, targetHigh: 7, slam: 16 }, 4)).toBe(4);

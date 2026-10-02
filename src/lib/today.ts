@@ -4,7 +4,7 @@
  * engine's advice, this file decides what to say and in what order. Advisory only.
  */
 
-import { formatRainAmount, isDry, type Units } from "@/lib/format";
+import { chanceOnly, formatRainAmount, isDry, type Units } from "@/lib/format";
 import { ageText } from "@/lib/tiles";
 import { uvLevel, type UvLevel } from "@/lib/uv";
 
@@ -240,6 +240,7 @@ export interface WeekInput {
 function rain(mm: number | null, chance: number | null | undefined, units: Units): string | null {
   if (mm === null) return null;
   if (isDry(mm, chance)) return "Dry";
+  if (chanceOnly(mm, chance)) return `${Math.round(chance!)}% chance`;
   const amount = formatRainAmount(mm, units, 1);
   return chance === null || chance === undefined ? amount : `${amount} · ${Math.round(chance)}%`;
 }

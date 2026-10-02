@@ -335,7 +335,7 @@ per task id); "Done today" (or another day) logs a row in `pool_maintenance` and
 due date follows. Filter pressure readings (`pool_pressure`, kPa, shown as psi or bar) mark
 the backwash/rinse due when the gauge is 8 psi (55 kPa) over the last reading marked clean.
 Upkeep logged before an item's install date does not count for it, and a replacement task
-counts from the install date. Equipment life: the salt cell's hours of making chlorine since
+counts from the install date while that is within one interval. Equipment life: the salt cell's hours of making chlorine since
 `pools.swg_cell_installed_on`, on the pool's own days, from the pump schedules times the cell
 setting, against the maker's rated hours where
 published (`ratedHours` in `src/lib/salt-cells.ts`); other equipment shows its age against a

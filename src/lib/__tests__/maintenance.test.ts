@@ -186,6 +186,17 @@ describe("maintenanceStatus", () => {
     expect(by.sand_backwash).toMatchObject({ lastDone: null, state: "unknown" });
   });
 
+  it("does not take an old filter's install as its last new cartridge", () => {
+    const cartridge = (installed: string) =>
+      maintenanceStatus({ pool: saltCartridge, overrides: {}, done: [], pressure: null, today, installedOn: { filter: installed } }).find(
+        (s) => s.task.id === "cartridge_replace",
+      )!;
+    // Installed 400 days ago: its first cartridge is due in 140 days (540-day interval).
+    expect(cartridge("2025-08-27")).toMatchObject({ lastDone: "2025-08-27", daysLeft: 140, state: "ok" });
+    // Installed three years ago: the cartridge may have been changed since; ask, not "556 days overdue".
+    expect(cartridge("2023-10-01")).toMatchObject({ lastDone: null, state: "unknown" });
+  });
+
   it("puts a task due from high pressure on today in the calendar and the groups", () => {
     const pressure = pressureStatus([
       { readOn: "2026-09-21", kpa: 70, clean: true },

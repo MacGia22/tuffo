@@ -63,6 +63,15 @@ describe("estimateFcSeries", () => {
         end: "2026-09-21T00:00:00Z",
       }),
     ).toBeNull();
+    // One logged with the next test came after it: the stretch up to that test still counts.
+    expect(
+      estimateFcSeries({
+        ...base,
+        events: [{ occurred_at: "2026-09-21T00:00:00Z", kind: "refill" }],
+        start: { at: "2026-09-20T00:00:00Z", fc: 5 },
+        end: "2026-09-21T00:00:00Z",
+      }),
+    ).not.toBeNull();
   });
 
   it("never goes below zero and stops after ten days", () => {

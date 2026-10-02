@@ -113,13 +113,23 @@ export function isDry(mm: number, chance: number | null | undefined): boolean {
 
 /**
  * Rain in the person's units without a misleading zero: inches to `inDecimals` (two when
- * that would show 0.0), mm whole (one decimal under 1 mm).
+ * that would show 0.0), mm whole (one decimal under 1 mm); a trace below that is
+ * "< 0.01 in" or "< 0.1 mm", and none at all "0 in" or "0 mm".
  */
 export function formatRainAmount(mm: number, units: Units, inDecimals = 2): string {
   if (units === "us") {
     const inches = mm / 25.4;
-    const decimals = inDecimals < 2 && inches > 0 && Number(inches.toFixed(inDecimals)) === 0 ? 2 : inDecimals;
+    if (!(inches > 0)) return "0 in";
+    if (inches < 0.005) return "< 0.01 in";
+    const decimals = inDecimals < 2 && Number(inches.toFixed(inDecimals)) === 0 ? 2 : inDecimals;
     return `${inches.toFixed(decimals)} in`;
   }
-  return `${mm > 0 && mm < 1 ? mm.toFixed(1) : Math.round(mm)} mm`;
+  if (!(mm > 0)) return "0 mm";
+  if (mm < 0.05) return "< 0.1 mm";
+  return `${mm < 1 ? mm.toFixed(1) : Math.round(mm)} mm`;
+}
+
+/** A forecast with a chance of rain but no amount: "40% chance" says it; "0 in · 40%" does not. */
+export function chanceOnly(mm: number, chance: number | null | undefined): boolean {
+  return !(mm > 0) && chance !== null && chance !== undefined;
 }

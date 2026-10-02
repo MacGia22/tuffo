@@ -168,11 +168,11 @@ export function waterTiles(input: WaterTilesInput): WaterTile[] {
     const shown = { ...base, value, valueText: valueText(key, value) };
 
     if (days > OLD_AFTER_DAYS[key]) {
-      const whole = Math.floor(days);
       return {
         ...shown,
         state: "old",
-        chip: `${whole} days ago`,
+        // Counted in the pool's calendar days, as the test card counts them.
+        chip: ageText(latest.taken_at, input.now, input.timeZone).text,
         note: OLD_AFTER_DAYS[key] <= 7 ? "Retest today" : "Retest this month",
       };
     }
@@ -184,7 +184,7 @@ export function waterTiles(input: WaterTilesInput): WaterTile[] {
 
     if (state === "too-low" || state === "too-high") {
       // Something added since the test is the action already taken; say that instead.
-      const since = added && Date.parse(added.addedAt) > Date.parse(latest.taken_at);
+      const since = added && Date.parse(added.addedAt) >= Date.parse(latest.taken_at);
       const action =
         state === "too-low"
           ? (input.fcAction ?? "Add chlorine now")
@@ -195,12 +195,13 @@ export function waterTiles(input: WaterTilesInput): WaterTile[] {
     let note = addedText;
     const previous = tests[1];
     if (!note && previous) {
-      const before = Number(previous[key]);
-      // The change between the values as shown: pH keeps a second decimal when either test had one.
-      const twoDecimals = (x: number) => Math.round(x * 100) % 10 !== 0;
-      const decimals = key === "fc" ? 1 : key === "ph" ? (twoDecimals(value) || twoDecimals(before) ? 2 : 1) : 0;
-      const shown = (x: number) => Math.round(x * 10 ** decimals);
-      const steps = shown(value) - shown(before);
+      // The change between the values as the tiles show them (pH 7.4 to 7.45 is +0.05).
+      const latestText = valueText(key, value);
+      const previousText = valueText(key, Number(previous[key]));
+      const decimalsOf = (text: string) => (text.split(".")[1] ?? "").length;
+      const decimals = Math.max(decimalsOf(latestText), decimalsOf(previousText));
+      const num = (text: string) => Number(text.replace(/,/g, ""));
+      const steps = Math.round((num(latestText) - num(previousText)) * 10 ** decimals);
       const when = shortDay(previous.taken_at, input.timeZone);
       note = steps === 0 ? `No change since ${when}` : `${signed(steps / 10 ** decimals, decimals)} since ${when}`;
     }
