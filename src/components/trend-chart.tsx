@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { DayCard } from "@/components/day-card";
 import { ticks } from "@/lib/chart-scale";
 import { chanceOnly, formatRainAmount, isDry } from "@/lib/format";
 import { fcForDay, type TrendData, type TrendDay } from "@/lib/trends";
@@ -203,63 +204,39 @@ export function TrendChart({
       </figcaption>
 
       {day ? (
-        <div aria-live="polite" className="min-h-[6.5rem] rounded-xl border border-border bg-background p-3 text-sm">
-          <p className="font-semibold">
-            {day.weekday}, {day.label} <span className="font-normal text-muted">· {kind}</span>
-          </p>
-          <dl className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
-            <div>
-              <dt className="text-xs text-muted">Free chlorine</dt>
-              <dd className="font-semibold tabular-nums">{fcText ? `${fcText}` : "No test"}</dd>
-            </div>
-            {ph !== null ? (
-              <div>
-                <dt className="text-xs text-muted">pH</dt>
-                <dd className="font-semibold tabular-nums">{fPh(ph)}</dd>
-              </div>
+        <div aria-live="polite">
+          <DayCard
+            as="div"
+            day={day.weekday}
+            dateText={`${day.label} · ${kind}`}
+            today={day.kind === "today"}
+            ahead={day.kind === "forecast"}
+            actions={[
+              ...marks.map((m) => `▼ ${m.label}`),
+              ...(day.plan?.add && day.kind !== "past" ? [`On the plan: add ${day.plan.add}`] : []),
+            ]}
+            fc={fcText ?? "no test"}
+            fcLabel="Free chlorine"
+            uv={day.uv}
+            rain={rainText ? rainText.charAt(0).toUpperCase() + rainText.slice(1) : null}
+            className="min-h-[6.5rem]"
+          >
+            {ph !== null || day.tmaxC !== null ? (
+              <p className="text-xs text-muted">
+                {[ph !== null ? `pH ${fPh(ph)}` : null, day.tmaxC !== null ? `High ${tempText(day.tmaxC)}` : null]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
             ) : null}
-            {day.uv !== null ? (
-              <div>
-                <dt className="text-xs text-muted">Peak UV</dt>
-                <dd className="font-semibold tabular-nums">
-                  {Math.round(day.uv)} · {UV_LEVEL_LABEL[uvLevel(day.uv)]}
-                </dd>
-              </div>
+            {rainHref && day.kind !== "forecast" ? (
+              <Link
+                href={`${rainHref}?date=${day.date}`}
+                className="inline-flex min-h-11 items-center self-start font-semibold text-lagoon underline-offset-2 hover:underline"
+              >
+                Rain at my pool was different
+              </Link>
             ) : null}
-            {rainText ? (
-              <div>
-                <dt className="text-xs text-muted">Rain</dt>
-                <dd className="font-semibold tabular-nums">{rainText}</dd>
-              </div>
-            ) : null}
-            {day.tmaxC !== null ? (
-              <div>
-                <dt className="text-xs text-muted">High</dt>
-                <dd className="font-semibold tabular-nums">{tempText(day.tmaxC)}</dd>
-              </div>
-            ) : null}
-          </dl>
-          {marks.length || (day.plan?.add && day.kind !== "past") ? (
-            <ul className="mt-1.5 flex flex-col gap-0.5">
-              {marks.map((m, k) => (
-                <li key={k}>
-                  <span aria-hidden="true" className="text-muted">
-                    ▼{" "}
-                  </span>
-                  {m.label}
-                </li>
-              ))}
-              {day.plan?.add && day.kind !== "past" ? <li className="text-muted">On the plan: add {day.plan.add}</li> : null}
-            </ul>
-          ) : null}
-          {rainHref && day.kind !== "forecast" ? (
-            <Link
-              href={`${rainHref}?date=${day.date}`}
-              className="mt-1.5 inline-flex min-h-11 items-center font-semibold text-lagoon underline-offset-2 hover:underline"
-            >
-              Rain at my pool was different
-            </Link>
-          ) : null}
+          </DayCard>
         </div>
       ) : null}
 
@@ -418,11 +395,21 @@ export function TrendChart({
                   if (d.uv === null) return null;
                   const level = uvLevel(d.uv);
                   const c = UV_FILL[level];
-                  // Extreme keeps its full fill so its white number stays readable.
-                  const faded = d.kind === "forecast" && level !== "extreme";
+                  // Days ahead keep their full fill (the colour still reads) with a dashed edge.
+                  const ahead = d.kind !== "past";
                   return (
                     <g key={`uv-${d.date}`}>
-                      <rect x={xAt(i) + 1} y={top.uv} width={Math.max(1, col - 2)} height={UV_H} rx={Math.min(6, col / 3)} fill={c.fill} fillOpacity={faded ? 0.75 : 1} />
+                      <rect
+                        x={xAt(i) + 1.5}
+                        y={top.uv + 0.5}
+                        width={Math.max(1, col - 3)}
+                        height={UV_H - 1}
+                        rx={Math.min(6, col / 3)}
+                        fill={c.fill}
+                        stroke={ahead ? "var(--muted)" : "var(--uv-border)"}
+                        strokeWidth={1}
+                        strokeDasharray={ahead ? "3 2" : undefined}
+                      />
                       {col >= NARROW ? (
                         <text x={center(i)} y={top.uv + UV_H / 2 + 4} textAnchor="middle" fill={c.text} className="text-xs font-semibold tabular-nums">
                           {Math.round(d.uv)}
@@ -443,7 +430,8 @@ export function TrendChart({
                   const h = Math.max(1.5, inches * pxPerIn);
                   // About 60% of the column on wider screens, narrower on phones.
                   const bw = Math.max(2, col * (w >= 640 ? 0.6 : 0.45));
-                  const ahead = d.kind === "forecast";
+                  // Today's rain is still a forecast until the day ends.
+                  const ahead = d.kind !== "past";
                   const value = toRain(d.rainMm as number);
                   return (
                     <g key={`rain-${d.date}`}>

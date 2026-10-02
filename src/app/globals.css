@@ -51,6 +51,8 @@
   --uv-very-high-fg: #0b2e4f;
   --uv-extreme: #9a6500;
   --uv-extreme-fg: #ffffff;
+  /* A 1px edge so Low (#fdf3dc, 1.10:1 on white) still shows as a cell. */
+  --uv-border: #e8d9b0;
 }
 
 @theme inline {
@@ -94,6 +96,7 @@
   --color-uv-very-high-fg: var(--uv-very-high-fg);
   --color-uv-extreme: var(--uv-extreme);
   --color-uv-extreme-fg: var(--uv-extreme-fg);
+  --color-uv-border: var(--uv-border);
   --font-sans: var(--font-manrope);
   --font-display: var(--font-sora);
 }

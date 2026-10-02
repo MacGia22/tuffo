@@ -25,7 +25,7 @@ function Mark({ level }: { level: HistoryCell["level"] }) {
       <span className="sr-only"> {m.word}</span>
     </span>
   ) : (
-    <span className="rounded-full bg-status-warning/25 px-1.5 text-xs font-semibold leading-5 text-foreground">
+    <span className="rounded-full bg-chip-warn-bg px-1.5 text-xs font-semibold leading-5 text-chip-warn-fg">
       <span aria-hidden="true">{m.glyph} </span>
       {m.word}
     </span>

@@ -90,17 +90,17 @@ export default async function ForecastPage({ searchParams }: PageProps<"/forecas
         {outcome.kind !== "ok" ? <ForecastForm key="search" current={current} refLabel={ref} autoFocus={!current} /> : null}
 
         {outcome.kind === "bad-place" ? (
-          <p role="alert" className="rounded-xl border border-sun/60 bg-sun/10 px-4 py-3 text-sm">
+          <p role="alert" className="rounded-xl border border-chip-warn-fg/40 bg-chip-warn-bg text-chip-warn-fg px-4 py-3 text-sm">
             That link is missing its town. Search for the town again.
           </p>
         ) : null}
         {outcome.kind === "limited" ? (
-          <p role="alert" className="rounded-xl border border-sun/60 bg-sun/10 px-4 py-3 text-sm">
+          <p role="alert" className="rounded-xl border border-chip-warn-fg/40 bg-chip-warn-bg text-chip-warn-fg px-4 py-3 text-sm">
             Too many forecasts from your connection in the last few minutes. Try again in a little while.
           </p>
         ) : null}
         {outcome.kind === "failed" ? (
-          <p role="alert" className="rounded-xl border border-sun/60 bg-sun/10 px-4 py-3 text-sm">
+          <p role="alert" className="rounded-xl border border-chip-warn-fg/40 bg-chip-warn-bg text-chip-warn-fg px-4 py-3 text-sm">
             The weather forecast is not answering right now. Try again in a moment.
           </p>
         ) : null}

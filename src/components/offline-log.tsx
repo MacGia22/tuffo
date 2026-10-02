@@ -52,7 +52,7 @@ export function useOfflineLog<S>(kind: QueueKind, editing: boolean, action: (pre
 
 export function QueuedNotice({ poolId, what }: { poolId: string; what: string }) {
   return (
-    <div role="status" className="flex max-w-xl flex-col items-start gap-3 rounded-2xl border border-sun/60 bg-sun/10 p-5">
+    <div role="status" className="flex max-w-xl flex-col items-start gap-3 rounded-2xl border border-chip-warn-fg/40 bg-chip-warn-bg text-chip-warn-fg p-5">
       <p className="text-lg font-semibold">Saved on this device</p>
       <p className="text-sm">
         You are offline. Tuffo keeps the {what} here and sends it as soon as you are back online; the top of the page

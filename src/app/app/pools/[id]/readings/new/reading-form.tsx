@@ -17,7 +17,7 @@ const initial: ReadingState = {};
 
 const input =
   "h-11 w-full rounded-xl border border-border-input bg-surface px-3 text-base text-foreground outline-none placeholder:text-muted/70 focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
-const flagged = "border-sun ring-2 ring-sun/40";
+const flagged = "border-chip-warn-fg ring-2 ring-chip-warn-fg/30";
 
 interface Field {
   name: HintField;
@@ -197,7 +197,7 @@ export function ReadingForm({
             <p
               role="status"
               className={`rounded-xl px-3 py-2 text-sm ${
-                scan.confidence === "low" ? "bg-sun/15 text-foreground" : "bg-ice/20 text-foreground"
+                scan.confidence === "low" ? "bg-chip-warn-bg text-chip-warn-fg" : "bg-ice/20 text-foreground"
               }`}
             >
               {scan.confidence === "low"

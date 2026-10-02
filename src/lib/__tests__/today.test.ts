@@ -49,6 +49,7 @@ describe("todayActions", () => {
       title: "Add 1 qt of liquid chlorine 12.5%",
       why: "Free chlorine 1.5 ppm is below the minimum of 2 ppm. Bring it to about 4.0 ppm now; below the minimum, algae gets a head start.",
       pill: "Today",
+      tone: "critical",
       button: { label: "I added 1 qt", href: "/dose" },
       notes: ["Pour in front of a return."],
     });
@@ -180,5 +181,19 @@ describe("weekCards", () => {
     expect(card(0, 40, "us")).toBe("40% chance");
     expect(card(0.1, 40, "us")).toBe("< 0.01 in · 40%");
     expect(card(0, 40, "metric")).toBe("40% chance");
+  });
+});
+
+describe("action tones", () => {
+  it("keeps amber and red for warnings and critical states", () => {
+    const base = { today: "2026-10-01", advice: [], plan: null, band: null, retests: [], maintenance: [] };
+    const cell = todayActions({ ...base, plan: { kind: "cell", percent: 25, logged: 50, href: "#", needPpm: 2, cellHours: 8 } });
+    expect(cell[0].tone).toBeUndefined();
+    const low = todayActions({ ...base, band: { direction: "low", text: "Free chlorine may fall below 3 ppm by Friday: test that morning." } });
+    expect(low[0].tone).toBe("critical");
+    const high = todayActions({ ...base, band: { direction: "high", text: "Free chlorine is about 8.0 ppm, above the 4–6 ppm target: lower the cell to 25% today." } });
+    expect(high[0].tone).toBe("warn");
+    const overdue = todayActions({ ...base, maintenance: [{ id: "clean", label: "Clean the filter", daysLeft: -2, nextDue: "2026-09-29", relative: "2 days ago" }] });
+    expect(overdue[0].tone).toBe("warn");
   });
 });
