@@ -5,6 +5,7 @@ import {
   doseFor,
   doseForPh,
   effectsOf,
+  PLAN_MAX_ADDITION_PPM,
   saturationIndex,
   saturationVerdict,
   targetsFor,
@@ -102,6 +103,9 @@ export interface Advice {
 const DEFAULT_TA = 80;
 /** Combined chlorine above this is worth acting on (0.5 itself is fine). */
 const CC_MAX = 0.5;
+/** Goes with every dose the advice gives. */
+export const NEVER_MIX_NOTE =
+  "Add one product at a time, straight into the pool with the pump running, never mixed with another: chlorine and acid together give off chlorine gas.";
 /** The temperature the saturation index assumes without a reading, °C. */
 const DEFAULT_TEMP_C = 27;
 
@@ -194,6 +198,14 @@ export function adviseFor(
   } else if (r.fc !== null) {
     const { min, targetLow, targetHigh, slam } = targets.fc;
     const aim = (targetLow + targetHigh) / 2;
+    // At most the plan's 8 ppm in one addition; the rest after a retest.
+    const raise = aim - r.fc;
+    const fcDose = doseFor("liquid-chlorine-12.5", Math.min(raise, PLAN_MAX_ADDITION_PPM), L);
+    if (raise > PLAN_MAX_ADDITION_PPM) {
+      fcDose.notes.push(
+        `That is ${PLAN_MAX_ADDITION_PPM} ppm, the most in one addition; test again in a few hours and add the rest (about ${(raise - PLAN_MAX_ADDITION_PPM).toFixed(1)} ppm) if it is still low.`,
+      );
+    }
     if (r.fc < min) {
       items.push({
         measure: "fc",
@@ -202,7 +214,7 @@ export function adviseFor(
         detail: swg
           ? `Boost now with liquid chlorine to about ${aim.toFixed(1)} ppm, then raise the chlorinator output${setting !== null ? ` to about ${setting}%${need}` : ""}.${unknownCell}`
           : `Bring it to about ${aim.toFixed(1)} ppm now; below the minimum, algae gets a head start.`,
-        dose: doseFor("liquid-chlorine-12.5", aim - r.fc, L),
+        dose: fcDose,
       });
     } else if (r.fc < targetLow) {
       items.push({
@@ -214,7 +226,7 @@ export function adviseFor(
             ? `Set the chlorinator to about ${setting}%${need}, or top up with liquid chlorine.`
             : `Nudge the chlorinator output up a step, or top up with liquid chlorine.${unknownCell}`
           : `Top up to about ${aim.toFixed(1)} ppm.`,
-        dose: doseFor("liquid-chlorine-12.5", aim - r.fc, L),
+        dose: fcDose,
       });
     } else if (r.fc > slam) {
       items.push({
@@ -547,5 +559,8 @@ export function adviseFor(
 
   const order: Record<Severity, number> = { act: 0, watch: 1, ok: 2 };
   items.sort((a, b) => order[a.severity] - order[b.severity]);
+  for (const item of items) {
+    if (item.dose && !item.dose.notes.includes(NEVER_MIX_NOTE)) item.dose.notes = [...item.dose.notes, NEVER_MIX_NOTE];
+  }
   return { targets, assumptions, items, csi: csiResult };
 }

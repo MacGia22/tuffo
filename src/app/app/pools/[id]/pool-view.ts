@@ -19,7 +19,7 @@ import { chlorineUse } from "@/lib/model/usage";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { retryAllOnClockSkew } from "@/lib/supabase/retry";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { buildTrend, DAYS_AHEAD, rangeLookbackDays, rangeStart, type TrendRange } from "@/lib/trends";
+import { buildTrend, DAYS_AHEAD, rangeLookbackDays, rangeStart, seasonYearStart, type TrendRange } from "@/lib/trends";
 import { FRESH_HOURS, refreshCellIfStale } from "@/lib/weather/job";
 import { loadOwnRain, withOwnRain } from "@/lib/weather/own-rain";
 import { betweenLastTests, lastTwoTests } from "@/lib/between-story";
@@ -120,7 +120,7 @@ function fcAddedBy(dose: Dose, liters: number): number {
 /** Everything the pool page shows, loaded and shaped per request. */
 export async function loadPoolView(id: string, range: TrendRange, options: { trend?: boolean } = {}) {
   const now = Date.now();
-  // Rows a little before the chart's window (the season can reach back to January).
+  // Rows a little before the chart's window (the season can reach back to January, or July).
   // At least 40 days, for the tiles' retest dates and the doses of the last week.
   const lookbackDays = Math.max(40, rangeLookbackDays(range));
   const since = new Date(now - lookbackDays * DAY_MS).toISOString();
@@ -167,13 +167,15 @@ export async function loadPoolView(id: string, range: TrendRange, options: { tre
   const latest = allReadings[0];
   const previous = allReadings[1];
   const latestCya = allReadings.find((r) => r.cya !== null)?.cya ?? null;
-  // The chart's first day for the chosen range.
-  const yearStart = `${localDateRange(new Date(now).toISOString(), new Date(now).toISOString(), tz).to.slice(0, 4)}-01-01`;
+  // The chart's first day for the chosen range; the pool year starts July 1 south of the
+  // equator (the weather cell's id is "lat,lon").
+  const southern = Number(pool.cell_id?.split(",")[0]) < 0;
+  const yearStart = seasonYearStart(localDateRange(new Date(now).toISOString(), new Date(now).toISOString(), tz).to, southern);
   const firstThisYear =
     [...allReadings]
       .filter((r) => localDateRange(r.taken_at, r.taken_at, tz).to >= yearStart)
       .sort((a, b) => Date.parse(a.taken_at) - Date.parse(b.taken_at))[0]?.taken_at ?? null;
-  const windowStart = rangeStart(range, now, tz, firstThisYear);
+  const windowStart = rangeStart(range, now, tz, firstThisYear, southern);
   const [use, estimate] = await Promise.all([
     loadChlorineUse(pool.id, latestCya === null ? null : Number(latestCya), pool.covered),
     // Estimated FC since the last test and what Tuffo expected at recent tests; fails open.

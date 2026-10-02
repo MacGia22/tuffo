@@ -4,23 +4,30 @@
  * tab-separated files (detected from the header line). No dependency.
  */
 
+export type Delimiter = "," | ";" | "\t";
+export const DELIMITERS: Delimiter[] = [",", ";", "\t"];
+
 export interface CsvTable {
+  /** The separator the file was read with. */
+  delimiter?: Delimiter;
   headers: string[];
   rows: string[][];
   /** The line in the file where each row starts (blank lines and quoted line breaks counted). */
   lines?: number[];
 }
 
-function detectDelimiter(text: string): string {
+/** The separator used most in the header line (comma when it has none). */
+export function detectDelimiter(text: string): Delimiter {
   const firstLine = text.slice(0, text.search(/\r?\n|$/));
   const counts = [",", ";", "\t"].map((d) => [d, firstLine.split(d).length - 1] as const);
   counts.sort((a, b) => b[1] - a[1]);
-  return counts[0][1] > 0 ? counts[0][0] : ",";
+  return counts[0][1] > 0 ? (counts[0][0] as Delimiter) : ",";
 }
 
-export function parseCsv(input: string): CsvTable {
+/** Reads the file with the separator given, or the one its header line uses. */
+export function parseCsv(input: string, separator?: Delimiter): CsvTable {
   const text = input.replace(/^﻿/, "");
-  const delimiter = detectDelimiter(text);
+  const delimiter = separator ?? detectDelimiter(text);
   const records: string[][] = [];
   const starts: number[] = [];
   let field = "";
@@ -72,6 +79,7 @@ export function parseCsv(input: string): CsvTable {
     .filter((r) => r.cells.some((cell) => cell.trim() !== ""));
   const [header, ...rows] = nonEmpty;
   return {
+    delimiter,
     headers: (header?.cells ?? []).map((h) => h.trim()),
     rows: rows.map((r) => r.cells.map((cell) => cell.trim())),
     lines: rows.map((r) => r.line),

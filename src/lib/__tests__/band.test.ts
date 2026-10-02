@@ -66,3 +66,15 @@ describe("bandAdvice with a starting cell setting", () => {
     expect(bandAdvice(p, "2026-10-04", [25, 50, 75, 100])?.text).toContain("At 50% free chlorine climbs above 7 ppm");
   });
 });
+
+describe("bandAdvice with a boost first", () => {
+  it("says when to turn the cell down after a low start", () => {
+    const p = plan("swg", 1, 15, [day("2026-10-01", 5.85), day("2026-10-02", 5.67), day("2026-10-03", 5.49)]);
+    p.summary.swgStart = { percent: 60, until: "2026-10-02" };
+    const advice = bandAdvice(p, "2026-10-01", null);
+    expect(advice?.direction).toBe("low");
+    expect(advice?.text).toContain("run the cell at 60% until Friday, then 15% so it does not climb past the target");
+    // The next day the weekly setting applies and nothing leaves the band.
+    expect(bandAdvice(p, "2026-10-02", null)).toBeNull();
+  });
+});

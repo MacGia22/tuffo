@@ -1,6 +1,6 @@
 import { getCurrentUser } from "@/lib/auth/user";
 import { isUuid } from "@/lib/form-data";
-import { parseCsv } from "@/lib/import/csv";
+import { DELIMITERS, parseCsv } from "@/lib/import/csv";
 import type { FilterType } from "@/lib/equipment";
 import { planUpkeep, poolDay, splitAgainstLogged, upkeepTask, type LoggedReading, type NearDuplicate } from "@/lib/import/logged";
 import { IMPORT_FIELDS, MAX_IMPORT_BYTES, NUMBER_FIELDS, planImport, type ImportField, type Mapping } from "@/lib/import/readings";
@@ -65,7 +65,7 @@ function readMapping(value: unknown, columns: number): Mapping | null {
 }
 
 /**
- * POST { csv, mapping, dateOrder, tempUnit, dryRun, importNearDuplicates, logUpkeep } for
+ * POST { csv, delimiter, decimal, mapping, dateOrder, tempUnit, dryRun, importNearDuplicates, logUpkeep } for
  * one of the signed-in user's pools. Parses and checks the file on the server (the preview
  * in the browser runs the same code), drops rows in the same minute as a test already
  * logged and, unless importNearDuplicates, rows on the same day with the same results.
@@ -100,13 +100,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .maybeSingle<{ id: string; timezone: string | null }>();
   if (!pool) return fail("Unknown pool.", 404);
 
-  const table = parseCsv(csv);
+  const delimiter = DELIMITERS.find((d) => d === body.delimiter);
+  const table = parseCsv(csv, delimiter);
   const mapping = readMapping(body.mapping, table.headers.length);
   if (!mapping) return fail("The column choices do not match the file.");
   const plan = planImport(table, {
     mapping,
     dateOrder: body.dateOrder === "dmy" ? "dmy" : "mdy",
     tempUnit: body.tempUnit === "C" ? "C" : "F",
+    decimal: body.decimal === "," ? "," : ".",
     timeZone: pool.timezone ?? "UTC",
   });
 

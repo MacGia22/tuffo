@@ -164,17 +164,33 @@ export function rangeLookbackDays(range: TrendRange): number {
 }
 
 /**
- * The first local date a range covers. "This season" runs from the first test of this
- * calendar year (pools opened in spring start there; year-round pools get the year), or
- * January 1 without one.
+ * The first day of the pool year that `today` falls in: January 1, or July 1 south of the
+ * equator, where the swimming season runs across the new year.
  */
-export function rangeStart(range: TrendRange, now: number, timeZone: string, firstTestThisYear: string | null): string {
+export function seasonYearStart(today: string, southern = false): string {
+  const year = Number(today.slice(0, 4));
+  if (!southern) return `${year}-01-01`;
+  return today >= `${year}-07-01` ? `${year}-07-01` : `${year - 1}-07-01`;
+}
+
+/**
+ * The first local date a range covers. "This season" runs from the first test of this
+ * pool year (pools opened in spring start there; year-round pools get the year), or the
+ * pool year's first day without one (see seasonYearStart).
+ */
+export function rangeStart(
+  range: TrendRange,
+  now: number,
+  timeZone: string,
+  firstTestThisYear: string | null,
+  southern = false,
+): string {
   const end = localParts(now, timeZone).date;
   if (range === "2w") return addDays(end, -DAYS_AHEAD);
   if (range !== "season") return addDays(end, -(Number(range) - 1));
-  const jan1 = `${end.slice(0, 4)}-01-01`;
+  const yearStart = seasonYearStart(end, southern);
   const first = firstTestThisYear ? localParts(firstTestThisYear, timeZone).date : null;
-  const start = first && first >= jan1 && first <= end ? first : jan1;
+  const start = first && first >= yearStart && first <= end ? first : yearStart;
   // Very early in the year a season would be a few days: show at least two weeks.
   const twoWeeks = addDays(end, -(MIN_DAYS - 1));
   return start > twoWeeks ? twoWeeks : start;

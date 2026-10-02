@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTrend, fcForDay, parseRange, rangeStart, trendWindow, xFor } from "../trends";
+import { buildTrend, fcForDay, parseRange, rangeStart, seasonYearStart, trendWindow, xFor } from "../trends";
 
 const TZ = "America/New_York";
 const now = Date.parse("2026-09-27T16:00:00Z"); // noon in Florida
@@ -228,6 +228,10 @@ describe("ranges", () => {
     // Season: from the first test this year, or January 1.
     expect(rangeStart("season", now, TZ, "2026-04-12T14:00:00Z")).toBe("2026-04-12");
     expect(rangeStart("season", now, TZ, null)).toBe("2026-01-01");
+    // South of the equator the pool year starts July 1: the summer runs across the new year.
+    expect(rangeStart("season", now, "UTC", null, true)).toBe("2026-07-01");
+    expect(rangeStart("season", Date.parse("2027-02-10T12:00:00Z"), "UTC", "2026-10-20T08:00:00Z", true)).toBe("2026-10-20");
+    expect(rangeStart("season", Date.parse("2027-02-10T12:00:00Z"), "UTC", null)).toBe("2027-01-01");
     // Early in January: still two weeks.
     expect(rangeStart("season", Date.parse("2026-01-03T18:00:00Z"), TZ, null)).toBe("2025-12-21");
   });
@@ -235,5 +239,13 @@ describe("ranges", () => {
   it("uses a chosen start in the window, capped to a year", () => {
     expect(trendWindow(null, now, TZ, "2026-06-30")).toEqual({ start: "2026-06-30", end: "2026-09-27" });
     expect(trendWindow(null, now, TZ, "2024-01-01").start).toBe("2025-09-27");
+  });
+});
+
+describe("seasonYearStart", () => {
+  it("starts the pool year in January, or July in the southern hemisphere", () => {
+    expect(seasonYearStart("2026-10-02")).toBe("2026-01-01");
+    expect(seasonYearStart("2026-10-02", true)).toBe("2026-07-01");
+    expect(seasonYearStart("2027-02-10", true)).toBe("2026-07-01");
   });
 });
