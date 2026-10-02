@@ -559,7 +559,8 @@ point is redirected to its cell. Bad volume or CYA fall back to the defaults (15
 - "Track my pool, free" goes to `/login?ref=<incoming ref or forecast>` with `next` set to
   `/app/pools/new?…`, which `prefillFromForecast()` turns into the new-pool form's values
   (place and time zone, volume, sanitizer; CYA is shown as a note for the first test).
-- "Wrong area? Adjust on the map" (`src/app/forecast/adjust-map.tsx`) loads the weather-square
+- Under the result, "Weather for a 2-mile square at the center of <town>. Pool somewhere else
+  in town? Pick your square for a closer forecast" (`src/app/forecast/adjust-map.tsx`) loads the weather-square
   map (`CellMap`, Leaflet and OpenStreetMap tiles) only after it is tapped, via a dynamic
   import, so most visitors make no tile requests. Tapping another square reloads the
   forecast for it; the URL gets only the square's center. OpenStreetMap's public tile
