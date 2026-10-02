@@ -255,7 +255,7 @@ the pools list all follow it).
 The header has Pools (a switcher when there is more than one pool) and Account; Sign out
 is on the account page. Account, Admin and Sign out sit in one menu button next to Pools
 at every width. The pool name has a 44 px gear linking to Settings. On phones (below 768 px) a pool's pages have a bottom bar
-(`src/components/pool-bottom-bar.tsx`): Today, Plan, Log (test, dose, event, scan),
+(`src/components/pool-bottom-bar.tsx`): Today, Trends, Log (test, dose, event, scan),
 Maintenance, Settings.
 
 "Water now" (`src/lib/tiles.ts`, `src/components/water-now.tsx`) has one tile per measure

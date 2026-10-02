@@ -50,6 +50,16 @@ export function CalendarIcon(props: IconProps) {
   );
 }
 
+export function TrendIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M3.5 19.5h17" />
+      <path d="M4 15l4.5-4.5 3.5 3 7-7" />
+      <path d="M15 6.5h4v4" />
+    </Svg>
+  );
+}
+
 export function PlusIcon(props: IconProps) {
   return (
     <Svg {...props}>

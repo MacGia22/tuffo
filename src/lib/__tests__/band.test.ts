@@ -16,9 +16,9 @@ describe("bandAdvice", () => {
 
   it("manual: skip chlorine until the plan adds again", () => {
     const p = plan("manual", 9, null, [day("2026-10-01", 8), day("2026-10-02", 6.5), day("2026-10-03", 5.5, 900)]);
-    expect(bandAdvice(p, today, null)).toEqual({ direction: "high", text: "Free chlorine is above the 5–7 ppm target: skip chlorine until Saturday." });
+    expect(bandAdvice(p, today, null)).toEqual({ direction: "high", text: "Free chlorine is about 9.0 ppm, above the 5–7 ppm target: skip chlorine until Saturday." });
     const none = plan("manual", 12, null, [day("2026-10-01", 10), day("2026-10-02", 8)]);
-    expect(bandAdvice(none, today, null)?.text).toBe("Free chlorine is above the 5–7 ppm target: skip chlorine this week.");
+    expect(bandAdvice(none, today, null)?.text).toBe("Free chlorine is about 12.0 ppm, above the 5–7 ppm target: skip chlorine this week.");
   });
 
   it("salt: lower the cell to the next setting from the first high day", () => {
@@ -39,7 +39,15 @@ describe("bandAdvice", () => {
     // FC 20 at CYA 70 holds above the floor all week with the cell off: the plan's setting is 0%.
     const off = plan("swg", 20, 0, [day("2026-10-01", 18.1), day("2026-10-02", 16.3)]);
     expect(bandAdvice(off, today, null)?.text).toBe(
-      "Free chlorine is above the 7 ppm target with the cell off: keep it off, and test before you turn it back on.",
+      "Free chlorine is about 20.0 ppm, above the 5–7 ppm target with the cell off: keep it off, and test before you turn it back on.",
+    );
+  });
+
+  it("salt: already above the target now says so, not that it climbs above later", () => {
+    // FC 7.4 today with the cell at 50%: it is already above 7, so lower the cell today.
+    const p = plan("swg", 7.4, 50, [day("2026-10-01", 7.8), day("2026-10-02", 8.4)]);
+    expect(bandAdvice(p, today, [25, 50, 75, 100])?.text).toBe(
+      "Free chlorine is about 7.4 ppm, above the 5–7 ppm target: lower the cell to 25% today, then test in a day or two.",
     );
   });
 

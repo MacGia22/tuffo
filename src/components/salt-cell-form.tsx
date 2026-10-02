@@ -114,8 +114,9 @@ export function CellForm({
 }
 
 /**
- * A salt pool's cell on the pool page. With its rated output, the plan can suggest the
- * cell setting in percent and the model can count what the cell made between tests.
+ * The cell's model and rating inside the pool page's "Salt cell" section (which holds the
+ * section's id). With its rated output, the plan can suggest the cell setting in percent
+ * and the model can count what the cell made between tests.
  */
 export function SaltCellForm({
   poolId,
@@ -129,25 +130,25 @@ export function SaltCellForm({
 
   if (known) {
     return (
-      <details id="salt-cell" className="rounded-2xl border border-border bg-surface p-4 text-sm">
-        <summary className="cursor-pointer">
+      <details className="text-sm">
+        <summary className="flex min-h-11 cursor-pointer items-center">
+          <span>
           Salt cell: <span className="font-semibold">{current.model && current.model !== "Other" ? current.model : "rated"}</span>,{" "}
-          {current.lbPerDay} lb of chlorine a day at 100% <span className="text-lagoon">· Change</span>
+          {current.lbPerDay} lb of chlorine a day at 100% <span className="font-semibold text-lagoon">· Change</span>
+          </span>
         </summary>
         <div className="mt-3">{form}</div>
       </details>
     );
   }
   return (
-    <section id="salt-cell" aria-labelledby="salt-cell-title" className="flex flex-col gap-2 rounded-2xl border border-sun/60 bg-sun/10 p-4">
-      <h2 id="salt-cell-title" className="text-lg font-semibold">
-        Which salt cell do you have?
-      </h2>
+    <div className="flex flex-col gap-2 rounded-xl border border-chip-warn-fg/40 bg-chip-warn-bg p-3 text-chip-warn-fg">
+      <h3 className="text-base font-semibold">Which salt cell do you have?</h3>
       <p className="text-sm">
         With its rated output, Tuffo can suggest the cell setting in percent for the week&apos;s weather and learn how
         much chlorine your pool uses.
       </p>
       {form}
-    </section>
+    </div>
   );
 }
