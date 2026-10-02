@@ -30,7 +30,7 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
     .order("created_at")
     .limit(50)
     .returns<{ id: string; name: string }[]>();
-  const link = "rounded-lg px-2 py-1.5 font-semibold text-muted hover:text-foreground";
+  const link = "flex min-h-11 items-center rounded-lg px-3 font-semibold text-muted hover:text-foreground";
 
   return (
     <>
@@ -39,7 +39,7 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
           <Link href="/app" aria-label="Your pools">
             <TuffoLockup size={32} />
           </Link>
-          <nav aria-label="Main" className="flex items-center gap-1 text-sm sm:gap-3">
+          <nav aria-label="Main" className="flex items-center gap-1 text-sm">
             {pools && pools.length > 1 ? (
               <MenuButton
                 label="Pools"
@@ -59,29 +59,19 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
                 Pools
               </Link>
             )}
-            {isAdmin(user) ? (
-              <Link href="/app/admin" className={`${link} hidden md:block`}>
-                Admin
-              </Link>
-            ) : null}
-            <Link href="/app/account" className={`${link} hidden md:block`} title={user.email ?? ""}>
-              Account
-            </Link>
-            {/* Phones: Account, Admin and Sign out live in one menu. */}
-            <div className="md:hidden">
-              <MenuButton
-                label="Menu"
-                placement="below-end"
-                items={[
-                  { href: "/app/account", label: "Account" },
-                  ...(isAdmin(user) ? [{ href: "/app/admin", label: "Admin" }] : []),
-                  { href: "/auth/signout", label: "Sign out", post: true },
-                ]}
-                buttonClassName="flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-lagoon/10 hover:text-foreground"
-              >
-                <MenuIcon className="h-5 w-5" />
-              </MenuButton>
-            </div>
+            {/* Account, Admin and Sign out live in one menu at every width. */}
+            <MenuButton
+              label="Menu"
+              placement="below-end"
+              items={[
+                { href: "/app/account", label: "Account" },
+                ...(isAdmin(user) ? [{ href: "/app/admin", label: "Admin" }] : []),
+                { href: "/auth/signout", label: "Sign out", post: true },
+              ]}
+              buttonClassName="flex h-11 w-11 items-center justify-center rounded-lg text-muted hover:bg-lagoon/10 hover:text-foreground"
+            >
+              <MenuIcon className="h-5 w-5" />
+            </MenuButton>
           </nav>
         </div>
       </header>

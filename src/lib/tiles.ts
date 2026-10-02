@@ -1,7 +1,7 @@
 /**
- * The status tiles at the top of a pool: each measure from the latest test against the
- * pool's target range, as low / OK / high with the range itself, and how old the test is.
- * Pure; browser-safe.
+ * The "Water now" tiles at the top of a pool: each measure from its newest test against
+ * the pool's target range, with a status chip and one line of context, and how old the
+ * test is. Pure; browser-safe.
  */
 
 export type Level = "low" | "ok" | "high";
@@ -17,6 +17,9 @@ export function levelOf(value: number, range: Range): Level {
   if (value > range.high) return "high";
   return "ok";
 }
+
+/** Combined chlorine above this is worth acting on. */
+export const CC_MAX = 0.5;
 
 export const LEVEL_LABEL: Record<Level, string> = { low: "Low", ok: "OK", high: "High" };
 
@@ -45,46 +48,160 @@ export interface TileReading {
   salt: number | null;
 }
 
-export interface Tile {
-  key: string;
-  label: string;
-  value: number | null;
-  unit: string;
-  level: Level | null;
-  /** "3–4.5 ppm"; null when the measure has no target (water temperature). */
-  range: string | null;
-}
-
-/** Combined chlorine above this is worth acting on. */
-export const CC_MAX = 0.5;
+export type TileKey = "fc" | "ph" | "ta" | "cya" | "ch" | "salt";
 
 /**
- * The tiles for a test, in a fixed order. Salt shows for salt pools; combined chlorine
- * only when it was logged. A measure not in this test shows "—" without a status.
+ * Where a tile stands. "too-low" and "too-high" are outside the bounds that need action
+ * now (free chlorine below its minimum or above shock level); "old" is a reading past
+ * its retest age; "none" was never tested.
  */
-export function tilesFor(reading: TileReading, targets: TileTargets, options: { swg: boolean }): Tile[] {
-  const tile = (key: keyof TileReading, label: string, unit: string, range: Range | undefined): Tile => {
-    const raw = reading[key];
-    const value = raw === null || raw === undefined ? null : Number(raw);
-    return {
-      key,
-      label,
-      value,
-      unit,
-      level: value !== null && range ? levelOf(value, range) : null,
-      range: range ? `${rangeText(range)}${unit ? ` ${unit}` : ""}` : null,
-    };
-  };
-  const tiles = [
-    tile("fc", "Free chlorine", "ppm", targets.fc),
-    tile("ph", "pH", "", targets.ph),
-    tile("ta", "Alkalinity", "ppm", targets.ta),
-    tile("ch", "Calcium", "ppm", targets.ch),
-    tile("cya", "Stabilizer", "ppm", targets.cya),
-  ];
-  if (options.swg) tiles.push(tile("salt", "Salt", "ppm", targets.salt));
-  if (reading.cc !== null && reading.cc !== undefined) tiles.push(tile("cc", "Combined chlorine", "ppm", { low: 0, high: CC_MAX }));
-  return tiles;
+export type TileState = "ok" | "high" | "low" | "too-low" | "too-high" | "none" | "old";
+
+export const TILE_LABELS: Record<TileKey, string> = {
+  fc: "Free chlorine",
+  ph: "pH",
+  ta: "Alkalinity",
+  cya: "Stabilizer",
+  ch: "Calcium",
+  salt: "Salt",
+};
+
+const TILE_UNITS: Record<TileKey, string> = { fc: "ppm", ph: "", ta: "ppm", cya: "ppm", ch: "ppm", salt: "ppm" };
+
+/** Free chlorine and pH move daily; the rest drift over weeks. */
+export const OLD_AFTER_DAYS: Record<TileKey, number> = { fc: 7, ph: 7, ta: 30, cya: 30, ch: 30, salt: 30 };
+
+/** Which tile a product counts for (its main effect), by catalog id or group. */
+export function tileForProduct(productId: string, group: string | undefined): TileKey | null {
+  if (productId === "soda-ash") return "ph";
+  if (productId === "baking-soda") return "ta";
+  switch (group) {
+    case "Chlorine":
+      return "fc";
+    case "Lower pH":
+      return "ph";
+    case "Calcium":
+      return "ch";
+    case "Stabilizer":
+      return "cya";
+    case "Salt":
+      return "salt";
+    default:
+      return null;
+  }
+}
+
+export interface WaterTile {
+  key: TileKey;
+  label: string;
+  value: number | null;
+  /** "7.8", "7.45", "3,200"; "—" when never tested. */
+  valueText: string;
+  unit: string;
+  state: TileState;
+  /** The chip's word: "OK", "Too low", "No reading", "32 days ago". */
+  chip: string;
+  /** "target 3–5" */
+  target: string;
+  /** One context line: the action, what was added, the change, or what to do; null for nothing. */
+  note: string | null;
+}
+
+export interface WaterTilesInput {
+  /** Tests, any order; a measure's tile uses its newest value. */
+  readings: Array<{ taken_at: string } & Partial<Record<TileKey, number | null>>>;
+  targets: TileTargets;
+  /** Free chlorine bounds that need action now. */
+  fcMin: number;
+  fcSlam: number;
+  swg: boolean;
+  /** Products logged, any order: which product, when, and the amount as measured ("1.5 lb"). */
+  doses: Array<{ productId: string; group?: string; addedAt: string; amountText: string }>;
+  /** What to do when free chlorine is too low: "Add 1 qt of liquid chlorine 12.5% now". */
+  fcAction?: string | null;
+  now: number;
+  timeZone: string;
+}
+
+/** True minus sign for negatives, "+" for positives. */
+export function signed(value: number, decimals: number): string {
+  const text = Math.abs(value).toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  return `${value < 0 ? "\u2212" : "+"}${text}`;
+}
+
+function valueText(key: TileKey, value: number): string {
+  if (key === "ph") return value.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 2 });
+  if (key === "fc") return value.toFixed(1);
+  return Math.round(value).toLocaleString("en-US");
+}
+
+function shortDay(iso: string, timeZone: string): string {
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone });
+}
+
+/**
+ * "Water now": one tile per measure (salt only for salt pools), each from that measure's
+ * newest test, so a stabilizer test from last month shows next to this morning's chlorine.
+ * The context line is, first that applies: the action for a value outside the safe bounds;
+ * something added for the measure in the last 7 days; the change since the test before.
+ */
+export function waterTiles(input: WaterTilesInput): WaterTile[] {
+  const keys: TileKey[] = ["fc", "ph", "ta", "cya", "ch"];
+  if (input.swg) keys.push("salt");
+  const sorted = [...input.readings].sort((a, b) => Date.parse(b.taken_at) - Date.parse(a.taken_at));
+  const weekAgo = input.now - 7 * DAY_MS;
+  return keys.map((key) => {
+    const range = input.targets[key];
+    const target = range ? `target ${rangeText(range)}${TILE_UNITS[key] ? ` ${TILE_UNITS[key]}` : ""}` : "";
+    const base = { key, label: TILE_LABELS[key], unit: TILE_UNITS[key], target };
+    const tests = sorted.filter((r) => r[key] !== null && r[key] !== undefined);
+    const latest = tests[0];
+    if (!latest) {
+      return { ...base, value: null, valueText: "\u2014", state: "none", chip: "No reading", note: "Add it with your next test" };
+    }
+    const value = Number(latest[key]);
+    const days = (input.now - Date.parse(latest.taken_at)) / DAY_MS;
+    const added = input.doses
+      .filter((d) => tileForProduct(d.productId, d.group) === key && Date.parse(d.addedAt) >= weekAgo)
+      .sort((a, b) => Date.parse(b.addedAt) - Date.parse(a.addedAt))[0];
+    const addedText = added ? `${added.amountText} added ${shortDay(added.addedAt, input.timeZone)}` : null;
+    const shown = { ...base, value, valueText: valueText(key, value) };
+
+    if (days > OLD_AFTER_DAYS[key]) {
+      const whole = Math.floor(days);
+      return {
+        ...shown,
+        state: "old",
+        chip: `${whole} days ago`,
+        note: OLD_AFTER_DAYS[key] <= 7 ? "Retest today" : "Retest this month",
+      };
+    }
+
+    const level: Level | null = range ? levelOf(value, range) : null;
+    let state: TileState = level ?? "ok";
+    if (key === "fc" && value < input.fcMin) state = "too-low";
+    else if (key === "fc" && value > input.fcSlam) state = "too-high";
+
+    if (state === "too-low" || state === "too-high") {
+      // Something added since the test is the action already taken; say that instead.
+      const since = added && Date.parse(added.addedAt) > Date.parse(latest.taken_at);
+      const action =
+        state === "too-low"
+          ? (input.fcAction ?? "Add chlorine now")
+          : `Add nothing; swim once it is below ${input.fcSlam} ppm`;
+      return { ...shown, state, chip: state === "too-low" ? "Too low" : "Too high", note: since ? addedText : action };
+    }
+
+    let note = addedText;
+    const previous = tests[1];
+    if (!note && previous) {
+      const decimals = key === "fc" || key === "ph" ? 1 : 0;
+      const change = value - Number(previous[key]);
+      const when = shortDay(previous.taken_at, input.timeZone);
+      note = Math.abs(change) < 0.5 * 10 ** -decimals ? `No change since ${when}` : `${signed(change, decimals)} since ${when}`;
+    }
+    return { ...shown, state, chip: LEVEL_LABEL[level ?? "ok"], note };
+  });
 }
 
 /** A test older than this many days gets a warning. */
@@ -145,4 +262,23 @@ export function historyCells(reading: TileReading, targets: TileTargets): Histor
           : value.toFixed(decimals);
     return { key, label, text, level: value !== null && range ? levelOf(value, range) : null };
   });
+}
+
+/**
+ * The line under the tiles, with whatever was logged: "Water 84 °F · CC 0.0 · CSI −0.2
+ * (balanced)". Null when there is nothing to say.
+ */
+export function waterLine(parts: {
+  temp: string | null;
+  cc: number | null;
+  csi: { value: number; verdict: string } | null;
+}): string | null {
+  const items: string[] = [];
+  if (parts.temp) items.push(`Water ${parts.temp}`);
+  if (parts.cc !== null) items.push(`CC ${parts.cc.toFixed(1)}`);
+  if (parts.csi) {
+    const v = Math.round(parts.csi.value * 10) / 10;
+    items.push(`CSI ${v === 0 ? "0.0" : signed(v, 1)} (${parts.csi.verdict})`);
+  }
+  return items.length ? items.join(" · ") : null;
 }

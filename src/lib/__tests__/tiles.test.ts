@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { historyCells, levelOf, rangeText, testAge, tilesFor } from "../tiles";
+import { historyCells, levelOf, rangeText, signed, testAge, tileForProduct, waterLine, waterTiles, type WaterTilesInput } from "../tiles";
 
 const targets = {
   fc: { low: 3, high: 4.5 },
@@ -18,19 +18,6 @@ describe("tiles", () => {
     expect(levelOf(4.6, targets.fc)).toBe("high");
     expect(rangeText({ low: 3, high: 4.5 })).toBe("3–4.5");
     expect(rangeText({ low: 7.2, high: 7.8 })).toBe("7.2–7.8");
-  });
-
-  it("builds the tiles, with salt for salt pools and CC only when logged", () => {
-    const reading = { fc: 5, cc: null, ph: 7.5, ta: 50, ch: 300, cya: 40, salt: 3200 };
-    const swg = tilesFor(reading, targets, { swg: true });
-    expect(swg.map((t) => t.key)).toEqual(["fc", "ph", "ta", "ch", "cya", "salt"]);
-    expect(swg.map((t) => t.level)).toEqual(["high", "ok", "low", "ok", "low", "ok"]);
-    expect(swg[0].range).toBe("3–4.5 ppm");
-    expect(swg[1].range).toBe("7.2–7.8");
-    const plain = tilesFor({ ...reading, cc: 0.8, ta: null }, { ...targets, salt: undefined }, { swg: false });
-    expect(plain.map((t) => t.key)).toEqual(["fc", "ph", "ta", "ch", "cya", "cc"]);
-    expect(plain.find((t) => t.key === "ta")).toMatchObject({ value: null, level: null });
-    expect(plain.find((t) => t.key === "cc")).toMatchObject({ level: "high", range: "0–0.5 ppm" });
   });
 
   it("says how old the test is and flags a week", () => {
@@ -61,5 +48,111 @@ describe("historyCells", () => {
     const cells = historyCells({ fc: 4, cc: null, ph: 7.5, ta: 70, ch: 300, cya: 70, salt: 900 }, { ...targets, salt: undefined });
     expect(cells.find((c) => c.key === "salt")).toEqual({ key: "salt", label: "Salt", text: "900", level: null });
     expect(cells.find((c) => c.key === "ph")?.text).toBe("7.5");
+  });
+});
+
+describe("waterTiles", () => {
+  const now = Date.parse("2026-10-01T16:00:00Z");
+  const base: WaterTilesInput = {
+    readings: [],
+    targets,
+    fcMin: 2,
+    fcSlam: 24,
+    swg: true,
+    doses: [],
+    now,
+    timeZone: "America/New_York",
+  };
+  const tile = (input: Partial<WaterTilesInput>, key: string) => waterTiles({ ...base, ...input }).find((t) => t.key === key)!;
+
+  it("lists FC, pH, TA, CYA, CH and salt only for salt pools", () => {
+    expect(waterTiles(base).map((t) => t.key)).toEqual(["fc", "ph", "ta", "cya", "ch", "salt"]);
+    expect(waterTiles({ ...base, swg: false, targets: { ...targets, salt: undefined } }).map((t) => t.label)).toEqual([
+      "Free chlorine",
+      "pH",
+      "Alkalinity",
+      "Stabilizer",
+      "Calcium",
+    ]);
+  });
+
+  it("shows a measure never tested as no reading", () => {
+    expect(tile({}, "cya")).toMatchObject({
+      valueText: "\u2014",
+      state: "none",
+      chip: "No reading",
+      note: "Add it with your next test",
+      target: "target 60–80 ppm",
+    });
+  });
+
+  it("takes each measure from its newest test and gives the change since the one before", () => {
+    const readings = [
+      { taken_at: "2026-09-18T16:00:00Z", fc: 3, ph: 7.6, cya: 70 },
+      { taken_at: "2026-09-26T16:00:00Z", fc: 8, ph: 7.4, cya: null },
+    ];
+    expect(tile({ readings }, "fc")).toMatchObject({ valueText: "8.0", state: "high", chip: "High", note: "+5.0 since Sep 18" });
+    expect(tile({ readings }, "ph")).toMatchObject({ valueText: "7.4", state: "ok", chip: "OK", note: "\u22120.2 since Sep 18" });
+    // Stabilizer comes from the older test, 13 days ago: not old yet, nothing to compare.
+    expect(tile({ readings }, "cya")).toMatchObject({ value: 70, state: "ok", note: null });
+  });
+
+  it("prefers something added in the last 7 days over the change", () => {
+    const readings = [
+      { taken_at: "2026-09-18T16:00:00Z", cya: 40 },
+      { taken_at: "2026-09-26T16:00:00Z", cya: 50 },
+    ];
+    const doses = [
+      { productId: "cyanuric-acid", group: "Stabilizer", addedAt: "2026-09-29T22:00:00Z", amountText: "1.5 lb" },
+      { productId: "cyanuric-acid", group: "Stabilizer", addedAt: "2026-09-20T22:00:00Z", amountText: "3 lb" },
+      { productId: "liquid-chlorine-12.5", group: "Chlorine", addedAt: "2026-09-30T22:00:00Z", amountText: "1 qt" },
+    ];
+    expect(tile({ readings, doses }, "cya")).toMatchObject({ state: "low", chip: "Low", note: "1.5 lb added Sep 29" });
+    // A dose older than 7 days does not count.
+    expect(tile({ readings, doses: doses.slice(1, 2) }, "cya").note).toBe("+10 since Sep 18");
+  });
+
+  it("turns free chlorine outside its safe bounds into an action", () => {
+    const low = [{ taken_at: "2026-09-30T16:00:00Z", fc: 1.5 }];
+    expect(tile({ readings: low, fcAction: "Add 1 qt of liquid chlorine 12.5% now" }, "fc")).toMatchObject({
+      state: "too-low",
+      chip: "Too low",
+      note: "Add 1 qt of liquid chlorine 12.5% now",
+    });
+    // Chlorine added after that test: the action is done, say so.
+    const doses = [{ productId: "liquid-chlorine-12.5", group: "Chlorine", addedAt: "2026-09-30T20:00:00Z", amountText: "1 qt" }];
+    expect(tile({ readings: low, doses }, "fc").note).toBe("1 qt added Sep 30");
+    expect(tile({ readings: [{ taken_at: "2026-09-30T16:00:00Z", fc: 26 }] }, "fc")).toMatchObject({
+      state: "too-high",
+      chip: "Too high",
+      note: "Add nothing; swim once it is below 24 ppm",
+    });
+  });
+
+  it("marks old readings: FC and pH after 7 days, the rest after 30", () => {
+    const readings = [{ taken_at: "2026-08-30T16:00:00Z", fc: 4, ch: 300 }];
+    expect(tile({ readings }, "fc")).toMatchObject({ state: "old", chip: "32 days ago", note: "Retest today", valueText: "4.0" });
+    expect(tile({ readings }, "ch")).toMatchObject({ state: "old", chip: "32 days ago", note: "Retest this month" });
+    expect(tile({ readings: [{ taken_at: "2026-09-02T16:00:00Z", ch: 300 }] }, "ch").state).toBe("ok");
+  });
+
+  it("maps products to the measure they are for", () => {
+    expect(tileForProduct("soda-ash", "Raise pH or alkalinity")).toBe("ph");
+    expect(tileForProduct("baking-soda", "Raise pH or alkalinity")).toBe("ta");
+    expect(tileForProduct("dry-acid-93", "Lower pH")).toBe("ph");
+    expect(tileForProduct("salt", "Salt")).toBe("salt");
+    expect(tileForProduct("mystery", undefined)).toBeNull();
+  });
+});
+
+describe("waterLine", () => {
+  it("joins whatever was logged, with a true minus sign", () => {
+    expect(waterLine({ temp: "84 °F", cc: 0, csi: { value: -0.24, verdict: "balanced" } })).toBe(
+      "Water 84 °F · CC 0.0 · CSI \u22120.2 (balanced)",
+    );
+    expect(waterLine({ temp: null, cc: 0.4, csi: null })).toBe("CC 0.4");
+    expect(waterLine({ temp: null, cc: null, csi: { value: 0.02, verdict: "balanced" } })).toBe("CSI 0.0 (balanced)");
+    expect(waterLine({ temp: null, cc: null, csi: null })).toBeNull();
+    expect(signed(0.35, 1)).toBe("+0.4");
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTrend, parseRange, rangeStart, trendWindow, xFor } from "../trends";
+import { buildTrend, fcForDay, parseRange, rangeStart, trendWindow, xFor } from "../trends";
 
 const TZ = "America/New_York";
 const now = Date.parse("2026-09-27T16:00:00Z"); // noon in Florida
@@ -135,6 +135,61 @@ describe("buildTrend", () => {
     expect(trend.expected[0]).toMatchObject({ expected: 9.1, measured: 8 });
   });
 
+  it("draws the forecast's days ahead without a plan, with chance of rain and highs", () => {
+    const trend = buildTrend({
+      timeZone: TZ,
+      start: "2026-09-20",
+      now,
+      units: "us",
+      readings: [],
+      doses: [],
+      weather: [{ date: "2026-09-26", uv_index_max: 8, precipitation_mm: 0, tmax_c: 31 }],
+      forecastWeather: [
+        { date: "2026-09-27", uv_index_max: 7.4, precipitation_mm: 2, precipitation_probability: 40, tmax_c: 32 },
+        { date: "2026-09-28", uv_index_max: 6, precipitation_mm: 20, precipitation_probability: 52, tmax_c: 30 },
+        { date: "2026-10-09", uv_index_max: 6, precipitation_mm: 0, precipitation_probability: 0, tmax_c: 30 },
+      ],
+      fcBand: { low: 3, high: 5 },
+      fcMin: 2,
+      phBand: { low: 7.2, high: 7.8 },
+    });
+    // Sep 20 to 27 behind and today, then at most 7 days ahead.
+    expect(trend.days).toHaveLength(8 + 7);
+    expect(trend.todayIndex).toBe(7);
+    expect(trend.days[6]).toMatchObject({ kind: "past", weekday: "Saturday", tmaxC: 31, rainChance: null });
+    expect(trend.days[7]).toMatchObject({ kind: "today", uv: 7.4, rainChance: 40, tmaxC: 32 });
+    expect(trend.days[8]).toMatchObject({ kind: "forecast", rainMm: 20, rainChance: 52 });
+    expect(trend.forecastFrom).not.toBeNull();
+    expect(trend.forecast).toEqual([]);
+    expect(trend.fcMin).toBe(2);
+  });
+
+  it("widens the estimate with the days since the test", () => {
+    const trend = buildTrend({
+      timeZone: TZ,
+      now,
+      units: "us",
+      readings: [{ taken_at: "2026-09-24T16:00:00Z", fc: 6, ph: 7.6 }],
+      doses: [],
+      weather: [],
+      fcBand: { low: 3, high: 5 },
+      phBand: { low: 7.2, high: 7.8 },
+      estimate: [
+        { at: "2026-09-24T16:00:00Z", fc: 6 },
+        { at: "2026-09-25T16:00:00Z", fc: 5 },
+        { at: "2026-09-27T16:00:00Z", fc: 3.4 },
+      ],
+    });
+    // ±0.1 ppm a day without the pool's own model.
+    expect(trend.estimate.map((p) => p.spread)).toEqual([0, 0.1, 0.3]);
+    const today = trend.todayIndex;
+    expect(fcForDay(trend, today - 3)).toEqual({ value: 6, kind: "measured" });
+    expect(fcForDay(trend, today)).toEqual({ value: 3.4, kind: "estimated" });
+    expect(fcForDay(trend, today - 5)).toBeNull();
+    const own = buildTrend({ ...{ timeZone: TZ, now, units: "us" as const, readings: [], doses: [], weather: [] }, fcBand: { low: 3, high: 5 }, phBand: { low: 7.2, high: 7.8 }, estimate: [{ at: "2026-09-24T16:00:00Z", fc: 6 }, { at: "2026-09-26T16:00:00Z", fc: 4 }], estimateSpreadPerDay: 0.4 });
+    expect(own.estimate.map((p) => p.spread)).toEqual([0, 0.8]);
+  });
+
   it("has no forecast without a plan", () => {
     const trend = buildTrend({ timeZone: TZ, now, units: "us", readings: [], doses: [], weather: [], fcBand: { low: 5, high: 7 }, phBand: { low: 7.2, high: 7.8 } });
     expect(trend.forecast).toEqual([]);
@@ -146,8 +201,10 @@ describe("buildTrend", () => {
 describe("ranges", () => {
   it("reads the range and finds its first day", () => {
     expect(parseRange("90")).toBe("90");
-    expect(parseRange("x")).toBe("30");
-    expect(rangeStart("14", now, TZ, null)).toBe("2026-09-14");
+    expect(parseRange("x")).toBe("2w");
+    expect(parseRange("14")).toBe("2w");
+    // Two weeks: the week behind, today, and (in buildTrend) the week ahead.
+    expect(rangeStart("2w", now, TZ, null)).toBe("2026-09-20");
     expect(rangeStart("90", now, TZ, null)).toBe("2026-06-30");
     // Season: from the first test this year, or January 1.
     expect(rangeStart("season", now, TZ, "2026-04-12T14:00:00Z")).toBe("2026-04-12");

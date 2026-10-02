@@ -184,7 +184,7 @@ is the monthly spend limit set in the Anthropic console.
 use under that day's actual weather (the pool's fit, or typical-pool numbers), logged doses
 as steps, and what the salt cell made at the settings and pump hours in force; up to 10
 days, never below 0, none across a refill or for a salt pool with an unknown cell output.
-The pool page (`src/lib/model/pool-estimate.ts`, service key, fails open) draws it dotted
+The Trends page (`src/lib/model/pool-estimate.ts`, service key, fails open) draws it as a ribbon
 from the last test to now, marks at each test what the estimate from the previous test
 expected (hollow circle, joined to the reading), and shows the typical miss over the last
 five tests. The plan starts from the same estimate at now, and a salt pool's plan line runs
@@ -247,15 +247,19 @@ the pools list all follow it).
 ## Navigation and forms
 
 The header has Pools (a switcher when there is more than one pool) and Account; Sign out
-is on the account page. On phones (below 768 px) Account, Admin and Sign out sit in one
-menu button next to Pools. Every app page starts with breadcrumbs, and the pool name has a
-gear linking to Settings. On phones (below 768 px) a pool's pages have a bottom bar
+is on the account page. Account, Admin and Sign out sit in one menu button next to Pools
+at every width. The pool name has a 44 px gear linking to Settings. On phones (below 768 px) a pool's pages have a bottom bar
 (`src/components/pool-bottom-bar.tsx`): Today, Plan, Log (test, dose, event, scan),
 Maintenance, Settings.
 
-Status tiles show each measure of the latest test against the pool's target as Low / OK /
-High (icon and word) with the target range, plus Salt for salt pools and combined chlorine
-when logged (`src/lib/tiles.ts`); a test over 7 days old gets a "Log a test" prompt.
+"Water now" (`src/lib/tiles.ts`, `src/components/water-now.tsx`) has one tile per measure
+(FC, pH, TA, CYA, CH, and salt for salt pools), each from that measure's newest test: the
+value, a status chip (icon and word: OK, High, Low, Too low / Too high outside free
+chlorine's minimum or shock level, No reading, or "32 days ago" once FC and pH are over 7
+days old and the rest over 30), the target, and one context line (the action when
+critical, else something added for it in the last 7 days, else the change since the test
+before). Under the grid: water temperature, CC and CSI. Chip colours are `--chip-*` in
+`globals.css`.
 The Log a test form starts with "Tested with" (the last method used) and When; each field
 shows its last value and a gentle check for likely typos (`src/lib/reading-hints.ts`);
 calcium, borates and phosphates sit under "More tests"; Save stays in view on phones.
@@ -265,11 +269,14 @@ done or it is dismissed (remembered in the browser): location, first test, equip
 salt cell's install date and pump schedule (salt pools), the filter's clean pressure and
 email alerts, each linking to where it is done.
 
-The pool page runs: status tiles, What to do now, the plan (a "Today:" line and the 7-day
-strip with today outlined), Maintenance due, trends, between tests and chlorine use,
-doses and events, test history. A sticky bar links to its sections (Today, Plan, Trends,
-Maintenance, History); its header has one Log menu and a "⋯" menu (Import CSV, Send
-feedback). Menus open with a click, close on Escape or a click outside, and stay inside
+The pool page ("Today") runs: the name and gear, the last test card ("Tested 5 days ago",
+"Time to test" after 7 days, Log a test), Water now, What to do now (`src/lib/today.ts`: the
+most urgent action highlighted with the button that logs it, the rest with when: advice
+from the latest test, today's plan step, the plan leaving the target band, maintenance due,
+monthly retests), Next 7 days (day cards with UV, rain and chance, FC by evening and the
+day's action), a link to Trends, then the salt cell, equipment health, chlorine use,
+activity and test history. On wider screens a Log menu (with Import CSV and Send feedback)
+sits beside the name; phones use the bottom bar. Menus open with a click, close on Escape or a click outside, and stay inside
 the screen.
 
 Links into a form carry `?from=<page>`; the form keeps it in a hidden `return_to` field,
@@ -346,21 +353,25 @@ month they run out at today's pump hours and setting. The pool page has a compac
 "Equipment health" row of the same bars. Status colours are `--status-*` in
 `globals.css`; each picture has a list or table view.
 
-## Trends range
+## Trends page
 
-The trends card has a range selector: 14, 30 (the default) or 90 days, or "This season",
-which runs from the first test of the calendar year (or January 1) and shows at least two
-weeks; the chart never reaches back more than a year (`rangeStart` in `src/lib/trends.ts`).
-The choice is the `?range=` query on the pool page.
+`/app/pools/[id]/trends` (`src/components/trend-chart.tsx`) shows free chlorine, pH, peak UV
+and rain with one column per day shared by every row; tap, click or the arrow keys select
+a day (today by default) and the readout above the chart gives its numbers, with "Rain at
+my pool was different" for past days. Ranges: 2 weeks (the default: 7 days back, today and
+7 days ahead), 30 or 90 days, or Season (from the first test of the year, at least two
+weeks, at most a year; `rangeStart` in `src/lib/trends.ts`), as `?range=`. UV cells use the
+WHO levels (`src/lib/uv.ts`, `--uv-*` tokens); rain is 1 in = 40 px. Under the chart: a
+warning when the plan leaves the target band, and "Between your last two tests" (a plain
+sentence and four stats, `src/lib/between-story.ts`). "Show as a table" lists every day.
 
-The free chlorine panel is scaled to the tests and the target band; the estimate, the
-plan and expectations beyond it are clamped to the edge with a chevron where they leave
-the scale (values in the table). The plan is a wide translucent line, the estimate a
-dotted one. "What Tuffo expected" markers and the estimate-accuracy line appear only
-once the pool has its own model (4 test pairs).
-On phones (below 768 px) the day's readout is a fixed row above the chart (each value with
-its legend swatch on one line) instead of a floating box over it; wider screens keep the
-box beside the crosshair.
+The free chlorine panel runs from 0 to a round tick above the target, the tests and the
+plan, with the target band, a dashed "Never below" line, tests as dots with values, the
+estimate since the last test as a ribbon that widens with the days (the pool's typical
+miss once it has its own model, else ±0.1 ppm a day), the plan as one solid line with its
+peak labelled when it leaves the band, a Today line, and ▼ for doses and events. "What
+Tuffo expected" markers and the estimate-accuracy line appear only once the pool has its
+own model (4 test pairs).
 
 ## Rain at the pool
 

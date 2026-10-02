@@ -1,7 +1,7 @@
 import type { DueDay, LifeSpan, Tone } from "@/lib/maintenance";
 
 /**
- * Maintenance pictures, following the chart rules in trend-charts.tsx: status colours
+ * Maintenance pictures, following the chart rules in trend-chart.tsx: status colours
  * only with an icon and a word, thin marks on hairline tracks, one scale per chart, a
  * table or list view for each, and focusable marks with their values.
  */

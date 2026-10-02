@@ -29,8 +29,13 @@ export interface BetweenSummary {
   avgTmaxC: number | null;
   sunshineHours: number | null;
   rainMm: number | null;
+  /** Days with at least WET_DAY_MM of rain. */
+  wetDays: number;
   daysWithWeather: number;
 }
+
+/** A day with this much rain or more counts as wet, mm. */
+export const WET_DAY_MM = 1;
 
 function mean(values: number[]): number | null {
   return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
@@ -63,6 +68,7 @@ export function summarizeBetween(
     avgTmaxC: mean(tmax) === null ? null : Math.round((mean(tmax) as number) * 10) / 10,
     sunshineHours: sun.length ? Math.round((sun.reduce((a, b) => a + b, 0) / 3600) * 10) / 10 : null,
     rainMm: rain.length ? Math.round(rain.reduce((a, b) => a + b, 0) * 10) / 10 : null,
+    wetDays: rain.filter((v) => v >= WET_DAY_MM).length,
     daysWithWeather: weather.length,
     fcAddedPpm: Math.round(fcAddedPpm * 10) / 10,
     notes: options.notes ?? [],
