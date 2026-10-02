@@ -175,7 +175,9 @@ function Result({
           {view.cya} ppm.
         </p>
         {view.why ? <p className="text-muted">{view.why}</p> : null}
-        <AdjustOnMap input={input} />
+        {/* Keyed by the town: Next keeps client state across search-param changes, and a new
+            town must start a new map (picking a square on it keeps the town). */}
+        <AdjustOnMap key={input.place} input={input} />
       </div>
 
       {salt ? (

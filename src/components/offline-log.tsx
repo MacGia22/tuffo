@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRef, useState, type FormEvent } from "react";
-import { isNetworkError, queueEntry } from "@/lib/offline/client";
+import { isNetworkError, offsetAt, queueEntry, WHEN_FIELD } from "@/lib/offline/client";
 import type { QueueKind } from "@/lib/offline/queue";
 
 /**
@@ -17,8 +17,10 @@ export function useOfflineLog<S>(kind: QueueKind, editing: boolean, action: (pre
   const clientId = useRef<HTMLInputElement>(null);
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
-    // datetime-local carries no zone; send the browser's offset so the server can place it.
-    if (tzOffset.current) tzOffset.current.value = String(new Date().getTimezoneOffset());
+    // datetime-local carries no zone; send the browser's offset at that time so the server
+    // can place it (a back-dated entry across a daylight-saving change has a different one).
+    const when = new FormData(event.currentTarget).get(WHEN_FIELD[kind]);
+    if (tzOffset.current) tzOffset.current.value = String(offsetAt(typeof when === "string" ? when : null));
     if (!editing && clientId.current && !clientId.current.value) clientId.current.value = crypto.randomUUID();
     if (!editing && !navigator.onLine) {
       event.preventDefault();

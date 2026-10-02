@@ -32,6 +32,12 @@ describe("parseImportDate", () => {
 
   it("reads month names", () => {
     expect(parseImportDate("Sep 27, 2026 8:30 AM")).toEqual({ wall: "2026-09-27T08:30" });
+    // Every month's short and long names, "Oct" included (it used to lose its "t").
+    expect(parseImportDate("Oct 1, 2026 8:30 AM")).toEqual({ wall: "2026-10-01T08:30" });
+    expect(parseImportDate("1 Oct 2026")).toMatchObject({ wall: "2026-10-01T12:00" });
+    expect(parseImportDate("October 1, 2026 8:30 AM")).toEqual({ wall: "2026-10-01T08:30" });
+    expect(parseImportDate("Sept 27, 2026 8:30 AM")).toEqual({ wall: "2026-09-27T08:30" });
+    expect(parseImportDate("Aug 3, 2026 8:30 AM")).toEqual({ wall: "2026-08-03T08:30" });
     expect(parseImportDate("September 27, 2026 at 8:30 PM")).toEqual({ wall: "2026-09-27T20:30" });
     expect(parseImportDate("27 Sept 2026 20:30")).toEqual({ wall: "2026-09-27T20:30" });
   });

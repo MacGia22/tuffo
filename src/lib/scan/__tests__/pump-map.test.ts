@@ -9,7 +9,10 @@ describe("normalizeTime", () => {
     expect(normalizeTime("12:00 AM")).toBe("00:00");
     expect(normalizeTime("24:00")).toBe("00:00");
     expect(normalizeTime("7 am")).toBe("07:00");
+    expect(normalizeTime("20:00:00")).toBe("20:00");
+    expect(normalizeTime("8:15:30 PM")).toBe("20:15");
     expect(normalizeTime("noon")).toBeNull();
+    expect(normalizeTime("8:00:75")).toBeNull();
   });
 });
 

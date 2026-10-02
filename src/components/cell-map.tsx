@@ -3,7 +3,7 @@
 import "leaflet/dist/leaflet.css";
 import { useEffect, useRef } from "react";
 import type { Map as LeafletMap, LayerGroup, Rectangle } from "leaflet";
-import { cellBounds, cellFor, cellNear, cellsInView, type WeatherCell } from "@/lib/weather/cells";
+import { cellBounds, cellFor, cellNear, cellsInView, wrapLon, type WeatherCell } from "@/lib/weather/cells";
 
 /**
  * A map of the weather grid around the picked town: each square is one weather cell,
@@ -65,7 +65,7 @@ export function CellMap({
       };
       m.on("moveend", drawGrid);
       m.on("click", (e) => {
-        const c = cellFor(e.latlng.lat, e.latlng.lng);
+        const c = cellFor(e.latlng.lat, wrapLon(e.latlng.lng));
         if (cellNear(c, town)) pick.current(c);
       });
       selected.current = L.rectangle(cellBounds(first.current), {

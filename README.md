@@ -182,7 +182,8 @@ is the monthly spend limit set in the Anthropic console.
 
 `src/lib/model/estimate.ts` replays free chlorine from a test: each local day's predicted
 use under that day's actual weather (the pool's fit, or typical-pool numbers), logged doses
-as steps, and what the salt cell made at the settings and pump hours in force; up to 10
+and heavy-use events as steps at their time (a dose logged at the test's minute counts after
+the test, as in the model's pairs), and what the salt cell made at the settings and pump hours in force; up to 10
 days, never below 0, none across a refill or for a salt pool with an unknown cell output.
 The Trends page (`src/lib/model/pool-estimate.ts`, service key, fails open) draws it as a ribbon
 from the last test to now, marks at each test what the estimate from the previous test
@@ -205,7 +206,9 @@ volume at 1.5 m when not set), with the diluted stabilizer, calcium and salt.
 `src/lib/plan/build.ts` starts it from the latest free chlorine test (plus chlorine logged
 since, minus the predicted use since) and stores it in `plans`: nightly inside the weather
 job after the forecast and models, after each new, edited or removed entry, and after a
-page view that finds it missing or older than 26 hours. The pool page shows it as a
+page view that finds it missing, older than 26 hours or starting on a day already over in
+the pool's time zone. Day 0 counts only the part of the pool's local day still ahead, for
+both the predicted use and the salt cell's output. The pool page shows it as a
 7-day strip and as a dashed forecast on the chlorine chart. `canSeePlan()`
 (`src/lib/entitlements.ts`) gates it; everyone sees it during the beta.
 
@@ -272,7 +275,7 @@ email alerts, each linking to where it is done.
 The pool page ("Today") runs: the name and gear, the last test card ("Tested 5 days ago",
 "Time to test" after 7 days, Log a test), Water now, What to do now (`src/lib/today.ts`: the
 most urgent action highlighted with the button that logs it, the rest with when: advice
-from the latest test, today's plan step, the plan leaving the target band, maintenance due,
+from each measure's newest test (none once the tile says "N days ago"), today's plan step, the plan leaving the target band, maintenance due,
 monthly retests), Next 7 days (day cards with UV, rain and chance, FC by evening and the
 day's action), a link to Trends, then the salt cell, equipment health, chlorine use,
 activity and test history. On wider screens a Log menu (with Import CSV and Send feedback)
@@ -331,8 +334,10 @@ Each task has a default interval the owner can change (`pools.maintenance_interv
 per task id); "Done today" (or another day) logs a row in `pool_maintenance` and the next
 due date follows. Filter pressure readings (`pool_pressure`, kPa, shown as psi or bar) mark
 the backwash/rinse due when the gauge is 8 psi (55 kPa) over the last reading marked clean.
-Equipment life: the salt cell's hours of making chlorine since `pools.swg_cell_installed_on`,
-from the pump schedules times the cell setting, against the maker's rated hours where
+Upkeep logged before an item's install date does not count for it, and a replacement task
+counts from the install date. Equipment life: the salt cell's hours of making chlorine since
+`pools.swg_cell_installed_on`, on the pool's own days, from the pump schedules times the cell
+setting, against the maker's rated hours where
 published (`ratedHours` in `src/lib/salt-cells.ts`); other equipment shows its age against a
 typical life. Tasks due within days show on the pool page with a Done button and on the
 settings cards. "Maintenance reminders" in the email alerts (`alert_settings.maintenance`)
@@ -397,7 +402,8 @@ at most `ALERT_DAILY_LIMIT` a day (default 1,000; over it, `[alerts]` is logged 
 rest wait). It runs only when `VERCEL_ENV` is `production` (previews share the database)
 and `RESEND_API_KEY` is set. Each email has a signed link to stop them (key derived from
 `CRON_SECRET`) and `List-Unsubscribe` / `List-Unsubscribe-Post` headers for one-click
-unsubscribe (`POST /api/alerts/unsubscribe`). Hobby crons run once a day, so every
+unsubscribe (`POST /api/alerts/unsubscribe`). "Today", Saturday and the summary's days
+are the pool's own (its time zone). Hobby crons run once a day, so every
 alert goes at the same hour; sending at each person's local morning waits for Vercel Pro.
 
 ## Importing tests

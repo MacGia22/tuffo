@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { doseFor, doseForPh } from "@/engine/server";
 import { adviseFor, type AdviceReading, type LoggedDose } from "../advice";
 
 const pool = { volumeL: 56781, sanitizer: "chlorine" as const, surface: "plaster" as const }; // 15,000 gal
@@ -53,7 +54,9 @@ describe("adviseFor", () => {
   it("assumes defaults and says so when CYA and TA are missing", () => {
     const advice = adviseFor(pool, { ...balanced, cya: null, ta: null });
     expect(advice.assumptions.length).toBe(2);
-    expect(advice.targets.fc.targetLow).toBe(4); // CYA 30 row
+    // The engine's default CYA (40), the same the plan and the pools list use.
+    expect(advice.assumptions[0]).toBe("No stabilizer (CYA) test yet; targets assume 40 ppm.");
+    expect(advice.targets.fc.targetLow).toBe(5); // CYA 40 row: 5–7
   });
 
   it("does not ask a vinyl pool for calcium", () => {
@@ -89,23 +92,24 @@ describe("adviseFor", () => {
 
   it("counts calcium chloride logged after the test instead of asking for more", () => {
     // 15,000 gal plaster pool at CH 200: target low 250, so the card asks for +100 ppm,
-    // 100 × 56,781 / 680.8 ≈ 8,340 g (18.4 lb) of 77% calcium chloride.
+    // 77% calcium chloride raises CH by 0.77 × 100.09/110.98 × 1000 = 694.4 mg per gram per liter:
+    // 100 × 56,781 / 694.4 ≈ 8,177 g (18.0 lb).
     const before = adviseFor(pool, { ...balanced, ch: 200 }).items.find((i) => i.measure === "ch");
-    expect(before?.dose?.amount).toBeGreaterThan(8_300);
-    expect(before?.dose?.amount).toBeLessThan(8_380);
+    expect(before?.dose?.amount).toBeGreaterThan(8_150);
+    expect(before?.dose?.amount).toBeLessThan(8_200);
 
-    // 10 lb (4,536 g) adds 4,536 × 680.8 / 56,781 ≈ 54 ppm: CH about 254, in range.
+    // 10 lb (4,536 g) adds 4,536 × 694.4 / 56,781 ≈ 55.5 ppm: CH about 255, in range.
     const tenLb: LoggedDose = { productId: "calcium-chloride-77", amount: 4535.9, amountText: "10 lb", dateText: "Sep 29" };
     const after = adviseFor(pool, { ...balanced, ch: 200 }, [tenLb]).items.find((i) => i.measure === "ch");
-    expect(after?.title).toBe("Calcium about 254 ppm is in range");
+    expect(after?.title).toBe("Calcium about 255 ppm is in range");
     expect(after?.severity).toBe("ok");
     expect(after?.detail).toContain("Counts your 10 lb from Sep 29.");
     expect(after?.dose).toBeUndefined();
 
-    // 5 lb adds about 27 ppm: 227, still low, but no second dose until a retest.
+    // 5 lb adds about 27.7 ppm: 228, still low, but no second dose until a retest.
     const fiveLb: LoggedDose = { ...tenLb, amount: 2268, amountText: "5 lb" };
     const partial = adviseFor(pool, { ...balanced, ch: 200 }, [fiveLb]).items.find((i) => i.measure === "ch");
-    expect(partial?.title).toBe("Calcium about 227 ppm is still low");
+    expect(partial?.title).toBe("Calcium about 228 ppm is still low");
     expect(partial?.severity).toBe("watch");
     expect(partial?.detail).toContain("retest before adding more");
     expect(partial?.dose).toBeUndefined();
@@ -181,5 +185,114 @@ describe("adviseFor, salt cell setting", () => {
   it("asks for the cell's rating when it is unknown", () => {
     const fc = adviseFor(swgPool, { ...balanced, cya: 70, fc: 5 }, [], { percent: null, needPpm: 1.86 }).items.find((i) => i.measure === "fc");
     expect(fc?.detail).toContain("Add your cell's rated output on the pool page");
+  });
+});
+
+describe("adviseFor with values from different tests", () => {
+  const tenK = { volumeL: 37_854, sanitizer: "chlorine" as const, surface: "plaster" as const }; // 10,000 gal
+  const lb = (productId: string, addedAt: string, grams = 453.592): LoggedDose => ({
+    productId,
+    amount: grams,
+    amountText: "1 lb",
+    dateText: addedAt.slice(5, 10),
+    addedAt,
+  });
+
+  it("sets the chlorine targets from last week's CYA, not a default", () => {
+    // Today's test: FC 3.0, pH 7.5. Last week: CYA 60 (FC/CYA chart: min 5, target 7–9).
+    const advice = adviseFor(
+      tenK,
+      { ...balanced, fc: 3, cya: 60, ta: 120 },
+      [],
+      undefined,
+      { testedAt: "2026-10-01T16:00:00Z", valueTestedAt: { cya: "2026-09-24T16:00:00Z", ta: "2026-09-24T16:00:00Z" } },
+    );
+    expect(advice.targets.fc).toMatchObject({ min: 5, targetLow: 7, targetHigh: 9 });
+    expect(advice.assumptions).toEqual([]);
+    const fc = advice.items.find((i) => i.measure === "fc")!;
+    expect(fc.title).toBe("Free chlorine 3.0 ppm is below the minimum of 5 ppm");
+    // Up to the middle of 7–9: +5 ppm × 37,854 L / 125 mg/mL ≈ 1,514 mL.
+    expect(fc.dose?.amount).toBeCloseTo((5 * 37_854) / 125, 0);
+  });
+
+  it("counts each product from the test its measure came from", () => {
+    // CYA tested Sep 20 (40); stabilizer added Sep 25; chlorine added Sep 28; FC tested Oct 1.
+    const doses = [lb("cyanuric-acid", "2026-09-25T20:00:00Z"), { ...lb("liquid-chlorine-12.5", "2026-09-28T22:00:00Z", 946), amountText: "1 qt" }];
+    const advice = adviseFor(tenK, { ...balanced, fc: 5.5, cya: 20 }, doses, undefined, {
+      testedAt: "2026-10-01T16:00:00Z",
+      valueTestedAt: { cya: "2026-09-20T16:00:00Z" },
+    });
+    // The chlorine went in before today's FC test: no "retest before adding more".
+    expect(advice.items.find((i) => i.measure === "fc")?.title).not.toContain("Retest");
+    // The stabilizer went in after the CYA test: counted (20 + ~12 = ~32 ppm, inside 30–50).
+    const cya = advice.items.find((i) => i.measure === "cya")!;
+    expect(cya.title).toBe("Stabilizer about 32 ppm is in range");
+  });
+
+  it("gives no dose card for a slow measure past its retest age, but keeps its value for targets", () => {
+    const advice = adviseFor(tenK, { ...balanced, ch: 150, cya: 60 }, [], undefined, {
+      testedAt: "2026-10-01T16:00:00Z",
+      valueTestedAt: { ch: "2026-08-01T16:00:00Z", cya: "2026-08-01T16:00:00Z" },
+      stale: { ch: true, cya: true },
+    });
+    expect(advice.items.find((i) => i.measure === "ch")).toBeUndefined();
+    expect(advice.items.find((i) => i.measure === "cya")).toBeUndefined();
+    expect(advice.targets.fc.targetLow).toBe(7);
+  });
+
+  it("reads free chlorine from its own test when the latest one is pH only", () => {
+    // FC 1.0 yesterday, chlorine added after it, today's test pH only: retest, not a second dose.
+    const chlorine = { ...lb("liquid-chlorine-12.5", "2026-09-30T22:00:00Z", 946), amountText: "1 qt" };
+    const advice = adviseFor(tenK, { ...balanced, fc: 1 }, [chlorine], undefined, {
+      testedAt: "2026-10-01T16:00:00Z",
+      valueTestedAt: { fc: "2026-09-30T16:00:00Z" },
+    });
+    expect(advice.items.find((i) => i.measure === "fc")?.title).toBe("Retest free chlorine before adding more");
+    // A week-old free chlorine gives no card: the test card asks for a test.
+    const old = adviseFor(tenK, { ...balanced, fc: 1 }, [], undefined, { stale: { fc: true } });
+    expect(old.items.find((i) => i.measure === "fc")).toBeUndefined();
+  });
+
+  it("does not count cal-hypo's calcium as a calcium addition", () => {
+    // CH 200 on plaster, then 1 lb of cal-hypo 73% (+8.75 FC, +~6 CH): calcium chloride is still advised.
+    const advice = adviseFor(tenK, { ...balanced, ch: 200 }, [lb("cal-hypo-73", "2026-10-01T20:00:00Z")], undefined, {
+      testedAt: "2026-10-01T16:00:00Z",
+    });
+    const ch = advice.items.find((i) => i.measure === "ch")!;
+    expect(ch).toMatchObject({ severity: "act", title: "Calcium 200 ppm is low" });
+    expect(ch.dose?.productId).toBe("calcium-chloride-77");
+  });
+
+  it("counts the soda ash for pH in the baking soda for TA", () => {
+    // pH 7.0 and TA 50 in 10,000 gal: soda ash to pH 7.5 adds TA; baking soda makes up the rest to 70.
+    const reading = { ...balanced, ph: 7.0, ta: 50, cya: 40 };
+    const advice = adviseFor(tenK, reading);
+    const soda = doseForPh("soda-ash", { pH: 7.0, ta: 50, cya: 40, liters: 37_854, targetPh: 7.5 });
+    const fromSoda = soda.effects.ta!;
+    expect(fromSoda).toBeGreaterThan(5);
+    const ta = advice.items.find((i) => i.measure === "ta")!;
+    expect(ta.dose?.productId).toBe("baking-soda");
+    expect(ta.dose?.amount).toBeCloseTo(doseFor("baking-soda", 70 - (50 + fromSoda), 37_854).amount, 3);
+    expect(ta.detail).toContain(`about ${Math.round(50 + fromSoda)} ppm after it`);
+    // When the soda ash alone gets there, no baking soda.
+    const close = adviseFor(tenK, { ...reading, ph: 6.8, ta: 58 });
+    const closeTa = close.items.find((i) => i.measure === "ta")!;
+    expect(closeTa.dose).toBeUndefined();
+    expect(closeTa.detail).toMatch(/^The soda ash for pH brings it to about \d+ ppm; retest it a day after\.$/);
+  });
+
+  it("treats combined chlorine of 0.5 as fine, above it as worth watching", () => {
+    expect(adviseFor(pool, { ...balanced, cc: 0.5 }).items.find((i) => i.measure === "cc")).toBeUndefined();
+    expect(adviseFor(pool, { ...balanced, cc: 0.6 }).items.find((i) => i.measure === "cc")?.severity).toBe("watch");
+  });
+
+  it("returns the saturation index it shows, for the line under the tiles", () => {
+    const advice = adviseFor(pool, { ...balanced, borate: 50 });
+    const card = advice.items.find((i) => i.measure === "csi")!;
+    expect(card.title).toContain(advice.csi!.value.toFixed(2).replace(/^(?=\d)/, "+"));
+    expect(advice.csi).toMatchObject({ assumedTemp: false });
+    expect(adviseFor(pool, { ...balanced, waterTempC: null }).assumptions).toContain(
+      "No water temperature; the saturation index assumes 27 °C (81 °F).",
+    );
   });
 });

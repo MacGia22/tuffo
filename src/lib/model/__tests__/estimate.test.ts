@@ -86,3 +86,42 @@ describe("expectationsAtTests", () => {
     expect(typicalMiss(out)).toEqual({ ppm: 0.5, count: 2 });
   });
 });
+
+describe("estimateFcSeries edges", () => {
+  it("puts a dose logged at the test's own moment on top of the test", () => {
+    const amount = 1000;
+    const ppm = effectsOf("liquid-chlorine-12.5", amount, 50_000).fc!;
+    const s = estimateFcSeries({
+      ...base,
+      doses: [{ added_at: "2026-09-21T00:00:00Z", product_id: "liquid-chlorine-12.5", amount }],
+      start: { at: "2026-09-21T00:00:00Z", fc: 3 },
+      end: "2026-09-22T00:00:00Z",
+    })!;
+    // 3, then + the dose at the test, then − 1 over the day.
+    expect(s.map((p) => p.fc)).toEqual([3, Math.round((3 + ppm) * 100) / 100, Math.round((2 + ppm) * 100) / 100]);
+  });
+
+  it("takes a heavy-use event off whole, when it happens", () => {
+    // 1 ppm a day plus 1.5 per event: a party at 19:00 after an 18:00 test.
+    const busy = { ...flat, use: 1.5 };
+    const s = estimateFcSeries({
+      ...base,
+      coefficients: busy,
+      events: [{ occurred_at: "2026-09-21T19:00:00Z", kind: "heavy_use", value: null }],
+      start: { at: "2026-09-21T18:00:00Z", fc: 6 },
+      end: "2026-09-22T18:00:00Z",
+    })!;
+    // 6 − 1 (a day) − 1.5 (the party) = 3.5, the model's own prediction for the pair.
+    expect(s[s.length - 1].fc).toBe(3.5);
+  });
+
+  it("places the midnights at the real local midnight across a daylight-saving change", () => {
+    const ny: ModelPool = { ...pool, timezone: "America/New_York" };
+    // Fall back on Sun Nov 1, 2026: midnight Nov 2 is 05:00Z (EST), midnight Nov 1 is 04:00Z (EDT).
+    const fall = estimateFcSeries({ ...base, pool: ny, start: { at: "2026-10-31T16:00:00Z", fc: 6 }, end: "2026-11-02T16:00:00Z" })!;
+    expect(fall.map((p) => p.at.slice(0, 16))).toEqual(["2026-10-31T16:00", "2026-11-01T04:00", "2026-11-02T05:00", "2026-11-02T16:00"]);
+    // Spring forward on Sun Mar 8, 2026: midnight Mar 9 is 04:00Z (EDT).
+    const spring = estimateFcSeries({ ...base, pool: ny, start: { at: "2026-03-07T17:00:00Z", fc: 6 }, end: "2026-03-09T16:00:00Z" })!;
+    expect(spring.map((p) => p.at.slice(0, 16))).toEqual(["2026-03-07T17:00", "2026-03-08T05:00", "2026-03-09T04:00", "2026-03-09T16:00"]);
+  });
+});

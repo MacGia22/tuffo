@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cellBounds, cellFor, cellNear, cellsInView } from "../cells";
+import { cellBounds, cellFor, cellNear, cellsInView, wrapLon } from "../cells";
 
 describe("cellFor", () => {
   it("snaps to the 0.03° grid", () => {
@@ -53,5 +53,25 @@ describe("cellNear", () => {
   it("keeps picks close to the town", () => {
     expect(cellNear({ lat: 27.78, lon: -82.65 }, { lat: 27.77, lon: -82.64 })).toBe(true);
     expect(cellNear({ lat: 28.2, lon: -82.65 }, { lat: 27.77, lon: -82.64 })).toBe(false);
+  });
+});
+
+describe("cellNear at the edges", () => {
+  it("reaches the same number of squares on every side of the town", () => {
+    const town = cellFor(27.96, -82.47);
+    const reach = (dLat: number, dLon: number) => {
+      let k = 0;
+      while (cellNear(cellFor(town.lat + (k + 1) * dLat * 0.03, town.lon + (k + 1) * dLon * 0.03), town)) k += 1;
+      return k;
+    };
+    expect([reach(1, 0), reach(-1, 0), reach(0, 1), reach(0, -1)]).toEqual([10, 10, 10, 10]);
+  });
+
+  it("works across the antimeridian", () => {
+    expect(wrapLon(181.5)).toBeCloseTo(-178.5, 9);
+    expect(wrapLon(-180)).toBe(-180);
+    expect(wrapLon(179.97)).toBeCloseTo(179.97, 9);
+    // Taveuni, Fiji (179.97): the square at 180°, numbered −180, is next door.
+    expect(cellNear(cellFor(-16.8, 180), { lat: -16.8, lon: 179.97 })).toBe(true);
   });
 });

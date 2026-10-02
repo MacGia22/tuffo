@@ -23,6 +23,8 @@ export interface PoolAlertSettings {
 
 export interface PoolAlertState {
   poolId: string;
+  /** Today in the pool's time zone (YYYY-MM-DD); the plan's dates are local. Defaults to the job's day. */
+  today?: string;
   /** Last test of any kind, or null. */
   lastTestAt: string | null;
   plan: {
@@ -77,16 +79,18 @@ export function dueAlerts(input: {
   // One email a day per person: nothing if one already went today.
   if (input.sent.some((s) => s.sentOn === today)) return [];
   const due: DueAlert[] = [];
-  const weekday = new Date(`${today}T12:00:00Z`).getUTCDay();
 
   for (const s of input.settings) {
     const state = input.state.find((p) => p.poolId === s.poolId);
     const sentFor = (kind: AlertKind) => input.sent.filter((x) => x.poolId === s.poolId && x.kind === kind);
+    // The pool's own day: at 11:30 UTC Auckland is already on tomorrow, Honolulu still on today.
+    const poolToday = state?.today ?? today;
+    const weekday = new Date(`${poolToday}T12:00:00Z`).getUTCDay();
 
     if (s.algae && state?.plan) {
-      const soon = [today, addDays(today, 1)];
+      const soon = [poolToday, addDays(poolToday, 1)];
       const riskNow = state.plan.fcStart < state.plan.fcMin;
-      const riskDate = riskNow ? today : state.plan.riskDates.find((d) => soon.includes(d));
+      const riskDate = riskNow ? poolToday : state.plan.riskDates.find((d) => soon.includes(d));
       const recent = sentFor("algae").some((x) => daysBetween(x.sentOn, today) < ALGAE_REPEAT_DAYS);
       if (riskDate && !recent) due.push({ poolId: s.poolId, poolName: s.poolName, kind: "algae", detail: { date: riskDate } });
     }
@@ -94,7 +98,9 @@ export function dueAlerts(input: {
     if (s.testReminder && state?.lastTestAt) {
       const days = Math.floor((input.now - Date.parse(state.lastTestAt)) / DAY_MS);
       const lastTestDay = new Date(state.lastTestAt).toISOString().slice(0, 10);
-      const remindedSinceTest = sentFor("test_reminder").some((x) => x.sentOn >= lastTestDay);
+      // A reminder can't come after a test the same day (it needs days to pass), so one
+      // sent that day was for the previous gap.
+      const remindedSinceTest = sentFor("test_reminder").some((x) => x.sentOn > lastTestDay);
       if (days >= s.testAfterDays && !remindedSinceTest) {
         due.push({ poolId: s.poolId, poolName: s.poolName, kind: "test_reminder", detail: { days } });
       }

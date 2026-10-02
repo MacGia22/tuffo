@@ -12,6 +12,8 @@ export interface EmailContext {
   units: Units;
   siteUrl: string;
   plans: Record<string, StoredPlan | undefined>;
+  /** Today in each pool's time zone (YYYY-MM-DD): the week starts there, not at the plan's first day. */
+  todays?: Record<string, string>;
   /** Signed link that stops every alert for this person. */
   unsubscribeUrl: string;
 }
@@ -93,7 +95,9 @@ function section(alert: DueAlert, ctx: EmailContext): Section {
           : `The cell needs to make about ${plan.summary.swgNeedPpm?.toFixed(1)} ppm of chlorine a day.`,
       );
     } else {
-      for (const d of plan.days.slice(0, 7)) {
+      // The nightly plan can start yesterday in the pool's time zone (it runs at 06:00 UTC).
+      const today = ctx.todays?.[alert.poolId];
+      for (const d of plan.days.filter((x) => !today || x.date >= today).slice(0, 7)) {
         const add = addLabel(d.addMl, ctx.units);
         lines.push(`${weekday(d.date)}: ${add ? `add ${add} of liquid chlorine` : "nothing to add"}${d.algaeRisk ? " (watch: may run low)" : ""}${d.dilution ? " (heavy rain: retest stabilizer, calcium, salt after)" : ""}`);
       }

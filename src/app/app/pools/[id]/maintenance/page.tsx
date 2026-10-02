@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PoolCrumbs } from "@/components/pool-crumbs";
 import { describeEquipment, KIND_LABELS } from "@/lib/equipment";
-import { formatPressure, kpaToDisplayPressure, type Units } from "@/lib/format";
+import { formatPressure, pressureFieldValue, type Units } from "@/lib/format";
 import { isUuid } from "@/lib/form-data";
 import { fromParam } from "@/lib/return-to";
 import {
@@ -218,7 +218,7 @@ export default async function MaintenancePage({ params }: PageProps<"/app/pools/
                 date: r.readOn,
                 text: `${day(r.readOn)}: ${formatPressure(r.kpa, units)}${r.clean ? " (clean)" : ""}`,
                 pressure: {
-                  value: String(units === "us" ? Math.round(kpaToDisplayPressure(r.kpa, units)) : Math.round(kpaToDisplayPressure(r.kpa, units) * 10) / 10),
+                  value: pressureFieldValue(r.kpa, units),
                   clean: r.clean,
                 },
               }))}

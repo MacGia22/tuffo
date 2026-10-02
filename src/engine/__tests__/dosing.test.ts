@@ -54,9 +54,10 @@ describe("balance products in a 10,000 gallon pool", () => {
     expect(effectsOf("soda-ash", ONE_LB, TEN_K_GAL).ta).toBeCloseTo(11.3, 1);
   });
 
-  it("one pound of 97% calcium chloride raises CH by about 10.5 ppm, the dihydrate by about 8.2 ppm", () => {
+  it("one pound of 97% calcium chloride raises CH by about 10.5 ppm, 77% flakes by about 8.3 ppm", () => {
     expect(effectsOf("calcium-chloride-97", ONE_LB, TEN_K_GAL).ch).toBeCloseTo(10.5, 0);
-    expect(effectsOf("calcium-chloride-77", ONE_LB, TEN_K_GAL).ch).toBeCloseTo(8.2, 1);
+    // 453.592 g × 0.77 × 100.09/110.98 / 37,854 L = 8.32 ppm
+    expect(effectsOf("calcium-chloride-77", ONE_LB, TEN_K_GAL).ch).toBeCloseTo(8.32, 2);
   });
 
   it("one pound of stabilizer raises CYA by 12 ppm and one pound of salt raises salt by 12 ppm", () => {

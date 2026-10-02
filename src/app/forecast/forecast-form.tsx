@@ -15,7 +15,8 @@ const label = "text-sm font-semibold";
 
 function displayVolume(liters: number, units: Units): string {
   const v = units === "us" ? liters / LITERS_PER_US_GALLON : liters;
-  return String(Math.round(v / 100) * 100);
+  // Whole gallons or liters: rounding to 100 turned a 450 gal spa into 400 on "Update".
+  return String(Math.round(v));
 }
 
 function toLiters(value: string, units: Units): number | null {

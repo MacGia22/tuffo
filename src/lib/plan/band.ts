@@ -64,6 +64,13 @@ export function bandAdvice(plan: Pick<StoredPlan, "summary" | "days">, today: st
   }
   const high = days.find((d) => d.fcEnd > targetHigh);
   if (!high) return null;
+  if (percent === 0) {
+    // The plan already has the cell off: free chlorine is above the band and falling.
+    return {
+      direction: "high",
+      text: `Free chlorine is above the ${targetHigh} ppm target with the cell off: keep it off, and test before you turn it back on.`,
+    };
+  }
   const steps = levels && levels.length ? [0, ...levels] : Array.from({ length: 21 }, (_, i) => i * 5);
   // The next setting down (on a 5% dial, 10 points down, to be worth a change).
   const lower = [...steps].reverse().find((l) => (levels ? l < percent : l <= percent - 10));

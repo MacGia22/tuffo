@@ -76,4 +76,14 @@ describe("maintenance reminder", () => {
     expect(email.text).toContain("Inspect the salt cell (3 days overdue)");
     expect(email.text).toContain(`https://tuffo.app/app/pools/${POOL}/maintenance`);
   });
+
+  it("starts the week at the pool's today when the plan starts the day before", () => {
+    // Built at 06:00 UTC Oct 2: still Oct 1 in Los Angeles, so the plan's first day is Oct 1.
+    const email = renderAlertEmail([{ poolId: POOL, poolName: "Backyard", kind: "weekly", detail: {} }], {
+      ...ctx,
+      todays: { [POOL]: "2026-10-02" },
+    });
+    expect(email.text).not.toContain("Thursday:");
+    expect(email.text).toContain("Friday: nothing to add (watch: may run low)");
+  });
 });

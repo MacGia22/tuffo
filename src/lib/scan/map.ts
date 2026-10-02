@@ -121,3 +121,12 @@ export function mapScan(output: ScanOutput, usage: ScanResult["usage"]): ScanRes
     usage,
   };
 }
+
+/**
+ * The reading form's "When" for a test date read from a photo: noon that day for an
+ * earlier day; nothing (saved as now) for today, when noon may not have come yet, or for
+ * a date still ahead, which can only be a misread.
+ */
+export function scanTakenAt(testDate: string | null | undefined, localToday: string): string | null {
+  return testDate && testDate < localToday ? `${testDate}T12:00` : null;
+}

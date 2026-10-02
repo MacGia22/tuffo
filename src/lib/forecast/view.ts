@@ -1,5 +1,5 @@
 import type { Plan } from "@/engine/server";
-import type { Units } from "@/lib/format";
+import { formatVolume, type Units } from "@/lib/format";
 import type { ForecastInput } from "./params";
 
 /**
@@ -206,10 +206,8 @@ export function buildForecastView({ input, plan, weather, sunShare, summerDayPpm
     lowWithoutChlorine: swg ? null : plan.lowWithoutChlorine,
     capped: plan.capped,
     salt: swg ? { needPpm: roundTo(plan.swgNeedPpm ?? average, 0.5), percent: plan.swgPercent, cell: cellText } : null,
-    volume:
-      units === "us"
-        ? `${(Math.round(input.volumeL / 3.785411784 / 100) * 100).toLocaleString("en-US")} gal`
-        : `${(Math.round(input.volumeL / 100) * 100).toLocaleString("en-US")} L`,
+    // As everywhere in the app: exact below 1,000, to the 100 above.
+    volume: formatVolume(input.volumeL, units),
     cya: input.cya,
   };
 }

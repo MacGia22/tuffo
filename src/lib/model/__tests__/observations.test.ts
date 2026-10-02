@@ -83,6 +83,26 @@ describe("buildTestPairs", () => {
     expect(pair.drivers?.use).toBe(0);
   });
 
+  it("books a dose logged at a test's own moment after that test", () => {
+    // Tests Sep 1 (FC 6), Sep 3 (FC 3), Sep 5 (FC 7); 1 gal of 12.5% (+12.5) logged with the Sep 3 test.
+    const pairs = buildTestPairs({
+      pool,
+      readings: [
+        { taken_at: "2026-09-01T08:00:00Z", fc: 6, cya: 40 },
+        { taken_at: "2026-09-03T08:00:00Z", fc: 3, cya: null },
+        { taken_at: "2026-09-05T08:00:00Z", fc: 7, cya: null },
+      ],
+      doses: [{ added_at: "2026-09-03T08:00:00Z", product_id: "liquid-chlorine-12.5", amount: gallonsToLiters(1) * 1000 }],
+      events: [],
+      weather,
+    });
+    // First pair: (6 − 3) / 2 = 1.5 a day; second: (3 + 12.5 − 7) / 2 = 4.25 a day.
+    expect(pairs.map((p) => [p.addedPpm, p.lossPerDay].map((v) => Math.round(v * 100) / 100))).toEqual([
+      [0, 1.5],
+      [12.5, 4.25],
+    ]);
+  });
+
   it("averages the weather over the interval and counts heavy use per day", () => {
     const rainy = weather.map((d) => (d.date === "2026-09-02" ? { ...d, precipitation_mm: 20, tmax_c: 25, uv_index_max: 3 } : d));
     const [pair] = buildTestPairs({

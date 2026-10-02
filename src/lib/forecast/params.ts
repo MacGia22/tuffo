@@ -69,9 +69,10 @@ export function cleanPlace(value: string | null): string | null {
   return label.length >= 2 ? label : null;
 }
 
-function formatVolume(liters: number, units: Units): string {
+/** A volume for a notice; `round` picks the direction so a stated limit is itself accepted. */
+function formatVolume(liters: number, units: Units, round: (x: number) => number = Math.round): string {
   const v = units === "us" ? liters / LITERS_PER_US_GALLON : liters;
-  return `${(Math.round(v / 100) * 100).toLocaleString("en-US")} ${units === "us" ? "gal" : "L"}`;
+  return `${(round(v / 100) * 100).toLocaleString("en-US")} ${units === "us" ? "gal" : "L"}`;
 }
 
 /**
@@ -107,7 +108,7 @@ export function parseForecastParams(params: Params): ParseResult {
     if (v === null) notices.push(`The pool volume was not a number; using ${formatVolume(volumeL, units)}.`);
     else if (v < MIN_VOLUME_L || v > MAX_VOLUME_L)
       notices.push(
-        `Pool volume must be between ${formatVolume(MIN_VOLUME_L, units)} and ${formatVolume(MAX_VOLUME_L, units)}; using ${formatVolume(volumeL, units)}.`,
+        `Pool volume must be between ${formatVolume(MIN_VOLUME_L, units, Math.ceil)} and ${formatVolume(MAX_VOLUME_L, units, Math.floor)}; using ${formatVolume(volumeL, units)}.`,
       );
     else volumeL = Math.round(v);
   }

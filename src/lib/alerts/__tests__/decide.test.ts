@@ -81,4 +81,28 @@ describe("maintenance reminders", () => {
     expect(dueAlerts({ today, now, settings: [{ ...on, maintenance: false }], state: [due], sent: [] })).toEqual([]);
     expect(dueAlerts({ today, now, settings: [on], state: [calm], sent: [] })).toEqual([]);
   });
+
+  it("reminds again after a test taken later on the day the last reminder went out", () => {
+    // Reminder Oct 1 (11:30 UTC); test Oct 1 at 14:00 UTC; 7 days later, Oct 8 11:30, it is due again.
+    const later = Date.parse("2026-10-08T14:30:00Z");
+    const tested: PoolAlertState = { ...calm, lastTestAt: "2026-10-01T14:00:00Z", plan: null };
+    const sent = [{ poolId: POOL, kind: "test_reminder" as const, sentOn: "2026-10-01" }];
+    expect(dueAlerts({ today: "2026-10-08", now: later, settings: [settings], state: [tested], sent })).toEqual([
+      { poolId: POOL, poolName: "Backyard", kind: "test_reminder", detail: { days: 7 } },
+    ]);
+  });
+
+  it("judges algae risk and Saturday on the pool's own day", () => {
+    // 11:30 UTC on Fri Oct 2 is already 00:30 Sat Oct 3 in Auckland: a risk on Sun Oct 4 is "tomorrow",
+    // and it is Saturday there.
+    const nz: PoolAlertState = { ...calm, today: "2026-10-03", plan: { fcStart: 6, fcMin: 3, riskDates: ["2026-10-04"] } };
+    const due = dueAlerts({ today: "2026-10-02", now: Date.parse("2026-10-02T11:30:00Z"), settings: [settings], state: [nz], sent: [] });
+    expect(due.map((d) => [d.kind, d.detail])).toEqual([
+      ["algae", { date: "2026-10-04" }],
+      ["weekly", {}],
+    ]);
+    // On the job's own (UTC) day neither would be due.
+    const utc = { ...nz, today: undefined };
+    expect(dueAlerts({ today: "2026-10-02", now: Date.parse("2026-10-02T11:30:00Z"), settings: [settings], state: [utc], sent: [] })).toEqual([]);
+  });
 });

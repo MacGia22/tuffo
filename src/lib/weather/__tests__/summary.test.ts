@@ -17,8 +17,11 @@ describe("summarizeBetween", () => {
     expect(s.days).toBe(2);
     expect(s.fcLossPerDay).toBe(2);
     expect(s.avgUvMax).toBe(8.5);
-    expect(s.avgTmaxC).toBe(31.3);
+    // Unrounded, so °F rounds once: (33 + 31 + 30) / 3 = 31.33
+    expect(s.avgTmaxC).toBeCloseTo(31.3, 1);
     expect(s.sunshineHours).toBe(19);
+    // Two of the three days have sunshine (11 h and 8 h): 9.5 h a day, not 19 / 3.
+    expect(s.sunshineDays).toBe(2);
     expect(s.rainMm).toBe(15.4);
     expect(s.daysWithWeather).toBe(3);
   });

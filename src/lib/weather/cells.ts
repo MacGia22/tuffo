@@ -67,7 +67,16 @@ export function cellsInView(south: number, west: number, north: number, east: nu
   return out;
 }
 
-/** Whether a cell is within `degrees` of a point in both directions (the picked town). */
+/** A longitude in [-180, 180), e.g. 181.5 → -178.5 (a map scrolled past the antimeridian). */
+export function wrapLon(lon: number): number {
+  return ((((lon + 180) % 360) + 360) % 360) - 180;
+}
+
+/**
+ * Whether a cell is within `degrees` of a point in both directions (the picked town). A
+ * hair of slack for floating point, and longitudes compared across the antimeridian.
+ */
 export function cellNear(cell: Pick<WeatherCell, "lat" | "lon">, point: { lat: number; lon: number }, degrees = 0.3): boolean {
-  return Math.abs(cell.lat - point.lat) <= degrees && Math.abs(cell.lon - point.lon) <= degrees;
+  const dLon = Math.abs(wrapLon(cell.lon - point.lon));
+  return Math.abs(cell.lat - point.lat) <= degrees + 1e-9 && dLon <= degrees + 1e-9;
 }

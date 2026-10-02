@@ -56,6 +56,33 @@ describe("betweenStory", () => {
     expect(betweenStory({ ...s, wetDays: 0 }, { from: null, to: 4 }, false)).toBe("Four days of strong sun, all dry.");
   });
 
+  it("does not credit a salt cell with chlorine poured in", () => {
+    // 3.0 → 8.0 over 4 days with 10 ppm of liquid chlorine added: cell − burn = (8 − 3 − 10) / 4 = −1.25 a day.
+    const s = summarizeBetween({ taken_at: "2026-09-22T16:00:00Z", fc: 3 }, { taken_at: "2026-09-26T16:00:00Z", fc: 8 }, weather.slice(0, 5), {
+      fcAddedPpm: 10,
+    });
+    expect(betweenStory(s, { from: 3, to: 8 }, true)).toBe(
+      "Four days of strong sun and one wet day. Free chlorine went from 3.0 to 8.0 with the 10.0 ppm you added, so the sun burned about 1.3 ppm a day more than the cell made.",
+    );
+  });
+
+  it("never counts more wet days than days between the tests", () => {
+    // Tests 22 hours apart over two dates that both had rain: "One day … and one wet day".
+    const wet = [day("2026-09-24", 8, 8), day("2026-09-25", 8, 6)];
+    const s = summarizeBetween({ taken_at: "2026-09-24T20:00:00Z", fc: 5 }, { taken_at: "2026-09-25T18:00:00Z", fc: 4 }, wet);
+    expect(betweenStory(s, { from: 5, to: 4 }, false)).toMatch(/^One day of strong sun and one wet day\./);
+    expect(betweenStats(s, "us").find((x) => x.label === "Rain")?.qualifier).toBe("over 1 day");
+  });
+
+  it("rounds the daytime high once", () => {
+    // 30.2 and 30.3 °C: mean 30.25 °C = 86.45 °F → 86, not 30.3 → 86.54 → 87.
+    const s = summarizeBetween({ taken_at: "2026-09-24T16:00:00Z", fc: 5 }, { taken_at: "2026-09-25T16:00:00Z", fc: 4 }, [
+      day("2026-09-24", 8, 0, 30.2),
+      day("2026-09-25", 8, 0, 30.3),
+    ]);
+    expect(betweenStats(s, "us").find((x) => x.label === "Daytime high")?.value).toBe("86 °F");
+  });
+
   it("gives four stats with qualifiers", () => {
     expect(betweenStats(summary, "us")).toEqual([
       { label: "Peak UV", value: "7.7", qualifier: "average · Very high" },

@@ -154,10 +154,11 @@ export const products: Record<string, Product> = {
   },
   "calcium-chloride-77": {
     id: "calcium-chloride-77",
-    name: "Calcium chloride 77% (dihydrate)",
+    name: "Calcium chloride 77%",
     form: "solid",
     raises: "ch",
-    strength: (100.09 / 147.01) * 1000,
+    // 77% CaCl2 by weight (the label's assay; pure dihydrate would be 75.5%), as CaCO3
+    strength: 0.77 * (100.09 / 110.98) * 1000,
     sideEffects: {},
   },
   "cyanuric-acid": {

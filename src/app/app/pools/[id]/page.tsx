@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PLAN_MAX_ADDITION_PPM, PLAN_OWN_MODEL_PAIRS, saturationIndex, saturationVerdict } from "@/engine/server";
+import { PLAN_MAX_ADDITION_PPM, PLAN_OWN_MODEL_PAIRS } from "@/engine/server";
 import { ActivityList } from "@/components/activity-list";
 import { ChlorineUse } from "@/components/chlorine-use";
 import { ChevronDownIcon, GearIcon, PlusIcon } from "@/components/icons";
@@ -24,7 +24,7 @@ import { dueParts, dueTasks, healthItems } from "@/lib/maintenance";
 import { loadPoolMaintenance } from "@/lib/maintenance-data";
 import { planAddLabel } from "@/lib/plan/add-label";
 import { bandAdvice } from "@/lib/plan/band";
-import { cellPercentOn, confidenceText } from "@/lib/plan/stored";
+import { cellPercentOn, confidenceText, planHasFcLine } from "@/lib/plan/stored";
 import { fromParam } from "@/lib/return-to";
 import { cellLevels, cellRatedHours } from "@/lib/salt-cells";
 import { setupSteps } from "@/lib/setup";
@@ -146,23 +146,9 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
     now,
     timeZone: tz,
   });
-  const newest = (key: TileKey | "water_temp_c") => {
-    const r = allReadings.find((x) => x[key] !== null && x[key] !== undefined);
-    return r ? Number(r[key]) : null;
-  };
-  const csiInputs = { ph: newest("ph"), ta: newest("ta"), ch: newest("ch"), temp: newest("water_temp_c") };
-  let csi: { value: number; verdict: string } | null = null;
-  if (csiInputs.ph !== null && csiInputs.ta !== null && csiInputs.ch !== null && csiInputs.temp !== null) {
-    const value = saturationIndex({
-      pH: csiInputs.ph,
-      ta: csiInputs.ta,
-      ch: csiInputs.ch,
-      tempC: csiInputs.temp,
-      cya: newest("cya") ?? undefined,
-      salt: swg ? (newest("salt") ?? undefined) : undefined,
-    });
-    csi = { value, verdict: saturationVerdict(value) };
-  }
+  // The same saturation index as the advice card (pH, TA, CH, CYA, borates, salt and the
+  // water temperature); shown here only when the temperature was measured.
+  const csi = advice?.csi && !advice.csi.assumedTemp ? { value: advice.csi.value, verdict: advice.csi.verdict } : null;
   const line = latest
     ? waterLine({
         temp: latest.water_temp_c === null ? null : formatTemperature(Number(latest.water_temp_c), units),
@@ -222,6 +208,7 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
       daysLeft: s.daysLeft,
       nextDue: s.nextDue,
       relative: dueParts(s, upkeep?.today ?? today).relative,
+      pressureHigh: s.pressureHigh,
     })),
   });
   const taskForms = Object.fromEntries(
@@ -238,7 +225,8 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
           loggedPercent: saltStatus?.setting ?? null,
           days: plan.days.map((d) => ({
             date: d.date,
-            fcEnd: d.fcEnd,
+            // A salt pool's plan without the cell's output has no meaningful FC line.
+            fcEnd: planHasFcLine(plan.summary) ? d.fcEnd : null,
             algaeRisk: d.algaeRisk,
             add: planAddLabel(d, units),
             cellPercent: swg ? cellPercentOn(plan.summary, d.date) : null,

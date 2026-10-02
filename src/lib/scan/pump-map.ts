@@ -32,10 +32,10 @@ export interface PumpScanResult {
   notes: string | null;
 }
 
-/** "8:00", "08:00", "8:00 PM", "20:00" → "HH:MM" (24 h), or null. */
+/** "8:00", "08:00", "8:00 PM", "20:00", "20:00:00" → "HH:MM" (24 h), or null. */
 export function normalizeTime(value: unknown): string | null {
   if (typeof value !== "string") return null;
-  const m = value.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*([ap])?\.?m?\.?$/i);
+  const m = value.trim().match(/^(\d{1,2})(?::(\d{2})(?::[0-5]\d)?)?\s*([ap])?\.?m?\.?$/i);
   if (!m) return null;
   let h = Number(m[1]);
   const mi = Number(m[2] ?? 0);

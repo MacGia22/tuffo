@@ -13,6 +13,8 @@ export interface CardInput {
   units: Units;
   today: string;
   now: number;
+  /** The pool's time zone, for "yesterday" and "3 days ago". */
+  timeZone?: string | null;
   /** The latest test with free chlorine, and its FC target band. */
   latestFc: { takenAt: string; fc: number; target: { low: number; high: number } } | null;
   /** The latest test of any kind. */
@@ -31,7 +33,7 @@ export interface CardFacts {
 }
 
 export function cardFacts(input: CardInput): CardFacts {
-  const age = input.lastTestAt ? testAge(input.lastTestAt, input.now) : null;
+  const age = input.lastTestAt ? testAge(input.lastTestAt, input.now, input.timeZone ?? "UTC") : null;
   const fc = input.latestFc
     ? {
         value: input.latestFc.fc,

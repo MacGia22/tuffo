@@ -195,10 +195,14 @@ export function waterTiles(input: WaterTilesInput): WaterTile[] {
     let note = addedText;
     const previous = tests[1];
     if (!note && previous) {
-      const decimals = key === "fc" || key === "ph" ? 1 : 0;
-      const change = value - Number(previous[key]);
+      const before = Number(previous[key]);
+      // The change between the values as shown: pH keeps a second decimal when either test had one.
+      const twoDecimals = (x: number) => Math.round(x * 100) % 10 !== 0;
+      const decimals = key === "fc" ? 1 : key === "ph" ? (twoDecimals(value) || twoDecimals(before) ? 2 : 1) : 0;
+      const shown = (x: number) => Math.round(x * 10 ** decimals);
+      const steps = shown(value) - shown(before);
       const when = shortDay(previous.taken_at, input.timeZone);
-      note = Math.abs(change) < 0.5 * 10 ** -decimals ? `No change since ${when}` : `${signed(change, decimals)} since ${when}`;
+      note = steps === 0 ? `No change since ${when}` : `${signed(steps / 10 ** decimals, decimals)} since ${when}`;
     }
     return { ...shown, state, chip: LEVEL_LABEL[level ?? "ok"], note };
   });
@@ -210,18 +214,34 @@ export const STALE_TEST_DAYS = 7;
 const HOUR_MS = 3_600_000;
 const DAY_MS = 24 * HOUR_MS;
 
-/** "just now", "5 hours ago", "yesterday", "3 days ago"; stale after a week. */
-export function testAge(takenAt: string, now: number): { text: string; days: number; stale: boolean } {
-  const ms = Math.max(0, now - Date.parse(takenAt));
+function localDate(ms: number, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(ms));
+}
+
+/**
+ * "just now", "5 hours ago" (the same local day), "yesterday" (the local day before),
+ * "3 days ago" (local calendar days, so a Thursday test reads "2 days ago" on Saturday
+ * morning). `days` is the elapsed time, for staleness.
+ */
+export function ageText(takenAt: string, now: number, timeZone = "UTC"): { text: string; days: number } {
+  const t = Date.parse(takenAt);
+  const ms = Math.max(0, now - t);
   const days = ms / DAY_MS;
-  let text: string;
-  if (ms < HOUR_MS) text = "just now";
-  else if (ms < DAY_MS) {
+  if (ms < HOUR_MS) return { text: "just now", days };
+  const calendarDays = Math.round(
+    (Date.parse(`${localDate(now, timeZone)}T00:00:00Z`) - Date.parse(`${localDate(t, timeZone)}T00:00:00Z`)) / DAY_MS,
+  );
+  if (calendarDays <= 0) {
     const hours = Math.floor(ms / HOUR_MS);
-    text = `${hours} ${hours === 1 ? "hour" : "hours"} ago`;
-  } else if (days < 2) text = "yesterday";
-  else text = `${Math.floor(days)} days ago`;
-  return { text, days, stale: days > STALE_TEST_DAYS };
+    return { text: `${hours} ${hours === 1 ? "hour" : "hours"} ago`, days };
+  }
+  return { text: calendarDays === 1 ? "yesterday" : `${calendarDays} days ago`, days };
+}
+
+/** How old a test is, and whether it is stale (over a week). */
+export function testAge(takenAt: string, now: number, timeZone = "UTC"): { text: string; days: number; stale: boolean } {
+  const age = ageText(takenAt, now, timeZone);
+  return { ...age, stale: age.days > STALE_TEST_DAYS };
 }
 
 export interface HistoryCell {
@@ -265,7 +285,7 @@ export function historyCells(reading: TileReading, targets: TileTargets): Histor
 }
 
 /**
- * The line under the tiles, with whatever was logged: "Water 84 °F · CC 0.0 · CSI −0.2
+ * The line under the tiles, with whatever was logged: "Water 84 °F · CC 0.0 · CSI −0.24
  * (balanced)". Null when there is nothing to say.
  */
 export function waterLine(parts: {
@@ -277,8 +297,9 @@ export function waterLine(parts: {
   if (parts.temp) items.push(`Water ${parts.temp}`);
   if (parts.cc !== null) items.push(`CC ${parts.cc.toFixed(1)}`);
   if (parts.csi) {
-    const v = Math.round(parts.csi.value * 10) / 10;
-    items.push(`CSI ${v === 0 ? "0.0" : signed(v, 1)} (${parts.csi.verdict})`);
+    // Two decimals, as on the advice card, so the number and the verdict agree (−0.62 corrosive, −0.58 balanced).
+    const v = Math.round(parts.csi.value * 100) / 100;
+    items.push(`CSI ${v === 0 ? "0.00" : signed(v, 2)} (${parts.csi.verdict})`);
   }
   return items.length ? items.join(" · ") : null;
 }

@@ -17,7 +17,21 @@ export function setQueueUser(userId: string): void {
   currentUser = userId;
 }
 
-const WHEN_FIELD: Record<QueueKind, string> = { reading: "taken_at", dose: "added_at", event: "occurred_at" };
+export const WHEN_FIELD: Record<QueueKind, string> = { reading: "taken_at", dose: "added_at", event: "occurred_at" };
+
+/**
+ * The browser's UTC offset (minutes, getTimezoneOffset) at a datetime-local value, not at
+ * the moment of sending: a test entered on Nov 2 for Oct 31 08:30 in New York is EDT.
+ * Empty (meaning now) uses the current offset.
+ */
+export function offsetAt(local: string | null | undefined): number {
+  if (local && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(local)) {
+    // A date-time without a zone is read as local time.
+    const at = new Date(local);
+    if (!Number.isNaN(at.getTime())) return at.getTimezoneOffset();
+  }
+  return new Date().getTimezoneOffset();
+}
 
 function localNow(): string {
   const now = new Date();
@@ -34,7 +48,7 @@ export async function queueEntry(kind: QueueKind, formData: FormData): Promise<v
   for (const [key, value] of formData.entries()) if (typeof value === "string") fields[key] = value;
   if (!fields.client_id) fields.client_id = crypto.randomUUID();
   if (!fields[WHEN_FIELD[kind]]) fields[WHEN_FIELD[kind]] = localNow();
-  fields.tz_offset = String(new Date().getTimezoneOffset());
+  fields.tz_offset = String(offsetAt(fields[WHEN_FIELD[kind]]));
   const entry: QueuedEntry = {
     clientId: fields.client_id,
     userId: currentUser,

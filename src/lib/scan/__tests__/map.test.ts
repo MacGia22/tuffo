@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapScan } from "../map";
+import { mapScan, scanTakenAt } from "../map";
 
 const usage = { model: "test", inputTokens: 0, outputTokens: 0 };
 
@@ -55,5 +55,15 @@ describe("mapScan", () => {
     expect(result.method).toBe("other");
     expect(result.confidence).toBe("low");
     expect(result.testDate).toBeNull();
+  });
+});
+
+describe("scanTakenAt", () => {
+  it("uses noon for an earlier day and leaves today or a later date to the save", () => {
+    expect(scanTakenAt("2026-09-30", "2026-10-02")).toBe("2026-09-30T12:00");
+    // A store test this morning: noon would be "in the future" before 11 AM.
+    expect(scanTakenAt("2026-10-02", "2026-10-02")).toBeNull();
+    expect(scanTakenAt("2026-10-05", "2026-10-02")).toBeNull();
+    expect(scanTakenAt(null, "2026-10-02")).toBeNull();
   });
 });

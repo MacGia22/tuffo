@@ -130,7 +130,21 @@ export async function loadPoolMaintenance(
       .map((d) => ({ id: d.id, task: d.task, doneOn: d.done_on }))
       .sort((a, b) => (a.doneOn < b.doneOn ? 1 : a.doneOn > b.doneOn ? -1 : 0));
     const overrides = pool.maintenance_intervals ?? {};
-    const statuses = maintenanceStatus({ pool: maintenancePool, overrides, done: history, pressure: pressureNow, today });
+    const installedOn = (kind: EquipmentNow["kind"]) => items.find((e) => e.kind === kind)?.installedOn ?? null;
+    const statuses = maintenanceStatus({
+      pool: maintenancePool,
+      overrides,
+      done: history,
+      pressure: pressureNow,
+      today,
+      installedOn: {
+        filter: installedOn("filter"),
+        pump: installedOn("pump"),
+        heater: installedOn("heater"),
+        feeder: installedOn("feeder"),
+        cell: pool.swg_cell_installed_on,
+      },
+    });
 
     // Pump schedules, for the cell's chlorine hours and the pump's running hours.
     const pumpItem = items.find((e) => e.kind === "pump") ?? null;
@@ -141,15 +155,20 @@ export async function loadPoolMaintenance(
         .from("pump_schedules")
         .select("effective_from, cell_hours, segments")
         .eq("pool_id", poolId)
+        // Oldest first, and of two saved for the same moment the later one wins.
+        .order("effective_from")
+        .order("created_at")
         .limit(1000)
         .returns<{ effective_from: string; cell_hours: number | string; segments: PumpSegment[] | null }[]>();
       schedules = data ?? [];
     }
+    // Hours are counted on the pool's own days, not UTC days.
+    const localDay = (iso: string) => poolLocalDate(pool.timezone, Date.parse(iso));
 
     let pumpHours: CellHours | null = null;
     if (options.cellHours && pumpItem && schedules.length > 0) {
       const spans = schedules
-        .map((s) => ({ from: s.effective_from, hours: Array.isArray(s.segments) ? pumpHoursPerDay(s.segments) : null }))
+        .map((s) => ({ from: localDay(s.effective_from), hours: Array.isArray(s.segments) ? pumpHoursPerDay(s.segments) : null }))
         .filter((s): s is { from: string; hours: number } => s.hours !== null);
       pumpHours = cellHoursUsed({ installedOn: pumpItem.installedOn, today, schedules: spans, settings: [] });
     }
@@ -164,16 +183,19 @@ export async function loadPoolMaintenance(
           .select("occurred_at, value")
           .eq("pool_id", poolId)
           .eq("kind", "cell_setting")
+          // Oldest first; of two the same minute, the one logged later wins.
+          .order("occurred_at")
+          .order("created_at")
           .limit(2000)
           .returns<{ occurred_at: string; value: number | string | null }[]>();
-        const spans = schedules.map((s) => ({ from: s.effective_from, hours: Number(s.cell_hours) }));
+        const spans = schedules.map((s) => ({ from: localDay(s.effective_from), hours: Number(s.cell_hours) }));
         const changes = (settings ?? [])
           .filter((s) => s.value !== null)
-          .map((s) => ({ at: s.occurred_at, percent: Number(s.value) }));
+          .map((s) => ({ at: localDay(s.occurred_at), percent: Number(s.value) }));
         hours = cellHoursUsed({ installedOn: pool.swg_cell_installed_on, today, schedules: spans, settings: changes });
-        // Today's pace, for when the rated hours run out.
-        const latest = <T extends { at: string }>(rows: T[]) =>
-          rows.filter((r) => r.at.slice(0, 10) <= today).sort((a, b) => (a.at < b.at ? 1 : -1))[0];
+        // Today's pace, for when the rated hours run out: the last change on or before today
+        // (the rows are in order, so the last one that qualifies).
+        const latest = <T extends { at: string }>(rows: T[]) => rows.filter((r) => r.at <= today).pop();
         const schedule = latest(spans.map((s) => ({ ...s, at: s.from })));
         const setting = latest(changes);
         if (schedule && Number.isFinite(schedule.hours)) {

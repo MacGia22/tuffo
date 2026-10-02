@@ -190,6 +190,25 @@ describe("buildTrend", () => {
     expect(own.estimate.map((p) => p.spread)).toEqual([0, 0.8]);
   });
 
+  it("starts a salt plan line at the plan's starting FC when there is no estimate", () => {
+    const trend = buildTrend({
+      timeZone: TZ,
+      now,
+      units: "us",
+      readings: [{ taken_at: "2026-09-27T12:00:00Z", fc: 4, ph: 7.6 }],
+      doses: [],
+      weather: [],
+      fcBand: { low: 4, high: 6 },
+      phBand: { low: 7.2, high: 7.8 },
+      plan: {
+        continuous: true,
+        fcStart: 4,
+        days: [{ date: "2026-09-27", fcAfterAdd: 6.28, fcEnd: 4.6, add: null, uv_index_max: 9, precipitation_mm: 0 }],
+      },
+    });
+    expect(trend.forecast[0].fc).toBe(4);
+  });
+
   it("has no forecast without a plan", () => {
     const trend = buildTrend({ timeZone: TZ, now, units: "us", readings: [], doses: [], weather: [], fcBand: { low: 5, high: 7 }, phBand: { low: 7.2, high: 7.8 } });
     expect(trend.forecast).toEqual([]);

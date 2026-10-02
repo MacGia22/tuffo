@@ -9,6 +9,7 @@ import { QueuedNotice, useOfflineLog } from "@/components/offline-log";
 import { ScanButton, type ScanAllowance, type ScanResponse } from "@/components/scan-button";
 import { READING_METHODS, type Units } from "@/lib/format";
 import { rangeHint, type HintField } from "@/lib/reading-hints";
+import { scanTakenAt } from "@/lib/scan/map";
 import { EditFields, type EditTarget } from "@/components/edit-fields";
 import { saveReading, type LogState as ReadingState } from "../../actions";
 
@@ -25,15 +26,15 @@ interface Field {
   step: string;
 }
 
-const FC: Field = { name: "fc", label: "Free chlorine", unit: "ppm", step: "0.1" };
-const CC: Field = { name: "cc", label: "Combined chlorine", unit: "ppm", step: "0.1" };
-const PH: Field = { name: "ph", label: "pH", unit: "", step: "0.05" };
-const TA: Field = { name: "ta", label: "Alkalinity (TA)", unit: "ppm", step: "5" };
-const CYA: Field = { name: "cya", label: "Stabilizer (CYA)", unit: "ppm", step: "5" };
-const SALT: Field = { name: "salt", label: "Salt", unit: "ppm", step: "100" };
-const CH: Field = { name: "ch", label: "Calcium (CH)", unit: "ppm", step: "10" };
-const BORATE: Field = { name: "borate", label: "Borates", unit: "ppm", step: "5" };
-const PHOSPHATE: Field = { name: "phosphate", label: "Phosphates", unit: "ppb", step: "100" };
+const FC: Field = { name: "fc", label: "Free chlorine", unit: "ppm", step: "any" };
+const CC: Field = { name: "cc", label: "Combined chlorine", unit: "ppm", step: "any" };
+const PH: Field = { name: "ph", label: "pH", unit: "", step: "any" };
+const TA: Field = { name: "ta", label: "Alkalinity (TA)", unit: "ppm", step: "any" };
+const CYA: Field = { name: "cya", label: "Stabilizer (CYA)", unit: "ppm", step: "any" };
+const SALT: Field = { name: "salt", label: "Salt", unit: "ppm", step: "any" };
+const CH: Field = { name: "ch", label: "Calcium (CH)", unit: "ppm", step: "any" };
+const BORATE: Field = { name: "borate", label: "Borates", unit: "ppm", step: "any" };
+const PHOSPHATE: Field = { name: "phosphate", label: "Phosphates", unit: "ppb", step: "any" };
 
 type Values = Record<string, string>;
 
@@ -84,7 +85,10 @@ export function ReadingForm({
       next.water_temp = String(units === "us" ? Math.round((result.waterTempC * 9) / 5 + 32) : Math.round(result.waterTempC));
     }
     if (result.method) next.method = result.method;
-    if (result.testDate && !next.taken_at) next.taken_at = `${result.testDate}T12:00`;
+    const now = new Date();
+    const localToday = new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+    const scanned = scanTakenAt(result.testDate, localToday);
+    if (scanned && !next.taken_at) next.taken_at = scanned;
     if (more.some((m) => result.fields?.[m.name] !== undefined)) setShowMore(true);
     setValues(next);
     setScan(result);
@@ -195,7 +199,7 @@ export function ReadingForm({
 
       <div className="grid grid-cols-2 gap-x-3 gap-y-4 lg:grid-cols-3">
         {main.map(renderField)}
-        {renderField({ name: "water_temp", label: "Water temp", unit: units === "us" ? "°F" : "°C", step: "1" })}
+        {renderField({ name: "water_temp", label: "Water temp", unit: units === "us" ? "°F" : "°C", step: "any" })}
       </div>
 
       <details open={showMore} onToggle={(e) => setShowMore(e.currentTarget.open)} className="group">

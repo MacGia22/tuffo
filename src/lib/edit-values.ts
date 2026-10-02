@@ -30,12 +30,22 @@ function round(value: number, decimals: number): number {
   return Math.round(value * f) / f;
 }
 
+/**
+ * A stored temperature (°C to 0.1) in °F as the field shows it: whole degrees when they
+ * save back to the same °C (83 °F is stored as 28.3 °C, which would read back as 82.9 °F),
+ * otherwise to 0.1 °F, which always does.
+ */
+function fahrenheitField(celsius: number): number {
+  const whole = Math.round((celsius * 9) / 5 + 32);
+  return round(((whole - 32) * 5) / 9, 1) === celsius ? whole : round((celsius * 9) / 5 + 32, 1);
+}
+
 export function readingEditValues(r: EditableReading, units: Units, timeZone: string): Record<string, string> {
   const values: Record<string, string> = {};
   for (const key of READING_FIELDS) values[key] = num(r[key]);
   if (r.water_temp_c !== null && r.water_temp_c !== "") {
-    const c = Number(r.water_temp_c);
-    values.water_temp = String(units === "us" ? round((c * 9) / 5 + 32, 1) : round(c, 1));
+    const c = round(Number(r.water_temp_c), 1);
+    values.water_temp = String(units === "us" ? fahrenheitField(c) : c);
   } else {
     values.water_temp = "";
   }

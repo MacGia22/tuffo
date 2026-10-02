@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_PRIOR, type WeatherDrivers } from "../model";
-import { planWeek, rainDilution, surfaceArea, type PlanInput } from "../plan";
+import { planFloor, planWeek, rainDilution, surfaceArea, type PlanInput } from "../plan";
 import { doseFor } from "../dosing";
 
 // A clear 32.2 °C (90 °F) day and a cloudy day with 2 inches (50.8 mm) of rain.
@@ -184,5 +184,40 @@ describe("planWeek, salt pool", () => {
     expect(small.swgPercent).toBe(100);
     expect(small.capped).toBe(true);
     expect(small.days.some((d) => d.algaeRisk)).toBe(true);
+  });
+});
+
+describe("planWeek from a time late in the day", () => {
+  it("takes only the rest of today's use off FC now (worked numbers)", () => {
+    // 11 PM: 1/24 of the day left. FC now 5: day 1 uses 2.36 / 24 = 0.10, ending at 4.90,
+    // above the 4.5 floor, so nothing tonight. Day 2: 4.5 + 2.36 − 4.90 = 1.96 → 2.0 ppm.
+    const late = planWeek({ ...base, firstDayShare: 1 / 24 })!;
+    expect(late.days[0].addPpm).toBe(0);
+    expect(late.days[0].lossPpm).toBeCloseTo(2.36 / 24, 2);
+    expect(late.days[0].fcEnd).toBeCloseTo(5 - 2.36 / 24, 2);
+    expect(late.days[1].addPpm).toBe(2);
+    // From midnight (the default), the whole day's use is ahead: 4.5 + 2.36 − 5 = 1.86 → 2.0 tonight.
+    expect(planWeek(base)!.days[0].addPpm).toBe(2);
+  });
+
+  it("scales a salt cell's first-day output with the day left, and keeps the daily need whole", () => {
+    const cell = (1.4 * 453.592 * 1000) / 56781;
+    const salt: PlanInput = {
+      ...base,
+      pool: { ...base.pool, swg: true, cellPpmPerDay: cell },
+      water: { fc: 5, cya: 70, ch: 300, salt: 3200 },
+      days: [1, 2, 3, 4, 5, 6, 7].map((n) => day(n, SUNNY)),
+      firstDayShare: 0.5,
+    };
+    const plan = planWeek(salt)!;
+    expect(plan.swgNeedPpm).toBeCloseTo(1.86, 2);
+    // Day 1 at 20% for half a day: 5 + (11.18 × 0.2 − 1.86) × 0.5 = 5.19.
+    expect(plan.days[0].fcEnd).toBeCloseTo(5 + (cell * 0.2 - 1.86) * 0.5, 1);
+    expect(plan.days.every((d) => d.fcEnd >= plan.floor)).toBe(true);
+  });
+
+  it("exports the floor it plans to", () => {
+    expect(planFloor({ min: 3, targetLow: 5, targetHigh: 7, slam: 16 }, 0)).toBe(4.5);
+    expect(planFloor({ min: 3, targetLow: 5, targetHigh: 7, slam: 16 }, 4)).toBe(4);
   });
 });
