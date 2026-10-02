@@ -5,6 +5,7 @@ import { loginError } from "@/lib/auth/oauth";
 import { safeNextPath } from "@/lib/auth/redirects";
 import { signupSource } from "@/lib/beta";
 import { serverEnv } from "@/lib/env";
+import { forecastTown } from "@/lib/forecast/params";
 import { LoginForm } from "./login-form";
 
 // Always rendered per request: depends on the session cookie.
@@ -23,6 +24,8 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const failed = loginError(params.error);
   const ref = signupSource(params.ref) ?? "";
   const open = serverEnv.signupsOpen();
+  // From the forecast's "Save my pool": name the town.
+  const town = forecastTown(next);
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-8 px-5 py-16">
@@ -30,9 +33,11 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         <TuffoLockup size={36} />
       </Link>
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-semibold">Sign in</h1>
+        <h1 className="text-3xl font-semibold">{town && open ? `Save your ${town} pool` : "Sign in"}</h1>
         <p className="text-muted">
-          {open
+          {town && open
+            ? "Continue with Google, or enter your email for a code and a link. No password. Your forecast settings come with you."
+            : open
             ? "New or returning: continue with Google, or enter your email for a code and a link. No password. Free during the beta."
             : "Private beta. Use the Google account or email address you were invited with."}
         </p>

@@ -9,6 +9,11 @@
   --border: #d5e3ec;
   --lagoon: #0e7c9e;
   --lagoon-deep: #0b5f7a;
+  /* Filled buttons with white text, the same in both modes (4.78:1; dark --lagoon is 3.11:1). */
+  --action: #0e7c9e;
+  --action-deep: #0b5f7a;
+  /* Input, select and textarea borders: 3:1 or more against the surface. --border is for cards. */
+  --border-input: #7a92a5;
   --navy: #0b2e4f;
   --ice: #8fd3f4;
   --sun: #f5b301;
@@ -56,6 +61,9 @@
   --color-border: var(--border);
   --color-lagoon: var(--lagoon);
   --color-lagoon-deep: var(--lagoon-deep);
+  --color-action: var(--action);
+  --color-action-deep: var(--action-deep);
+  --color-border-input: var(--border-input);
   --color-navy: var(--navy);
   --color-ice: var(--ice);
   --color-sun: var(--sun);
@@ -99,6 +107,7 @@
     --border: #22384a;
     --lagoon: #159ec7;
     --lagoon-deep: #0e7c9e;
+    --border-input: #5a7489;
     /* Dark steps, validated against the dark card surface (#11212e). */
     --chart-chem: #159ec7;
     --chart-uv: #c98500;
@@ -169,4 +178,10 @@ input[type="datetime-local"]::-webkit-date-and-time-value,
 input[type="time"]::-webkit-date-and-time-value {
   text-align: left;
   min-height: 1.5em;
+}
+
+/* Visible keyboard focus on every control. */
+:focus-visible {
+  outline: 2px solid var(--lagoon);
+  outline-offset: 2px;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { sendMagicLink, signInWithGoogle, verifyCode, type CodeState, type SignInState } from "./actions";
 
@@ -8,9 +8,9 @@ const initial: SignInState = { status: "idle" };
 const initialCode: CodeState = { status: "idle" };
 
 const input =
-  "h-12 rounded-xl border border-border bg-surface px-4 text-base text-foreground outline-none placeholder:text-muted/70 focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
+  "h-12 rounded-xl border border-border-input bg-surface px-4 text-base text-foreground outline-none placeholder:text-muted/70 focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
 const button =
-  "h-12 rounded-xl bg-lagoon px-5 text-base font-semibold text-white transition hover:bg-lagoon-deep disabled:opacity-60";
+  "h-12 rounded-xl bg-action px-5 text-base font-semibold text-white transition hover:bg-action-deep disabled:opacity-60";
 
 function CodeForm({ email, next }: { email: string; next: string }) {
   const [state, action, pending] = useActionState(verifyCode, initialCode);
@@ -31,9 +31,9 @@ function CodeForm({ email, next }: { email: string; next: string }) {
           maxLength={12}
           placeholder="12345678"
           disabled={pending}
-          className={`${input} w-48 tracking-[0.25em]`}
+          className={`${input} w-0 min-w-0 flex-1 tracking-[0.25em]`}
         />
-        <button type="submit" disabled={pending} className={button}>
+        <button type="submit" disabled={pending} className={`${button} shrink-0 whitespace-nowrap`}>
           {pending ? "Checking…" : "Sign in"}
         </button>
       </div>
@@ -84,21 +84,110 @@ function GoogleButton() {
   );
 }
 
-export function LoginForm({ next, source }: { next: string; source: string }) {
-  const [state, action, pending] = useActionState(sendMagicLink, initial);
+/** Seconds before "Send a new code" is offered again. */
+const RESEND_AFTER_S = 60;
 
-  if (state.status === "sent" && state.email) {
-    return (
-      <div className="flex flex-col gap-5 rounded-2xl border border-border bg-surface p-6">
-        <div className="flex flex-col gap-2">
-          <h2 className="text-xl font-semibold">Check your email</h2>
-          <p className="text-muted">
-            We sent a sign-in email to <span className="font-semibold text-foreground">{state.email}</span>. Tap the
-            link on this device, or use the code below. Both expire in an hour.
-          </p>
-        </div>
-        <CodeForm email={state.email} next={next} />
+function ResendForm({
+  email,
+  next,
+  source,
+  action,
+  pending,
+}: {
+  email: string;
+  next: string;
+  source: string;
+  action: (formData: FormData) => void;
+  pending: boolean;
+}) {
+  // Remounted (keyed) for each send, so the minute starts again.
+  const [startedAt] = useState(() => Date.now());
+  const [now, setNow] = useState(startedAt);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const left = Math.max(0, RESEND_AFTER_S - Math.floor((now - startedAt) / 1000));
+  return (
+    <form action={action}>
+      <input type="hidden" name="email" value={email} />
+      <input type="hidden" name="next" value={next} />
+      <input type="hidden" name="ref" value={source} />
+      <button
+        type="submit"
+        disabled={pending || left > 0}
+        className="min-h-11 rounded-xl border border-border-input px-4 text-sm font-semibold hover:border-lagoon disabled:opacity-60"
+      >
+        {pending ? "Sending…" : left > 0 ? `Send a new code (${left} s)` : "Send a new code"}
+      </button>
+    </form>
+  );
+}
+
+/** After a send: the code, a new code after a minute, or another address. */
+export function CheckEmail({
+  email,
+  next,
+  source,
+  action,
+  pending,
+  sends,
+  onDifferentEmail,
+}: {
+  email: string;
+  next: string;
+  source: string;
+  action: (formData: FormData) => void;
+  pending: boolean;
+  /** How many times an email was sent: restarts the resend minute. */
+  sends: number;
+  onDifferentEmail: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-5 rounded-2xl border border-border bg-surface p-6">
+      <div className="flex flex-col gap-2">
+        <h2 className="text-xl font-semibold">Check your email</h2>
+        <p className="text-muted">
+          We sent a sign-in email to <span className="font-semibold text-foreground">{email}</span>. Tap the link on this
+          device, or use the code below. Both expire in an hour.
+        </p>
       </div>
+      <CodeForm email={email} next={next} />
+      <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
+        <ResendForm key={sends} email={email} next={next} source={source} action={action} pending={pending} />
+        <button
+          type="button"
+          onClick={onDifferentEmail}
+          className="min-h-11 px-2 text-sm font-semibold text-lagoon underline-offset-2 hover:underline"
+        >
+          Use a different email
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function LoginForm({ next, source }: { next: string; source: string }) {
+  const [state, sendAction, pending] = useActionState(sendMagicLink, initial);
+  const [sends, setSends] = useState(0);
+  const action = (formData: FormData) => {
+    setSends((n) => n + 1);
+    sendAction(formData);
+  };
+  // "Use a different email" sets aside the send it was clicked on; a new send shows again.
+  const [setAside, setSetAside] = useState<SignInState | null>(null);
+
+  if (state.status === "sent" && state.email && state !== setAside) {
+    return (
+      <CheckEmail
+        email={state.email}
+        next={next}
+        source={source}
+        action={action}
+        pending={pending}
+        sends={sends}
+        onDifferentEmail={() => setSetAside(state)}
+      />
     );
   }
 

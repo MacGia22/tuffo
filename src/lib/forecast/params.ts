@@ -177,3 +177,15 @@ export function signupHref(input: ForecastInput, options: { ref: string | null; 
   q.set("next", `/app/pools/new?${next.toString()}`);
   return `/login?${q.toString()}`;
 }
+
+/**
+ * The town a sign-in came from, when it was the forecast's "Save my pool": the place in
+ * `next` (/app/pools/new?place=Tampa%2C+FL%2C+US…) up to its first comma. Null otherwise.
+ */
+export function forecastTown(next: string | null | undefined): string | null {
+  if (!next || !next.startsWith("/app/pools/new?")) return null;
+  const place = new URLSearchParams(next.slice(next.indexOf("?") + 1)).get("place");
+  const town = place?.split(",")[0].trim().slice(0, 60);
+  return town ? town : null;
+}
+

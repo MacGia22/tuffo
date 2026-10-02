@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import { CellMap } from "@/components/cell-map";
 import { CELL_DEGREES, cellFor, cellNear, wrapLon, type WeatherCell } from "@/lib/weather/cells";
 import type { Place } from "@/lib/weather/geocode";
+import { placesFoundText, usFirst } from "@/lib/weather/place-order";
 
 const input =
-  "h-11 w-full rounded-xl border border-border bg-surface px-3 text-base text-foreground outline-none placeholder:text-muted/70 focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
+  "h-11 w-full rounded-xl border border-border-input bg-surface px-3 text-base text-foreground outline-none placeholder:text-muted/70 focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
 
 /**
  * Town or ZIP search for a pool's weather, then a map of the weather squares around the
@@ -22,12 +23,21 @@ export function PlacePicker({
   initialPlace = null,
   onPick,
   autoFocus = false,
+  label = "Town or ZIP code",
+  primaryFind = false,
+  note,
 }: {
   find: (query: string) => Promise<{ places: Place[]; error?: string }>;
   initialQuery?: string;
   initialPlace?: Place | null;
   onPick?: (place: Place, cell: WeatherCell) => void;
   autoFocus?: boolean;
+  /** The search field's visible label. */
+  label?: string;
+  /** "Find" as the page's filled button (the public forecast box). */
+  primaryFind?: boolean;
+  /** Shown under the field (the forecast box's privacy line). */
+  note?: ReactNode;
 }) {
   const [query, setQuery] = useState(initialQuery);
   const [places, setPlaces] = useState<Place[]>([]);
@@ -35,6 +45,7 @@ export function PlacePicker({
   const [place, setPlaceState] = useState<Place | null>(initialPlace);
   const [cell, setCell] = useState<WeatherCell | null>(initialPlace ? cellFor(initialPlace.lat, initialPlace.lon) : null);
   const [searching, startSearch] = useTransition();
+  const [status, setStatus] = useState("");
 
   function setPlace(p: Place) {
     setPlaceState(p);
@@ -57,11 +68,9 @@ export function PlacePicker({
     if (q.length < 2) return;
     startSearch(async () => {
       const result = await find(q);
-      setSearchError(
-        result.error ??
-          (result.places.length === 0 ? "Nothing found. Try the ZIP code, or the town and state." : undefined),
-      );
-      setPlaces(result.places);
+      setSearchError(result.error);
+      setStatus(result.error ? "" : placesFoundText(result.places.length));
+      setPlaces(usFirst(result.places));
     });
   }
 
@@ -76,9 +85,12 @@ export function PlacePicker({
           <input type="hidden" name="place_label" value={place.label} />
         </>
       ) : null}
+      <label htmlFor="place-query" className="text-sm font-semibold">
+        {label}
+      </label>
       <div className="flex gap-2">
         <input
-          aria-label="Town or ZIP code"
+          id="place-query"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
@@ -96,12 +108,20 @@ export function PlacePicker({
           type="button"
           onClick={search}
           disabled={searching}
-          className="h-11 shrink-0 rounded-xl border border-border px-4 text-sm font-semibold hover:border-lagoon disabled:opacity-60"
+          className={
+            primaryFind
+              ? "h-11 shrink-0 rounded-xl bg-action px-5 text-sm font-semibold text-white hover:bg-lagoon-deep disabled:opacity-60"
+              : "h-11 shrink-0 rounded-xl border border-border-input px-4 text-sm font-semibold hover:border-lagoon disabled:opacity-60"
+          }
         >
           {searching ? "Searching…" : "Find"}
         </button>
       </div>
+      {note}
       {searchError ? <p className="text-sm text-red-600">{searchError}</p> : null}
+      <p role="status" className={status ? "text-sm text-muted" : "sr-only"}>
+        {status}
+      </p>
       {places.length > 0 ? (
         <ul className="flex flex-col gap-1">
           {places.map((p) => {
@@ -111,7 +131,8 @@ export function PlacePicker({
                 <button
                   type="button"
                   onClick={() => setPlace(p)}
-                  className={`w-full rounded-lg px-3 py-2 text-left text-sm ${
+                  aria-pressed={selected}
+                  className={`flex min-h-11 w-full items-center rounded-lg px-3 py-2 text-left text-sm ${
                     selected ? "bg-lagoon text-white" : "hover:bg-ice/30"
                   }`}
                 >

@@ -65,7 +65,7 @@ export default function Home() {
           </span>
           <Link
             href="/login"
-            className="rounded-xl bg-lagoon px-4 py-2 text-sm font-semibold text-white transition hover:bg-lagoon-deep"
+            className="inline-flex min-h-11 items-center px-2 text-sm font-semibold text-lagoon underline-offset-2 hover:underline"
           >
             Sign in
           </Link>
@@ -86,7 +86,7 @@ export default function Home() {
               className="flex flex-col gap-3 rounded-2xl border border-lagoon/40 bg-surface p-4 sm:p-5"
             >
               <h2 id="your-week" className="text-xl font-semibold">
-                See your pool&apos;s week, no sign-up
+                See your pool&apos;s week, <span className="whitespace-nowrap">no sign up</span>
               </h2>
               <ForecastForm current={null} refLabel={null} />
             </section>
@@ -103,7 +103,7 @@ export default function Home() {
               <WaitlistForm />
             )}
             <p className="text-sm text-muted">
-              Free during the beta. No ads, no tracking, works with any test kit.
+              Free during the beta. Works with any test kit.
               {open ? " Sign in with Google or your email: no password." : ""}
             </p>
           </div>

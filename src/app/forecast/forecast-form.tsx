@@ -10,7 +10,7 @@ import { findForecastPlaces } from "./actions";
 
 const LITERS_PER_US_GALLON = 3.785411784;
 const input =
-  "h-11 w-full rounded-xl border border-border bg-surface px-3 text-base text-foreground outline-none placeholder:text-muted/70 focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
+  "h-11 w-full rounded-xl border border-border-input bg-surface px-3 text-base text-foreground outline-none placeholder:text-muted/70 focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
 const label = "text-sm font-semibold";
 
 function displayVolume(liters: number, units: Units): string {
@@ -75,15 +75,24 @@ export function ForecastForm({
       }}
     >
       <div className="flex flex-col gap-2">
-        <p className={label}>{current ? "Another town" : "Your town or ZIP code"}</p>
         <PlacePicker
           find={findForecastPlaces}
           autoFocus={autoFocus}
+          label={current ? "Another town" : "Your town or ZIP code"}
+          primaryFind={!current}
+          note={
+            current ? null : (
+              <p className="text-xs text-muted">
+                No ads, no tracking. Tuffo keeps nothing about this search; the link holds only the town and a weather
+                area about 3 km (2 miles) across.
+              </p>
+            )
+          }
           onPick={(place: Place, cell) => go({ label: place.label, lat: cell.lat, lon: cell.lon }, units)}
         />
       </div>
 
-      <details className="rounded-2xl border border-border p-4">
+      <details id={current ? "pool-details" : undefined} className="rounded-2xl border border-border p-4">
         <summary className="cursor-pointer text-sm font-semibold">
           Your pool (optional): {current ? "change volume, stabilizer or salt" : `${shownUnits === "us" ? "15,000 gal" : "57,000 L"}, stabilizer 40, chlorine`}
         </summary>
@@ -105,7 +114,7 @@ export function ForecastForm({
                 aria-label="Volume unit"
                 value={shownUnits}
                 onChange={(e) => changeUnits(e.target.value as Units)}
-                className="h-11 rounded-xl border border-border bg-surface px-2 text-base"
+                className="h-11 rounded-xl border border-border-input bg-surface px-2 text-base"
               >
                 <option value="us">gal</option>
                 <option value="metric">L</option>
@@ -136,7 +145,7 @@ export function ForecastForm({
               ).map(([value, text]) => (
                 <label
                   key={value}
-                  className={`flex h-11 flex-1 cursor-pointer items-center justify-center rounded-xl border text-sm font-semibold ${
+                  className={`flex h-11 flex-1 cursor-pointer items-center justify-center rounded-xl border text-sm font-semibold has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-lagoon has-[:focus-visible]:outline ${
                     sanitizer === value ? "border-lagoon bg-lagoon/10 text-lagoon" : "border-border"
                   }`}
                 >
@@ -158,7 +167,7 @@ export function ForecastForm({
           <button
             type="submit"
             disabled={pending}
-            className="mt-4 h-11 rounded-xl bg-lagoon px-5 text-sm font-semibold text-white hover:bg-lagoon-deep disabled:opacity-60"
+            className="mt-4 h-11 rounded-xl bg-action px-5 text-sm font-semibold text-white hover:bg-action-deep disabled:opacity-60"
           >
             Update the week
           </button>
