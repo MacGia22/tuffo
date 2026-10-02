@@ -124,14 +124,22 @@ export function TrendChart({
   const peak = data.forecast.length ? data.forecast.reduce((a, b) => (b.fc > a.fc ? b : a)) : null;
   const peakLabel = peak && peak.fc > data.fcBand.high ? peak : null;
 
-  // Estimate ribbon, from the test to now.
+  // Estimate ribbon, from the test to now: ± its spread, at least 2 px either side after the
+  // test so it reads as a band.
+  const ppmPx = FC_H / fcTop;
+  const half = (p: { spread: number }, k: number) => (k === 0 ? p.spread * ppmPx : Math.max(2, p.spread * ppmPx));
   const ribbon =
     data.estimate.length > 1
       ? [
-          ...data.estimate.map((p) => `${xAt(p.x).toFixed(1)},${yFc(p.fc + p.spread).toFixed(1)}`),
-          ...[...data.estimate].reverse().map((p) => `${xAt(p.x).toFixed(1)},${yFc(p.fc - p.spread).toFixed(1)}`),
+          ...data.estimate.map((p, k) => `${xAt(p.x).toFixed(1)},${(yFc(p.fc) - half(p, k)).toFixed(1)}`),
+          ...data.estimate
+            .map((p, k) => `${xAt(p.x).toFixed(1)},${(yFc(p.fc) + half(p, k)).toFixed(1)}`)
+            .reverse(),
         ].join(" ")
       : null;
+  // The minimum line turns red only when the estimate or the plan comes within 1 ppm of it.
+  const nearMin =
+    data.fcMin !== null && [...data.estimate.map((p) => p.fc - p.spread), ...data.forecast.map((p) => p.fc)].some((v) => v - (data.fcMin as number) <= 1);
   const estimateLine =
     data.estimate.length > 1 ? data.estimate.map((p, i) => `${i ? "L" : "M"}${xAt(p.x).toFixed(1)},${yFc(p.fc).toFixed(1)}`).join("") : null;
   const planLine =
@@ -320,18 +328,25 @@ export function TrendChart({
             </text>
             {data.fcMin !== null ? (
               <g>
-                <line x1={LEFT} x2={LEFT + plot} y1={yFc(data.fcMin)} y2={yFc(data.fcMin)} className="stroke-status-critical" strokeWidth={1.25} strokeDasharray="5 4" />
-                <text x={LEFT + plot - 4} y={yFc(data.fcMin) + 13} textAnchor="end" className="fill-muted text-[11px]">
+                <line
+                  x1={LEFT}
+                  x2={LEFT + plot}
+                  y1={yFc(data.fcMin)}
+                  y2={yFc(data.fcMin)}
+                  className={nearMin ? "stroke-status-critical" : "stroke-muted"}
+                  strokeWidth={1}
+                  strokeDasharray="4 3"
+                  shapeRendering="crispEdges"
+                />
+                <text x={LEFT + plot - 4} y={yFc(data.fcMin) + 13} textAnchor="end" className={`text-[11px] ${nearMin ? "fill-status-critical font-semibold" : "fill-muted"}`}>
                   Never below {data.fcMin}
                 </text>
               </g>
             ) : null}
 
             {/* Estimate since the test */}
-            {ribbon ? <polygon points={ribbon} className="fill-chart-chem" fillOpacity={0.2} /> : null}
-            {estimateLine ? (
-              <path d={estimateLine} fill="none" className="stroke-chart-chem" strokeOpacity={0.7} strokeWidth={1.5} strokeDasharray="2 4" strokeLinecap="round" />
-            ) : null}
+            {ribbon ? <polygon points={ribbon} className="fill-chart-chem" fillOpacity={0.22} /> : null}
+            {estimateLine ? <path d={estimateLine} fill="none" className="stroke-chart-chem" strokeOpacity={0.6} strokeWidth={1} /> : null}
             {/* The plan: one solid line */}
             {planLine ? <path d={planLine} fill="none" className="stroke-chart-chem" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" /> : null}
             {peakLabel ? (
@@ -421,7 +436,8 @@ export function TrendChart({
                   const inches = rainIn[i];
                   if (!(inches > 0.005)) return null;
                   const h = Math.max(1.5, inches * pxPerIn);
-                  const bw = Math.max(2, Math.min(14, col - 4));
+                  // About 60% of the column on wider screens, narrower on phones.
+                  const bw = Math.max(2, col * (w >= 640 ? 0.6 : 0.45));
                   const ahead = d.kind === "forecast";
                   const value = toRain(d.rainMm as number);
                   return (
@@ -438,7 +454,7 @@ export function TrendChart({
                       />
                       {labelled.has(i) && col >= 10 ? (
                         <text x={center(i)} y={rainBase - h - 3} textAnchor="middle" className="fill-foreground text-[10px] font-semibold tabular-nums">
-                          {value.toFixed(us ? (value >= 1 ? 1 : 2) : 0).replace(/^0\./, ".")}
+                          {value.toFixed(us ? (value >= 1 ? 1 : 2) : 0)}
                         </text>
                       ) : null}
                     </g>
@@ -448,7 +464,8 @@ export function TrendChart({
             ) : null}
 
             {/* Today */}
-            <line x1={xAt(nowX)} x2={xAt(nowX)} y1={top.fc} y2={top.axis - 4} className="stroke-foreground" strokeOpacity={0.55} strokeWidth={1} />
+            {/* Through the chlorine and pH panels only; the column tint marks today below. */}
+            <line x1={xAt(nowX)} x2={xAt(nowX)} y1={top.fc} y2={top.ph + PH_H} className="stroke-foreground" strokeOpacity={0.55} strokeWidth={1} />
             <text x={xAt(nowX)} y={top.fc - 10} textAnchor="middle" className="fill-foreground text-[11px] font-semibold">
               Today
             </text>
