@@ -2,13 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Units } from "@/lib/format";
+import { prefillFromForecast } from "@/lib/forecast/prefill";
 import { PoolForm } from "./pool-form";
 
 export const metadata: Metadata = { title: "Add a pool" };
 
-export default async function NewPoolPage() {
+export default async function NewPoolPage({ searchParams }: PageProps<"/app/pools/new">) {
   const supabase = await createSupabaseServerClient();
   const { data: profile } = await supabase.from("profiles").select("units").maybeSingle<{ units: Units }>();
+  // Arriving from the public forecast's "Track my pool": its place and pool numbers.
+  const prefill = prefillFromForecast(await searchParams);
 
   return (
     <>
@@ -22,7 +25,7 @@ export default async function NewPoolPage() {
         <h1 className="text-3xl font-semibold">Add a pool</h1>
         <p className="text-muted">Three things: how big it is, how it is sanitized, and where it sits.</p>
       </div>
-      <PoolForm defaultUnits={profile?.units ?? "us"} />
+      <PoolForm defaultUnits={prefill?.units ?? profile?.units ?? "us"} prefill={prefill} />
     </>
   );
 }

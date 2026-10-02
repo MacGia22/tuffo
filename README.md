@@ -516,6 +516,35 @@ resend after a lost reply is answered "already saved" and never makes a second r
 refused entry stays in the banner with its reason until discarded. Edits need a
 connection.
 
+## Public forecast
+
+`/forecast` works without signing in: type a town or ZIP (the same `PlacePicker`, through
+`findForecastPlaces`, limited per address) and it shows a typical pool's week there. The
+inputs live in the URL so a result can be shared:
+`/forecast?place=<label>&lat=<cell lat>&lon=<cell lon>&v=<liters>&cya=<n>&s=chlorine|salt`
+(plus `u=us|metric` when it differs from the place's default, and `ref` when the visitor came
+from a labelled link). Coordinates are always the 0.03° cell's center; a link with a finer
+point is redirected to its cell. Bad volume or CYA fall back to the defaults (15,000 gal /
+57,000 L, CYA 40) with a notice (`src/lib/forecast/params.ts`).
+
+- Weather: a cell Tuffo already tracks is read from `weather_forecast`; any other is fetched
+  from Open-Meteo (forecast only) and cached per cell for 3 hours with `unstable_cache`.
+  Anonymous lookups never write `weather_cells` or `weather_forecast`.
+- Plan: `planWeek()` with the population prior (cached for an hour, `DEFAULT_PRIOR` when it
+  cannot be read), `pairs = 0`, an uncovered plaster pool starting at the bottom of its
+  CYA-based band. Salt: a typical cell rated for 1.5× the pool with the pump on 12 h a day
+  (`src/lib/forecast/typical.ts`).
+- The page gets display values only (`src/lib/forecast/view.ts`): use to 0.5 ppm, liquid
+  chlorine 12.5% to 0.25 qt / 0.25 L, rain to 0.1 in / 1 mm. Tests check that no
+  coefficient or raw plan field reaches the payload.
+- 30 forecasts and 60 town searches per address per 10 minutes, in memory; the address
+  is never stored or logged. Each forecast shown to a person adds one to the `forecast`
+  label in the link-visit counts on the admin page.
+- "Track my pool, free" goes to `/login?ref=<incoming ref or forecast>` with `next` set to
+  `/app/pools/new?…`, which `prefillFromForecast()` turns into the new-pool form's values
+  (place and time zone, volume, sanitizer; CYA is shown as a note for the first test).
+- Indexable, with `rel=canonical` to `/forecast` for every result URL; in the sitemap.
+
 ## Landing page
 
 `/` has a product screenshot (the week's plan and the trends card, light and dark, as
