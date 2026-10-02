@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TrendChart } from "@/components/trend-chart";
-import { betweenStats, betweenStory } from "@/lib/between-story";
 import { isUuid } from "@/lib/form-data";
 import { bandAdvice } from "@/lib/plan/band";
 import { cellLevels } from "@/lib/salt-cells";
@@ -19,11 +18,11 @@ export default async function TrendsPage({ params, searchParams }: PageProps<"/a
   const { id } = await params;
   if (!isUuid(id)) notFound();
   const range = parseRange((await searchParams).range);
-  const { pool, units, trend, between, plan, today, previous, latest, estimateMiss } = await loadPoolView(id, range);
+  const { pool, trend, between, plan, today, estimateMiss } = await loadPoolView(id, range);
   const base = `/app/pools/${pool.id}`;
   const swg = pool.sanitizer === "swg";
   const band = plan ? bandAdvice(plan, today, swg ? cellLevels(pool.swg_cell_model) : null) : null;
-  const stats = between ? betweenStats(between, units) : [];
+  const stats = between?.stats ?? [];
 
   return (
     <>
@@ -87,21 +86,15 @@ export default async function TrendsPage({ params, searchParams }: PageProps<"/a
         </section>
       ) : null}
 
-      {between && latest && previous ? (
+      {between ? (
         <section aria-labelledby="between" className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-5">
           <h2 id="between" className="text-xl font-semibold">
             Between your last two tests
           </h2>
-          <p>
-            {betweenStory(
-              between,
-              { from: previous.fc === null ? null : Number(previous.fc), to: latest.fc === null ? null : Number(latest.fc) },
-              swg,
-            )}
-          </p>
-          {between.notes.length ? (
+          <p>{between.story}</p>
+          {between.summary.notes.length ? (
             <ul className="list-disc pl-5 text-sm text-muted">
-              {between.notes.map((note) => (
+              {between.summary.notes.map((note) => (
                 <li key={note}>{note}</li>
               ))}
             </ul>

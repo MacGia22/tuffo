@@ -14,6 +14,7 @@ import { forecastHref, parseForecastParams, signupHref, type ForecastInput } fro
 import type { ForecastDayView, ForecastView } from "@/lib/forecast/view";
 import { isBotAgent } from "@/lib/ref-visits";
 import { countRefVisit } from "@/lib/ref-visits-store";
+import { AdjustOnMap } from "./adjust-map";
 import { CopyLink } from "./copy-link";
 import { ForecastForm } from "./forecast-form";
 
@@ -110,6 +111,7 @@ export default async function ForecastPage({ searchParams }: PageProps<"/forecas
 
         {outcome.kind === "ok" ? (
           <Result
+            input={outcome.input}
             view={outcome.result.view}
             notices={outcome.notices}
             shareHref={forecastHref(outcome.input)}
@@ -135,12 +137,14 @@ export default async function ForecastPage({ searchParams }: PageProps<"/forecas
 }
 
 function Result({
+  input,
   view,
   notices,
   shareHref,
   trackHref,
   open,
 }: {
+  input: ForecastInput;
   view: ForecastView;
   notices: string[];
   shareHref: string;
@@ -171,6 +175,7 @@ function Result({
           {view.cya} ppm.
         </p>
         {view.why ? <p className="text-muted">{view.why}</p> : null}
+        <AdjustOnMap input={input} />
       </div>
 
       {salt ? (

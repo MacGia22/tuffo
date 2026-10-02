@@ -363,11 +363,13 @@ my pool was different" for past days. Ranges: 2 weeks (the default: 7 days back,
 weeks, at most a year; `rangeStart` in `src/lib/trends.ts`), as `?range=`. UV cells use the
 WHO levels (`src/lib/uv.ts`, `--uv-*` tokens); rain is 1 in = 40 px. Under the chart: a
 warning when the plan leaves the target band, and "Between your last two tests" (a plain
-sentence and four stats, `src/lib/between-story.ts`). "Show as a table" lists every day.
+sentence and four stats from the pool's last two free chlorine tests and the weather
+between them, `betweenLastTests` in `src/lib/between-story.ts`). "Show as a table" lists every day.
 
 The free chlorine panel runs from 0 to a round tick above the target, the tests and the
-plan, with the target band, a dashed "Never below" line, tests as dots with values, the
-estimate since the last test as a ribbon that widens with the days (the pool's typical
+plan, with the target band, a muted dashed "Never below" line (red when the estimate or
+the plan comes within 1 ppm of it), tests as dots with values, the
+estimate since the last test as a shaded ribbon that widens with the days (the pool's typical
 miss once it has its own model, else ±0.1 ppm a day), the plan as one solid line with its
 peak labelled when it leaves the band, a Today line, and ▼ for doses and events. "What
 Tuffo expected" markers and the estimate-accuracy line appear only once the pool has its
@@ -557,6 +559,12 @@ point is redirected to its cell. Bad volume or CYA fall back to the defaults (15
 - "Track my pool, free" goes to `/login?ref=<incoming ref or forecast>` with `next` set to
   `/app/pools/new?…`, which `prefillFromForecast()` turns into the new-pool form's values
   (place and time zone, volume, sanitizer; CYA is shown as a note for the first test).
+- "Wrong area? Adjust on the map" (`src/app/forecast/adjust-map.tsx`) loads the weather-square
+  map (`CellMap`, Leaflet and OpenStreetMap tiles) only after it is tapped, via a dynamic
+  import, so most visitors make no tile requests. Tapping another square reloads the
+  forecast for it; the URL gets only the square's center. OpenStreetMap's public tile
+  server is for light use: move to a tile provider whose terms allow a public app (or
+  self-host) before heavy traffic.
 - Indexable, with `rel=canonical` to `/forecast` for every result URL; in the sitemap.
 
 ## Landing page

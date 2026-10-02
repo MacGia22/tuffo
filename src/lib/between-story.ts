@@ -5,7 +5,7 @@
 
 import type { Units } from "@/lib/format";
 import { uvLevel, UV_LEVEL_LABEL } from "@/lib/uv";
-import { sunVerdict, type BetweenSummary } from "@/lib/weather/summary";
+import { localDateRange, summarizeBetween, sunVerdict, type BetweenSummary, type WeatherDay } from "@/lib/weather/summary";
 
 const WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
 
@@ -74,4 +74,60 @@ export function betweenStats(s: BetweenSummary, units: Units): BetweenStat[] {
     });
   }
   return stats;
+}
+
+export interface BetweenReading {
+  taken_at: string;
+  fc: number | null;
+}
+
+/** The pool's last two tests with free chlorine; without two of those, its last two tests. */
+export function lastTwoTests<T extends BetweenReading>(readings: T[]): { previous: T; latest: T } | null {
+  const sorted = [...readings].sort((a, b) => Date.parse(b.taken_at) - Date.parse(a.taken_at));
+  const withFc = sorted.filter((r) => r.fc !== null && r.fc !== undefined);
+  const pair = withFc.length >= 2 ? withFc : sorted;
+  return pair.length >= 2 ? { previous: pair[1], latest: pair[0] } : null;
+}
+
+export interface BetweenResult<T extends BetweenReading> {
+  previous: T;
+  latest: T;
+  summary: BetweenSummary;
+  story: string;
+  stats: BetweenStat[];
+}
+
+/**
+ * "Between your last two tests" from the pool's own data: its last two tests (see
+ * lastTwoTests), the weather on the pool's calendar days from one to the other, and
+ * what was added in between (`fcAddedPpm`, `notes` get the two instants in ms).
+ */
+export function betweenLastTests<T extends BetweenReading>(input: {
+  readings: T[];
+  weather: WeatherDay[];
+  timeZone: string;
+  units: Units;
+  swg: boolean;
+  fcAddedPpm?: (from: number, to: number) => number;
+  notes?: (from: number, to: number) => string[];
+}): BetweenResult<T> | null {
+  const pair = lastTwoTests(input.readings);
+  if (!pair) return null;
+  const { previous, latest } = pair;
+  const range = localDateRange(previous.taken_at, latest.taken_at, input.timeZone);
+  const days = input.weather.filter((w) => w.date >= range.from && w.date <= range.to);
+  const t0 = Date.parse(previous.taken_at);
+  const t1 = Date.parse(latest.taken_at);
+  const fc = (r: T) => (r.fc === null || r.fc === undefined ? null : Number(r.fc));
+  const summary = summarizeBetween({ taken_at: previous.taken_at, fc: fc(previous) }, { taken_at: latest.taken_at, fc: fc(latest) }, days, {
+    fcAddedPpm: input.fcAddedPpm?.(t0, t1) ?? 0,
+    notes: input.notes?.(t0, t1) ?? [],
+  });
+  return {
+    previous,
+    latest,
+    summary,
+    story: betweenStory(summary, { from: fc(previous), to: fc(latest) }, input.swg),
+    stats: betweenStats(summary, input.units),
+  };
 }

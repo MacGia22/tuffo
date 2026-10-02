@@ -21,7 +21,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildTrend, DAYS_AHEAD, rangeLookbackDays, rangeStart, type TrendRange } from "@/lib/trends";
 import { FRESH_HOURS, refreshCellIfStale } from "@/lib/weather/job";
 import { loadOwnRain, withOwnRain } from "@/lib/weather/own-rain";
-import { localDateRange, summarizeBetween, type WeatherDay } from "@/lib/weather/summary";
+import { betweenLastTests, lastTwoTests } from "@/lib/between-story";
+import { localDateRange, type WeatherDay } from "@/lib/weather/summary";
 
 /**
  * Everything a pool's pages show, loaded and shaped per request: the Today page and the
@@ -193,7 +194,11 @@ export async function loadPoolView(id: string, range: TrendRange, options: { tre
 
   const ownModel = Math.max(use?.pairs ?? 0, plan?.summary.pairs ?? 0) >= PLAN_OWN_MODEL_PAIRS;
 
-  // Weather for the chart window (and the between-tests box), plus today's forecast.
+  // Weather for the chart window and back to the second-last test (the between-tests box),
+  // plus today's forecast.
+  const pair = lastTwoTests(allReadings);
+  const pairStart = pair ? localDateRange(pair.previous.taken_at, pair.previous.taken_at, tz).from : windowStart;
+  const weatherStart = pairStart < windowStart ? pairStart : windowStart;
   let weather: Array<WeatherRow & { ownRain: boolean }> = [];
   let forecastDays: WeatherRow[] = [];
   let lastActualsAt: string | null = null;
@@ -203,7 +208,7 @@ export async function loadPoolView(id: string, range: TrendRange, options: { tre
         .from("weather_daily")
         .select("date, tmax_c, tmin_c, uv_index_max, sunshine_s, precipitation_mm")
         .eq("cell_id", pool.cell_id)
-        .gte("date", windowStart)
+        .gte("date", weatherStart)
         .order("date")
         .returns<WeatherRow[]>(),
       supabase
@@ -219,7 +224,7 @@ export async function loadPoolView(id: string, range: TrendRange, options: { tre
         .select("last_actuals_at")
         .eq("id", pool.cell_id)
         .maybeSingle<{ last_actuals_at: string | null }>(),
-      loadOwnRain(supabase, pool.id, windowStart),
+      loadOwnRain(supabase, pool.id, weatherStart),
     ]);
     forecastDays = forecast ?? [];
     const rows = daily ?? [];
@@ -237,24 +242,21 @@ export async function loadPoolView(id: string, range: TrendRange, options: { tre
     }
   }
 
-  let between = null;
-  if (latest && previous) {
-    const range = localDateRange(previous.taken_at, latest.taken_at, tz);
-    const inRange = weather.filter((w) => w.date >= range.from && w.date <= range.to);
-    const t0 = Date.parse(previous.taken_at);
-    const t1 = Date.parse(latest.taken_at);
-    const dosesBetween = allDoses.filter((d) => Date.parse(d.added_at) > t0 && Date.parse(d.added_at) <= t1);
-    const fcAddedPpm = dosesBetween.reduce((sum, d) => sum + fcAddedBy(d, liters), 0);
-    const notes = allEvents
-      .filter((e) => Date.parse(e.occurred_at) > t0 && Date.parse(e.occurred_at) <= t1)
-      .filter((e) => e.kind === "refill" || e.kind === "drain_refill" || e.kind === "heavy_use")
-      .reverse()
-      .map(
-        (e) =>
-          `${describeEvent(e.kind, e.value === null ? null : Number(e.value), units)}, ${formatDateTime(e.occurred_at, tz)}`,
-      );
-    between = summarizeBetween(previous, latest, inRange, { fcAddedPpm, notes });
-  }
+  const between = betweenLastTests({
+    readings: allReadings,
+    weather,
+    timeZone: tz,
+    units,
+    swg: pool.sanitizer === "swg",
+    fcAddedPpm: (t0, t1) =>
+      allDoses.filter((d) => Date.parse(d.added_at) > t0 && Date.parse(d.added_at) <= t1).reduce((sum, d) => sum + fcAddedBy(d, liters), 0),
+    notes: (t0, t1) =>
+      allEvents
+        .filter((e) => Date.parse(e.occurred_at) > t0 && Date.parse(e.occurred_at) <= t1)
+        .filter((e) => e.kind === "refill" || e.kind === "drain_refill" || e.kind === "heavy_use")
+        .reverse()
+        .map((e) => `${describeEvent(e.kind, e.value === null ? null : Number(e.value), units)}, ${formatDateTime(e.occurred_at, tz)}`),
+  });
 
   const dosesSinceTest = latest
     ? allDoses
