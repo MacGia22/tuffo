@@ -16,7 +16,7 @@ import { saveReading, type LogState as ReadingState } from "../../actions";
 const initial: ReadingState = {};
 
 const input =
-  "h-11 w-full rounded-xl border border-border bg-surface px-3 text-base text-foreground outline-none placeholder:text-muted/70 focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
+  "h-11 w-full rounded-xl border border-border-input bg-surface px-3 text-base text-foreground outline-none placeholder:text-muted/70 focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
 const flagged = "border-sun ring-2 ring-sun/40";
 
 interface Field {
@@ -76,6 +76,10 @@ export function ReadingForm({
   const [scan, setScan] = useState<ScanResponse | null>(null);
 
   const set = (name: string, value: string) => setValues((v) => ({ ...v, [name]: value }));
+  // Range hints show once a field is left (or the form sent, or a value arrived filled in),
+  // not while typing: "7" on the way to "7.4" is not a typo.
+  const [checked, setChecked] = useState<Set<string>>(() => new Set(Object.keys(f).filter((k) => f[k])));
+  const check = (name: string) => setChecked((c) => (c.has(name) ? c : new Set(c).add(name)));
   const uncertain = new Set(scan?.uncertain ?? []);
 
   function applyScan(result: ScanResponse) {
@@ -92,10 +96,11 @@ export function ReadingForm({
     if (more.some((m) => result.fields?.[m.name] !== undefined)) setShowMore(true);
     setValues(next);
     setScan(result);
+    setChecked((c) => new Set([...c, ...Object.keys(result.fields ?? {})]));
   }
 
   const renderField = (field: Field) => {
-    const hint = rangeHint(field.name, values[field.name] ?? "", units);
+    const hint = checked.has(field.name) ? rangeHint(field.name, values[field.name] ?? "", units) : null;
     const previous = edit ? undefined : last[field.name];
     return (
       <div key={field.name} className="flex min-w-0 flex-col gap-1">
@@ -112,6 +117,7 @@ export function ReadingForm({
             min={0}
             value={values[field.name] ?? ""}
             onChange={(e) => set(field.name, e.target.value)}
+            onBlur={() => check(field.name)}
             aria-describedby={`${field.name}-help`}
             className={`${input} ${field.unit ? "pr-12" : ""} ${uncertain.has(field.name) || hint ? flagged : ""}`}
           />
@@ -133,7 +139,14 @@ export function ReadingForm({
   if (offline.queued) return <QueuedNotice poolId={poolId} what="test" />;
 
   return (
-    <form action={action} onSubmit={offline.onSubmit} className="flex max-w-2xl flex-col gap-6">
+    <form
+      action={action}
+      onSubmit={(e) => {
+        setChecked(new Set(Object.keys(values)));
+        offline.onSubmit(e);
+      }}
+      className="flex max-w-2xl flex-col gap-6"
+    >
       <input type="hidden" name="pool_id" value={poolId} />
       <input type="hidden" name="units" value={units} />
       {offline.hidden}
@@ -170,7 +183,7 @@ export function ReadingForm({
             <details className="group text-xs text-muted">
               <summary
                 aria-label="About scanning"
-                className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-full text-base text-lagoon hover:bg-lagoon/10"
+                className="flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-full text-base text-lagoon hover:bg-lagoon/10"
               >
                 ⓘ
               </summary>
@@ -223,7 +236,7 @@ export function ReadingForm({
           maxLength={2000}
           value={values.notes ?? ""}
           onChange={(e) => set("notes", e.target.value)}
-          className="rounded-xl border border-border bg-surface px-3 py-2 text-base outline-none focus:border-lagoon focus:ring-2 focus:ring-lagoon/30"
+          className="rounded-xl border border-border-input bg-surface px-3 py-2 text-base outline-none focus:border-lagoon focus:ring-2 focus:ring-lagoon/30"
         />
       </div>
 
@@ -237,7 +250,7 @@ export function ReadingForm({
         <button
           type="submit"
           disabled={pending}
-          className="h-12 self-start rounded-xl bg-lagoon px-6 text-base font-semibold text-white transition hover:bg-lagoon-deep disabled:opacity-60"
+          className="h-12 self-start rounded-xl bg-action px-6 text-base font-semibold text-white transition hover:bg-action-deep disabled:opacity-60"
         >
           {pending ? "Saving…" : edit ? "Save changes" : "Save test"}
         </button>

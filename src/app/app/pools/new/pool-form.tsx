@@ -11,7 +11,7 @@ import { createPool, findPlaces, type CreatePoolState } from "./actions";
 const initial: CreatePoolState = {};
 
 const input =
-  "h-11 w-full rounded-xl border border-border bg-surface px-3 text-base text-foreground outline-none placeholder:text-muted/70 focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
+  "h-11 w-full rounded-xl border border-border-input bg-surface px-3 text-base text-foreground outline-none placeholder:text-muted/70 focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
 const label = "text-sm font-semibold";
 
 export function PoolForm({ defaultUnits, prefill = null }: { defaultUnits: Units; prefill?: PoolPrefill | null }) {
@@ -57,7 +57,7 @@ export function PoolForm({ defaultUnits, prefill = null }: { defaultUnits: Units
             aria-label="Volume unit"
             value={units}
             onChange={(e) => setUnits(e.target.value as Units)}
-            className="h-11 rounded-xl border border-border bg-surface px-3 text-base"
+            className="h-11 rounded-xl border border-border-input bg-surface px-3 text-base"
           >
             <option value="us">gallons</option>
             <option value="metric">liters</option>
@@ -122,7 +122,7 @@ export function PoolForm({ defaultUnits, prefill = null }: { defaultUnits: Units
         <button
           type="submit"
           disabled={pending}
-          className="h-12 rounded-xl bg-lagoon px-5 text-base font-semibold text-white transition hover:bg-lagoon-deep disabled:opacity-60"
+          className="h-12 rounded-xl bg-action px-5 text-base font-semibold text-white transition hover:bg-action-deep disabled:opacity-60"
         >
           {pending ? "Saving…" : "Save pool"}
         </button>

@@ -7,6 +7,7 @@ import { displayPressureToKpa, pressureFieldValue, type Units } from "@/lib/form
 import { intervalFromForm, taskById } from "@/lib/maintenance";
 import { poolLocalDate } from "@/lib/maintenance-data";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { failed } from "@/lib/errors";
 
 /**
  * Upkeep log, filter pressure, task intervals and the salt cell's install date. Row-level
@@ -15,6 +16,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export interface MaintenanceState {
   error?: string;
+  /** The form field the error is about, shown next to it. */
+  field?: string;
   saved?: boolean;
   /** The row just added, for Undo. */
   undoId?: string;
@@ -31,7 +34,7 @@ function refresh(poolId: string) {
 function unavailable(message: string): string {
   return /pool_maintenance|pool_pressure|maintenance_intervals|swg_cell_installed_on/.test(message)
     ? "This is not available yet. Try again in a few minutes."
-    : `Could not save (${message}).`;
+    : failed("maintenance", message);
 }
 
 /** Today at the pool, or null when the pool is not the person's. */
@@ -56,7 +59,7 @@ export async function logMaintenance(_prev: MaintenanceState, formData: FormData
   const today = await poolToday(poolId);
   if (!today) return { error: "Unknown pool." };
   const doneOn = dateField(formData, "done_on", today);
-  if (!doneOn) return { error: "Pick the day you did it, up to today." };
+  if (!doneOn) return { error: "Pick the day you did it, up to today.", field: "done_on" };
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
@@ -114,7 +117,7 @@ export async function editPressure(
   if (!isUuid(poolId) || !isUuid(id)) return { error: "Unknown reading." };
   await requireUser(`/app/pools/${poolId}/maintenance`);
   const value = input.pressure.trim() === "" ? NaN : Number(input.pressure.replace(/,/g, "."));
-  if (!Number.isFinite(value) || value < 0) return { error: "Enter the gauge reading." };
+  if (!Number.isFinite(value) || value < 0) return { error: "Enter the gauge reading.", field: "pressure" };
   const supabase = await createSupabaseServerClient();
   const { data: old } = await supabase
     .from("pool_pressure")
@@ -125,7 +128,7 @@ export async function editPressure(
   // An unchanged field keeps the stored value: only the day or the clean box changed.
   const unchanged = old && input.pressure.trim() === pressureFieldValue(Number(old.kpa), input.units);
   const kpa = unchanged ? Number(old.kpa) : Math.round(displayPressureToKpa(value, input.units) * 10) / 10;
-  if (kpa > 400) return { error: input.units === "us" ? "Pool filter gauges read up to about 58 psi." : "Pool filter gauges read up to about 4 bar." };
+  if (kpa > 400) return { error: input.units === "us" ? "Pool filter gauges read up to about 58 psi." : "Pool filter gauges read up to about 4 bar.", field: "pressure" };
   const today = await poolToday(poolId);
   if (!today) return { error: "Unknown pool." };
   if (!DATE.test(input.readOn) || input.readOn > today || input.readOn < "2000-01-01") return { error: "Pick the day, up to today." };
@@ -146,13 +149,13 @@ export async function logPressure(_prev: MaintenanceState, formData: FormData): 
   const units: Units = text(formData, "units") === "metric" ? "metric" : "us";
   const raw = text(formData, "pressure").replace(/,/g, ".");
   const value = raw === "" ? NaN : Number(raw);
-  if (!Number.isFinite(value) || value < 0) return { error: "Enter the gauge reading." };
+  if (!Number.isFinite(value) || value < 0) return { error: "Enter the gauge reading.", field: "pressure" };
   const kpa = Math.round(displayPressureToKpa(value, units) * 10) / 10;
-  if (kpa > 400) return { error: units === "us" ? "Pool filter gauges read up to about 58 psi." : "Pool filter gauges read up to about 4 bar." };
+  if (kpa > 400) return { error: units === "us" ? "Pool filter gauges read up to about 58 psi." : "Pool filter gauges read up to about 4 bar.", field: "pressure" };
   const today = await poolToday(poolId);
   if (!today) return { error: "Unknown pool." };
   const readOn = dateField(formData, "read_on", today);
-  if (!readOn) return { error: "Pick the day, up to today." };
+  if (!readOn) return { error: "Pick the day, up to today.", field: "read_on" };
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
@@ -183,7 +186,7 @@ export async function saveInterval(_prev: MaintenanceState, formData: FormData):
   await requireUser(`/app/pools/${poolId}/maintenance`);
   const reset = formData.get("reset") === "1";
   const days = reset ? null : intervalFromForm(text(formData, "count"), text(formData, "unit"));
-  if (!reset && days === null) return { error: "Enter how often, from 1 day to 10 years." };
+  if (!reset && days === null) return { error: "Enter how often, from 1 day to 10 years.", field: "count" };
 
   const supabase = await createSupabaseServerClient();
   const { data: pool, error: readError } = await supabase

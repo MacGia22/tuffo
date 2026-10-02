@@ -7,6 +7,7 @@ import { IMPORT_FIELDS, MAX_IMPORT_BYTES, NUMBER_FIELDS, planImport, type Import
 import { taskById } from "@/lib/maintenance";
 import { recomputeAfterResponse } from "@/lib/model/recompute";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { failed } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -136,7 +137,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         .order("taken_at")
         .range(offset, offset + PAGE - 1)
         .returns<Record<string, unknown>[]>();
-      if (error) return fail(`Could not check for tests already logged (${error.message}).`, 500);
+      if (error) return fail(failed("import check", error.message), 500);
       for (const r of data ?? []) {
         const values: LoggedReading["values"] = {};
         for (const f of NUMBER_FIELDS) if (r[f] !== null && r[f] !== undefined) values[f] = Number(r[f]);
@@ -197,7 +198,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       );
       if (error) {
         const notYet = /readings_method_check/.test(error.message);
-        return fail(notYet ? "Import is not available yet. Try again in a few minutes." : `Could not import (${error.message}).`, 500);
+        return fail(notYet ? "Import is not available yet. Try again in a few minutes." : failed("import", error.message), 500);
       }
       imported = fresh.length;
       recomputeAfterResponse(poolId);

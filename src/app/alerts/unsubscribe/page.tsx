@@ -31,7 +31,7 @@ export default async function UnsubscribePage({ searchParams }: PageProps<"/aler
           <p className="text-muted">This switches off every Tuffo alert for all your pools. Sign-in emails still come when you ask for them.</p>
           <form method="post" action="/api/alerts/unsubscribe">
             <input type="hidden" name="t" value={token} />
-            <button type="submit" className="rounded-xl bg-lagoon px-5 py-2.5 text-sm font-semibold text-white hover:bg-lagoon-deep">
+            <button type="submit" className="rounded-xl bg-action px-5 py-2.5 text-sm font-semibold text-white hover:bg-action-deep">
               Stop alert emails
             </button>
           </form>

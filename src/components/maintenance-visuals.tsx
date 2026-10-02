@@ -81,9 +81,9 @@ export function DueStrip({ days }: { days: DueDay[] }) {
               tabIndex={d.tasks.length ? 0 : -1}
               aria-label={label}
               title={label}
-              className="flex flex-col items-center gap-1 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-lagoon"
+              className="flex flex-col items-center gap-1 rounded"
             >
-              <span className={`text-[10px] leading-none ${first ? "text-muted" : "text-transparent"}`} aria-hidden="true">
+              <span className={`text-xs leading-none ${first ? "text-muted" : "text-transparent"}`} aria-hidden="true">
                 {i === 0 ? "Today" : first ? short(d.date).split(" ")[0] : "·"}
               </span>
               <span
@@ -159,7 +159,7 @@ export function LifeBar({ span, label }: { span: LifeSpan; label: string }) {
           aria-hidden="true"
         />
       </div>
-      <div className="flex justify-between text-[11px] text-muted" aria-hidden="true">
+      <div className="flex justify-between text-xs text-muted" aria-hidden="true">
         <span>Installed</span>
         <span>
           Typical replacement {span.low}–{span.high} yr

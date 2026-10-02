@@ -56,7 +56,7 @@ export function WaitlistForm() {
         value={email}
         onChange={(event) => setEmail(event.target.value)}
         disabled={status === "sending" || status === "done"}
-        className="h-12 flex-1 rounded-xl border border-border bg-surface px-4 text-base text-foreground outline-none placeholder:text-muted/70 focus:border-lagoon focus:ring-2 focus:ring-lagoon/30"
+        className="h-12 flex-1 rounded-xl border border-border-input bg-surface px-4 text-base text-foreground outline-none placeholder:text-muted/70 focus:border-lagoon focus:ring-2 focus:ring-lagoon/30"
       />
       {/* Left empty by people (it is off-screen and skipped by keyboard and screen readers); bots fill it. */}
       <input
@@ -72,7 +72,7 @@ export function WaitlistForm() {
       <button
         type="submit"
         disabled={status === "sending" || status === "done"}
-        className="h-12 rounded-xl bg-lagoon px-5 text-base font-semibold text-white transition hover:bg-lagoon-deep disabled:opacity-60"
+        className="h-12 rounded-xl bg-action px-5 text-base font-semibold text-white transition hover:bg-action-deep disabled:opacity-60"
       >
         {status === "sending" ? "Sending…" : "Join the beta list"}
       </button>

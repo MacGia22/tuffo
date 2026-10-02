@@ -50,7 +50,7 @@ export function DeleteForm() {
           id="confirm"
           name="confirm"
           autoComplete="off"
-          className="h-11 max-w-xs flex-1 rounded-xl border border-border bg-surface px-3 text-base outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/30"
+          className="h-11 max-w-xs flex-1 rounded-xl border border-border-input bg-surface px-3 text-base outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/30"
         />
         <button
           type="submit"

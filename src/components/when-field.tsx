@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 const input =
-  "h-11 w-full min-w-0 rounded-xl border border-border bg-surface px-3 text-base text-foreground outline-none focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
+  "h-11 w-full min-w-0 rounded-xl border border-border-input bg-surface px-3 text-base text-foreground outline-none focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
 const link = "font-semibold text-lagoon underline-offset-2 hover:underline";
 
 /** The browser's current local time as a datetime-local value: "2026-10-01T09:30". */

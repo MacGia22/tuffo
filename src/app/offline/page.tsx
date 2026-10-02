@@ -14,7 +14,7 @@ export default function OfflinePage() {
         This page has not been opened on this device yet, so there is no copy to show. Pages you opened recently still
         work, and tests, doses and events you log are kept on the device and sent when you are back online.
       </p>
-      <Link href="/app" className="rounded-xl bg-lagoon px-4 py-2.5 text-sm font-semibold text-white hover:bg-lagoon-deep">
+      <Link href="/app" className="rounded-xl bg-action px-4 py-2.5 text-sm font-semibold text-white hover:bg-action-deep">
         Your pools
       </Link>
     </main>

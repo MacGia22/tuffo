@@ -1,5 +1,6 @@
 "use client";
 
+import { FieldError } from "@/components/field-error";
 import Link from "next/link";
 import { ConfirmButton } from "@/components/confirm-button";
 import { ResetButton } from "@/components/form-cancel";
@@ -31,12 +32,13 @@ import {
 } from "../actions";
 
 const initial: SettingsState = {};
-const field = "h-10 rounded-xl border border-border bg-background px-3 text-sm";
+const field = "h-11 rounded-xl border border-border-input bg-surface px-3 text-base text-foreground outline-none focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
 const label = "flex flex-col gap-1 text-xs text-muted";
 const save =
-  "h-10 self-start rounded-xl bg-lagoon px-4 text-sm font-semibold text-white hover:bg-lagoon-deep disabled:opacity-60";
+  "h-11 self-start rounded-xl bg-action px-4 text-sm font-semibold text-white hover:bg-action-deep disabled:opacity-60";
 
-function Status({ state }: { state: SettingsState }) {
+function Status({ state, fields = [] }: { state: SettingsState; fields?: string[] }) {
+  if (state.error && state.field && fields.includes(state.field)) return null;
   if (state.error) {
     return (
       <p role="alert" className="text-sm text-red-600">
@@ -68,11 +70,29 @@ export function BasicsForm({
       <div className="flex flex-wrap gap-3">
         <label className={label}>
           Name
-          <input name="name" required maxLength={80} defaultValue={current.name} className={`${field} w-56`} />
+          <input
+            name="name"
+            required
+            maxLength={80}
+            defaultValue={current.name}
+            aria-invalid={state.field === "name" || undefined}
+            aria-describedby={state.field === "name" ? "name-error" : undefined}
+            className={`${field} w-56`}
+          />
+          <FieldError state={state} name="name" />
         </label>
         <label className={label}>
           Volume ({units === "us" ? "gallons" : "liters"})
-          <input name="volume" required inputMode="decimal" defaultValue={current.volume} className={`${field} w-36`} />
+          <input
+            name="volume"
+            required
+            inputMode="decimal"
+            defaultValue={current.volume}
+            aria-invalid={state.field === "volume" || undefined}
+            aria-describedby={state.field === "volume" ? "volume-error" : undefined}
+            className={`${field} w-36`}
+          />
+          <FieldError state={state} name="volume" />
         </label>
         <p className="basis-full text-xs text-muted sm:order-last">
           Not sure? Length × width × average depth: in feet × 7.5 gives gallons; in meters × 1,000 gives liters.
@@ -109,7 +129,7 @@ export function BasicsForm({
         </button>
         <ResetButton />
       </div>
-      <Status state={state} />
+      <Status state={state} fields={["name", "volume"]} />
     </form>
   );
 }
@@ -162,8 +182,11 @@ export function EnclosureForm({
               value={pct}
               onChange={(e) => setPct(e.target.value)}
               placeholder={String(suggested)}
+              aria-invalid={state.field === "sun_pct" || undefined}
+              aria-describedby={state.field === "sun_pct" ? "sun_pct-error" : undefined}
               className={`${field} w-28`}
             />
+            <FieldError state={state} name="sun_pct" />
           </label>
         ) : null}
       </div>
@@ -177,7 +200,7 @@ export function EnclosureForm({
           {pending ? "Saving…" : "Save"}
         </button>
       </div>
-      <Status state={state} />
+      <Status state={state} fields={["sun_pct"]} />
     </form>
   );
 }

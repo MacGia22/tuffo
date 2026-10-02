@@ -133,7 +133,7 @@ export function PlacePicker({
                   onClick={() => setPlace(p)}
                   aria-pressed={selected}
                   className={`flex min-h-11 w-full items-center rounded-lg px-3 py-2 text-left text-sm ${
-                    selected ? "bg-lagoon text-white" : "hover:bg-ice/30"
+                    selected ? "bg-action text-white" : "hover:bg-ice/30"
                   }`}
                 >
                   {p.label}

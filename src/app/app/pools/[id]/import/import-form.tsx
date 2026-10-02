@@ -20,7 +20,7 @@ import {
 } from "@/lib/import/readings";
 import type { Units } from "@/lib/format";
 
-const select = "h-10 w-full rounded-xl border border-border bg-surface px-2 text-sm";
+const select = "h-11 w-full rounded-xl border border-border-input bg-surface px-2 text-base";
 
 interface Choices {
   csv: string;
@@ -189,7 +189,7 @@ export function ImportForm({ poolId, units, timeZone }: { poolId: string; units:
             {done.upkeepError}
           </p>
         ) : null}
-        <Link href={`/app/pools/${poolId}`} className="rounded-xl bg-lagoon px-4 py-2.5 text-sm font-semibold text-white hover:bg-lagoon-deep">
+        <Link href={`/app/pools/${poolId}`} className="rounded-xl bg-action px-4 py-2.5 text-sm font-semibold text-white hover:bg-action-deep">
           Back to the pool
         </Link>
       </div>
@@ -393,7 +393,7 @@ export function ImportForm({ poolId, units, timeZone }: { poolId: string; units:
               type="button"
               disabled={busy || !summary || (summary.ready === 0 && upkeepToLog === 0)}
               onClick={() => void send({ csv: loaded.csv, ...choices() }, false)}
-              className="h-12 self-start rounded-xl bg-lagoon px-6 text-base font-semibold text-white hover:bg-lagoon-deep disabled:opacity-60"
+              className="h-12 self-start rounded-xl bg-action px-6 text-base font-semibold text-white hover:bg-action-deep disabled:opacity-60"
             >
               {busy
                 ? "Working…"

@@ -40,7 +40,7 @@ export function AlertsForm({ poolId, poolName, choices }: { poolId: string; pool
           id={id("test_after_days")}
           name="test_after_days"
           defaultValue={String(choices.test_after_days)}
-          className="h-9 rounded-lg border border-border bg-surface px-2"
+          className="h-11 rounded-xl border border-border-input bg-surface px-2 text-base"
         >
           {[2, 3, 4, 5, 7, 10, 14].map((d) => (
             <option key={d} value={d}>

@@ -15,7 +15,7 @@ import { saveDose, type LogState } from "../../actions";
 const initial: LogState = {};
 
 const input =
-  "h-11 w-full rounded-xl border border-border bg-surface px-3 text-base text-foreground outline-none placeholder:text-muted/70 focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
+  "h-11 w-full rounded-xl border border-border-input bg-surface px-3 text-base text-foreground outline-none placeholder:text-muted/70 focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
 
 export interface DosePrefill {
   product?: string;
@@ -115,7 +115,7 @@ export function DoseForm({
             name="unit"
             value={unitValid ? unit : options[0]}
             onChange={(e) => setUnit(e.target.value as ShelfUnit)}
-            className="h-11 rounded-xl border border-border bg-surface px-3 text-base"
+            className="h-11 rounded-xl border border-border-input bg-surface px-3 text-base"
           >
             {options.map((u) => (
               <option key={u} value={u}>
@@ -146,7 +146,7 @@ export function DoseForm({
         <button
           type="submit"
           disabled={pending}
-          className="h-12 self-start rounded-xl bg-lagoon px-6 text-base font-semibold text-white transition hover:bg-lagoon-deep disabled:opacity-60"
+          className="h-12 self-start rounded-xl bg-action px-6 text-base font-semibold text-white transition hover:bg-action-deep disabled:opacity-60"
         >
           {pending ? "Saving…" : edit ? "Save changes" : "Save"}
         </button>

@@ -5,7 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 
 const menuItem =
-  "block w-full rounded-lg px-3 py-2.5 text-left text-sm font-semibold hover:bg-lagoon/10 focus:bg-lagoon/10 focus:outline-none";
+  "block w-full rounded-lg px-3 py-2.5 text-left text-sm font-semibold hover:bg-lagoon/10 focus:bg-lagoon/10";
 
 /** The current page with its query, for `?from=`. */
 export function useCurrentPath(): string {

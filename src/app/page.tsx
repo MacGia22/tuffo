@@ -202,16 +202,16 @@ export default function Home() {
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 px-5 py-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} Tuffo. Made in St. Petersburg, Florida.</p>
           <nav className="flex gap-5">
-            <Link href="/login" className="hover:text-foreground">
+            <Link href="/login" className="inline-flex min-h-11 items-center hover:text-foreground">
               Sign in
             </Link>
-            <Link href="/privacy" className="hover:text-foreground">
+            <Link href="/privacy" className="inline-flex min-h-11 items-center hover:text-foreground">
               Privacy
             </Link>
-            <Link href="/terms" className="hover:text-foreground">
+            <Link href="/terms" className="inline-flex min-h-11 items-center hover:text-foreground">
               Terms
             </Link>
-            <a href="mailto:hello@tuffo.app" className="hover:text-foreground">
+            <a href="mailto:hello@tuffo.app" className="inline-flex min-h-11 items-center hover:text-foreground">
               Contact
             </a>
           </nav>

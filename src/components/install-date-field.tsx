@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ABOUT_YEARS } from "@/lib/maintenance";
 
-const field = "h-10 rounded-xl border border-border bg-background px-3 text-sm";
+const field = "h-11 rounded-xl border border-border-input bg-surface px-3 text-base text-foreground outline-none focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
 const label = "flex flex-col gap-1 text-xs text-muted";
 
 /**

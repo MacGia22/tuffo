@@ -65,7 +65,7 @@ export function PressureChart({
         {yTicks.map((tick) => (
           <g key={tick}>
             <line x1={PAD.left} x2={W - PAD.right} y1={y(tick)} y2={y(tick)} stroke="var(--chart-grid)" strokeWidth={1} />
-            <text x={PAD.left - 6} y={y(tick) + 4} textAnchor="end" fontSize={11} fill="var(--muted)">
+            <text x={PAD.left - 6} y={y(tick) + 4} textAnchor="end" fontSize={12} fill="var(--muted)">
               {units === "us" ? Math.round(tick) : tick.toFixed(1)}
             </text>
           </g>
@@ -73,7 +73,7 @@ export function PressureChart({
         {cleanKpa !== null ? (
           <g>
             <line x1={PAD.left} x2={W - PAD.right} y1={y(v(cleanKpa))} y2={y(v(cleanKpa))} stroke="var(--muted)" strokeWidth={1.5} strokeDasharray="2 4" />
-            <text x={PAD.left + 6} y={y(v(cleanKpa)) + 14} fontSize={11} fill="var(--muted)">
+            <text x={PAD.left + 6} y={y(v(cleanKpa)) + 14} fontSize={12} fill="var(--muted)">
               Clean {fmt(v(cleanKpa))}
             </text>
           </g>
@@ -81,7 +81,7 @@ export function PressureChart({
         {thresholdKpa !== null ? (
           <g>
             <line x1={PAD.left} x2={W - PAD.right} y1={y(v(thresholdKpa))} y2={y(v(thresholdKpa))} stroke="var(--status-warning)" strokeWidth={2} strokeDasharray="8 5" />
-            <text x={PAD.left + 6} y={y(v(thresholdKpa)) - 6} fontSize={11} fill="var(--foreground)">
+            <text x={PAD.left + 6} y={y(v(thresholdKpa)) - 6} fontSize={12} fill="var(--foreground)">
               ⚠ Clean the filter at {fmt(v(thresholdKpa))}
             </text>
           </g>
@@ -90,7 +90,7 @@ export function PressureChart({
         {readings.map((r, i) => {
           const label = `${short(r.readOn)}: ${fmt(v(r.kpa))}${r.clean ? ", clean" : ""}`;
           return (
-            <g key={`${r.readOn}-${i}`} tabIndex={0} aria-label={label} className="focus:outline-none [&:focus>circle]:stroke-lagoon">
+            <g key={`${r.readOn}-${i}`} tabIndex={0} aria-label={label} className="[&:focus>circle]:stroke-lagoon">
               <title>{label}</title>
               <circle cx={x(r.readOn)} cy={y(v(r.kpa))} r={10} fill="transparent" />
               <circle
@@ -104,11 +104,11 @@ export function PressureChart({
             </g>
           );
         })}
-        <text x={PAD.left} y={H - 6} fontSize={11} fill="var(--muted)">
+        <text x={PAD.left} y={H - 6} fontSize={12} fill="var(--muted)">
           {short(readings[0].readOn)}
         </text>
         {readings.length > 1 ? (
-          <text x={W - PAD.right} y={H - 6} textAnchor="end" fontSize={11} fill="var(--muted)">
+          <text x={W - PAD.right} y={H - 6} textAnchor="end" fontSize={12} fill="var(--muted)">
             {short(readings[readings.length - 1].readOn)}
           </text>
         ) : null}

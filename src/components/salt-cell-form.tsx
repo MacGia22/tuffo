@@ -6,7 +6,7 @@ import { OUTPUT_UNITS, SALT_CELLS } from "@/lib/salt-cells";
 import { InstallDateField } from "@/components/install-date-field";
 
 const initial: CellState = {};
-const field = "h-10 rounded-xl border border-border bg-background px-3 text-sm";
+const field = "h-11 rounded-xl border border-border-input bg-surface px-3 text-base text-foreground outline-none focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
 
 /**
  * The cell form on its own: model or rated output, and on the settings page an install
@@ -84,7 +84,7 @@ export function CellForm({
         <button
           type="submit"
           disabled={pending || model === ""}
-          className="h-10 rounded-xl bg-lagoon px-4 text-sm font-semibold text-white hover:bg-lagoon-deep disabled:opacity-60"
+          className="h-11 rounded-xl bg-action px-4 text-sm font-semibold text-white hover:bg-action-deep disabled:opacity-60"
         >
           {pending ? "Saving…" : "Save"}
         </button>

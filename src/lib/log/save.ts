@@ -8,6 +8,7 @@ import { isUuid, optionalNumber, text, whenFromForm } from "@/lib/form-data";
 import { recomputeAfterResponse } from "@/lib/model/recompute";
 import { refreshPlanAfterResponse } from "@/lib/plan/build";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { failed } from "@/lib/errors";
 
 /**
  * Validates and stores one test, dose or event from its form fields, as the signed-in
@@ -98,7 +99,7 @@ function storeError(message: string): SaveResult {
     return { ok: false, error: "That kind of event is not available yet. Try again in a few minutes.", transient: true };
   }
   if (/client_id/.test(message)) return { ok: false, error: "Tuffo is being updated. Try again in a few minutes.", transient: true };
-  return { ok: false, error: `Could not save it (${message}).`, transient: true };
+  return { ok: false, error: failed("log", message), transient: true };
 }
 
 export async function saveReadingEntry(formData: FormData): Promise<SaveResult> {

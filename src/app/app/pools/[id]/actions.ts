@@ -20,6 +20,7 @@ import { isRainDate, rainFromForm } from "@/lib/weather/own-rain";
 import { localDateRange } from "@/lib/weather/summary";
 import type { Units } from "@/lib/format";
 import { readEnclosure } from "@/lib/enclosure";
+import { failed } from "@/lib/errors";
 
 export interface LogState {
   error?: string;
@@ -107,7 +108,7 @@ export async function saveSaltCell(_prev: CellState, formData: FormData): Promis
           return {
             error: /pool_equipment|kind_check/.test(historyError.message)
               ? "This is not available yet. Try again in a few minutes."
-              : `Could not save (${historyError.message}).`,
+              : failed("pool history", historyError.message),
           };
         }
       }
@@ -120,7 +121,7 @@ export async function saveSaltCell(_prev: CellState, formData: FormData): Promis
     .eq("sanitizer", "swg")
     .select("id");
   if (error) {
-    return { error: /swg_cell_model/.test(error.message) ? "This is not available yet. Try again in a few minutes." : `Could not save (${error.message}).` };
+    return { error: /swg_cell_model/.test(error.message) ? "This is not available yet. Try again in a few minutes." : failed("pool settings", error.message) };
   }
   if (!data || data.length === 0) return { error: "Only salt pools have a cell." };
   recomputeAfterResponse(poolId);
@@ -171,7 +172,7 @@ export async function savePumpSchedule(_prev: PumpState, formData: FormData): Pr
     .select("id")
     .returns<{ id: string }[]>();
   if (error) {
-    return { error: /pump_schedules/.test(error.message) ? "This is not available yet. Try again in a few minutes." : `Could not save (${error.message}).` };
+    return { error: /pump_schedules/.test(error.message) ? "This is not available yet. Try again in a few minutes." : failed("pool settings", error.message) };
   }
   recomputeAfterResponse(poolId);
   revalidatePath(`/app/pools/${poolId}`, "layout");
@@ -214,7 +215,7 @@ export async function saveRain(_prev: RainState, formData: FormData): Promise<Ra
     .from("pool_rain")
     .upsert({ pool_id: poolId, date, rain_mm: rain.mm, updated_at: new Date().toISOString() }, { onConflict: "pool_id,date" });
   if (error) {
-    return { error: /pool_rain/.test(error.message) ? "This is not available yet. Try again in a few minutes." : `Could not save (${error.message}).` };
+    return { error: /pool_rain/.test(error.message) ? "This is not available yet. Try again in a few minutes." : failed("pool settings", error.message) };
   }
   recomputeAfterResponse(poolId);
   revalidatePath(`/app/pools/${poolId}`);
@@ -272,13 +273,13 @@ export async function saveLocation(_prev: LocationState, formData: FormData): Pr
   const { error: cellError } = await admin
     .from("weather_cells")
     .upsert({ id: cell.id, lat: cell.lat, lon: cell.lon, timezone, active: true }, { onConflict: "id" });
-  if (cellError) return { error: `Could not register the weather location (${cellError.message}).` };
+  if (cellError) return { error: failed("pool cell", cellError.message) };
 
   const { error } = await supabase
     .from("pools")
     .update({ cell_id: cell.id, place_label: placeLabel.slice(0, 120), timezone })
     .eq("id", poolId);
-  if (error) return { error: `Could not save (${error.message}).` };
+  if (error) return { error: failed("pool settings", error.message) };
 
   const oldCell = pool.cell_id;
   const newCell = cell.id;
@@ -303,6 +304,8 @@ export async function saveLocation(_prev: LocationState, formData: FormData): Pr
 
 export interface SettingsState {
   error?: string;
+  /** The form field the error is about, shown next to it. */
+  field?: string;
   saved?: boolean;
 }
 
@@ -320,7 +323,7 @@ export async function savePoolBasics(_prev: SettingsState, formData: FormData): 
   if (!isUuid(poolId)) return { error: "Unknown pool." };
   await requireUser(`/app/pools/${poolId}/settings`);
   const basics = basicsFromForm(field(formData));
-  if (!basics.ok) return { error: basics.error };
+  if (!basics.ok) return { error: basics.error, field: basics.field };
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
@@ -334,7 +337,7 @@ export async function savePoolBasics(_prev: SettingsState, formData: FormData): 
     })
     .eq("id", poolId)
     .select("id");
-  if (error) return { error: `Could not save (${error.message}).` };
+  if (error) return { error: failed("pool settings", error.message) };
   if (!data || data.length === 0) return { error: "Unknown pool." };
   recomputeAfterResponse(poolId);
   revalidatePath(`/app/pools/${poolId}`);
@@ -349,7 +352,7 @@ export async function saveEnclosure(_prev: SettingsState, formData: FormData): P
   if (!isUuid(poolId)) return { error: "Unknown pool." };
   await requireUser(`/app/pools/${poolId}/settings`);
   const input = readEnclosure(text(formData, "enclosure"), text(formData, "sun_pct"));
-  if (!input.ok) return { error: input.error };
+  if (!input.ok) return { error: input.error, field: input.field };
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
@@ -357,7 +360,7 @@ export async function saveEnclosure(_prev: SettingsState, formData: FormData): P
     .update({ enclosure: input.enclosure, enclosure_sun_pct: input.sunPct })
     .eq("id", poolId)
     .select("id");
-  if (error) return { error: `Could not save (${error.message}).` };
+  if (error) return { error: failed("pool settings", error.message) };
   if (!data || data.length === 0) return { error: "Unknown pool." };
   recomputeAfterResponse(poolId);
   revalidatePath(`/app/pools/${poolId}`);
@@ -381,7 +384,7 @@ export async function saveEquipment(_prev: SettingsState, formData: FormData): P
   if (!isUuid(poolId) || !isEquipmentKind(kind)) return { error: "Unknown equipment." };
   await requireUser(`/app/pools/${poolId}/settings`);
   const item = equipmentFromForm(kind, field(formData));
-  if (!item.ok) return { error: item.error };
+  if (!item.ok) return { error: item.error, field: item.field };
 
   const today = await poolToday(poolId);
   if (!today) return { error: "Unknown pool." };
@@ -396,7 +399,7 @@ export async function saveEquipment(_prev: SettingsState, formData: FormData): P
 
   const supabase = await createSupabaseServerClient();
   const unavailable = (message: string) =>
-    /pool_equipment/.test(message) ? "This is not available yet. Try again in a few minutes." : `Could not save (${message}).`;
+    /pool_equipment/.test(message) ? "This is not available yet. Try again in a few minutes." : failed("equipment", message);
   const { data: current, error: readError } = await supabase
     .from("pool_equipment")
     .select("id, installed_on")
@@ -474,7 +477,7 @@ export async function deletePool(_prev: DeleteState, formData: FormData): Promis
   }
 
   const { data: removed, error } = await supabase.from("pools").delete().eq("id", poolId).select("id");
-  if (error) return { error: `Could not delete (${error.message}).` };
+  if (error) return { error: failed("pool delete", error.message, "Couldn't delete the pool. Try again in a minute.") };
   if (!removed || removed.length === 0) return { error: "Unknown pool." };
 
   const cellId = pool.cell_id;

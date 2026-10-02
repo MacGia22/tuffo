@@ -92,7 +92,7 @@ export type EquipmentDetails =
 
 export type EquipmentInput =
   | { ok: true; kind: EquipmentKind; model: string | null; details: EquipmentDetails }
-  | { ok: false; error: string };
+  | { ok: false; error: string; field: string };
 
 const MODEL_MAX = 80;
 const SETTING_MAX = 40;
@@ -112,23 +112,23 @@ export function equipmentFromForm(kind: EquipmentKind, get: (name: string) => st
     const choice = get("catalog");
     const listed = PUMP_MODELS.find((p) => p.id === choice);
     if (listed) return { ok: true, kind, model: listed.name, details: { speed: listed.speed, catalog: listed.id } };
-    if (choice !== "other") return { ok: false, error: "Pick your pump, or choose “Another pump”." };
+    if (choice !== "other") return { ok: false, error: "Pick your pump, or choose “Another pump”.", field: "catalog" };
     const speed = pick(PUMP_SPEEDS, get("speed"));
-    if (!speed) return { ok: false, error: "Pick the pump's speed type." };
+    if (!speed) return { ok: false, error: "Pick the pump's speed type.", field: "speed" };
     return { ok: true, kind, model: clean(get("model"), MODEL_MAX), details: { speed, catalog: null } };
   }
   if (kind === "feeder") {
     const type = pick(FEEDER_TYPES, get("type"));
-    if (!type) return { ok: false, error: "Pick the kind of feeder." };
+    if (!type) return { ok: false, error: "Pick the kind of feeder.", field: "type" };
     return { ok: true, kind, model: clean(get("model"), MODEL_MAX), details: { type, setting: clean(get("setting"), SETTING_MAX) } };
   }
   if (kind === "filter") {
     const type = pick(FILTER_TYPES, get("type"));
-    if (!type) return { ok: false, error: "Pick the kind of filter." };
+    if (!type) return { ok: false, error: "Pick the kind of filter.", field: "type" };
     return { ok: true, kind, model: clean(get("model"), MODEL_MAX), details: { type } };
   }
   const type = pick(HEATER_TYPES, get("type"));
-  if (!type) return { ok: false, error: "Pick the kind of heater." };
+  if (!type) return { ok: false, error: "Pick the kind of heater.", field: "type" };
   const inUse = get("in_use") === "on";
   return { ok: true, kind, model: clean(get("model"), MODEL_MAX), details: { type, inUse } };
 }
@@ -174,21 +174,21 @@ export type BasicsInput =
       surface: "plaster" | "vinyl" | "fiberglass";
       covered: boolean;
     }
-  | { ok: false; error: string };
+  | { ok: false; error: string; field: string };
 
 /** The pool's basics from the settings form, with the volume in liters. */
 export function basicsFromForm(get: (name: string) => string | null): BasicsInput {
   const name = clean(get("name"), 200) ?? "";
-  if (name.length < 1 || name.length > 80) return { ok: false, error: "Give the pool a name (up to 80 characters)." };
+  if (name.length < 1 || name.length > 80) return { ok: false, error: "Give the pool a name (up to 80 characters).", field: "name" };
   const units: Units = get("units") === "metric" ? "metric" : "us";
   const raw = (get("volume") ?? "").replace(/,/g, "").trim();
   const volume = raw === "" ? NaN : Number(raw);
-  if (!Number.isFinite(volume) || volume <= 0) return { ok: false, error: "Enter the pool volume." };
+  if (!Number.isFinite(volume) || volume <= 0) return { ok: false, error: "Enter the pool volume.", field: "volume" };
   const volumeL = Math.round(displayVolumeToLiters(volume, units));
-  if (volumeL < 500 || volumeL > 5_000_000) return { ok: false, error: "That volume does not look right for a pool." };
+  if (volumeL < 500 || volumeL > 5_000_000) return { ok: false, error: "That volume does not look right for a pool.", field: "volume" };
   const sanitizer = get("sanitizer");
-  if (sanitizer !== "chlorine" && sanitizer !== "swg") return { ok: false, error: "Pick a sanitizer." };
+  if (sanitizer !== "chlorine" && sanitizer !== "swg") return { ok: false, error: "Pick a sanitizer.", field: "sanitizer" };
   const surface = SURFACES.find((s) => s.value === get("surface"))?.value;
-  if (!surface) return { ok: false, error: "Pick a surface." };
+  if (!surface) return { ok: false, error: "Pick a surface.", field: "surface" };
   return { ok: true, name, volumeL, sanitizer, surface, covered: get("covered") === "on" };
 }

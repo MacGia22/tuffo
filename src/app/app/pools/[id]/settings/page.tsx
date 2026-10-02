@@ -159,7 +159,7 @@ export default async function PoolSettingsPage({ params, searchParams }: PagePro
           </p>
           <Link
             href={`/app/pools/${pool.id}`}
-            className="self-start rounded-xl bg-lagoon px-4 py-2.5 text-sm font-semibold text-white hover:bg-lagoon-deep"
+            className="self-start rounded-xl bg-action px-4 py-2.5 text-sm font-semibold text-white hover:bg-action-deep"
           >
             Done, go to the pool
           </Link>
@@ -261,7 +261,7 @@ export default async function PoolSettingsPage({ params, searchParams }: PagePro
       {isNew ? (
         <Link
           href={`/app/pools/${pool.id}`}
-          className="self-start rounded-xl bg-lagoon px-4 py-2.5 text-sm font-semibold text-white hover:bg-lagoon-deep"
+          className="self-start rounded-xl bg-action px-4 py-2.5 text-sm font-semibold text-white hover:bg-action-deep"
         >
           Done, go to the pool
         </Link>
