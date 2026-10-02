@@ -61,6 +61,7 @@ async function fetchFresh(lat: number, lon: number): Promise<ForecastWeather> {
       uvIndexMax: d.uv_index_max,
       tmaxC: d.tmax_c,
       rainMm: d.precipitation_mm,
+      rainChance: d.precipitation_probability,
       sunshineHours: d.sunshine_s === null ? null : d.sunshine_s / 3600,
       shortwaveMj: d.shortwave_mj_m2,
     })),
@@ -77,7 +78,7 @@ const fetchCellForecast = unstable_cache(
     void utcDay;
     return fetchFresh(lat, lon);
   },
-  ["forecast-cell-weather-v2"],
+  ["forecast-cell-weather-v3"],
   { revalidate: CACHE_SECONDS },
 );
 
@@ -94,7 +95,7 @@ async function storedForecast(cellId: string, now: number): Promise<ForecastWeat
     const today = localDate(now, cell.timezone);
     const { data: rows } = await admin
       .from("weather_forecast")
-      .select("date, uv_index_max, sunshine_s, shortwave_mj_m2, tmax_c, precipitation_mm")
+      .select("date, uv_index_max, sunshine_s, shortwave_mj_m2, tmax_c, precipitation_mm, precipitation_probability")
       .eq("cell_id", cellId)
       .gte("date", today)
       .order("date")
@@ -107,6 +108,7 @@ async function storedForecast(cellId: string, now: number): Promise<ForecastWeat
           shortwave_mj_m2: unknown;
           tmax_c: unknown;
           precipitation_mm: unknown;
+          precipitation_probability: unknown;
         }[]
       >();
     if (!rows || rows.length < DAYS - 1) return null;
@@ -117,6 +119,7 @@ async function storedForecast(cellId: string, now: number): Promise<ForecastWeat
         uvIndexMax: n(r.uv_index_max),
         tmaxC: n(r.tmax_c),
         rainMm: n(r.precipitation_mm),
+        rainChance: n(r.precipitation_probability),
         sunshineHours: n(r.sunshine_s) === null ? null : (n(r.sunshine_s) as number) / 3600,
         shortwaveMj: n(r.shortwave_mj_m2),
       })),

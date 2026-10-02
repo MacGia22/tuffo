@@ -4,7 +4,7 @@
  * engine's advice, this file decides what to say and in what order. Advisory only.
  */
 
-import { chanceOnly, formatRainAmount, isDry, type Units } from "@/lib/format";
+import { rainLabel, type Units } from "@/lib/format";
 import { ageText } from "@/lib/tiles";
 import { uvLevel, type UvLevel } from "@/lib/uv";
 
@@ -236,14 +236,7 @@ export interface WeekInput {
   tests: Record<string, string[]>;
 }
 
-/** "0.8 in · 52%", or "Dry" (the same rule as the chart). */
-function rain(mm: number | null, chance: number | null | undefined, units: Units): string | null {
-  if (mm === null) return null;
-  if (isDry(mm, chance)) return "Dry";
-  if (chanceOnly(mm, chance)) return `${Math.round(chance!)}% chance`;
-  const amount = formatRainAmount(mm, units, 1);
-  return chance === null || chance === undefined ? amount : `${amount} · ${Math.round(chance)}%`;
-}
+const rain = rainLabel;
 
 /** The week from today: one card per day with the forecast and the plan's action. */
 export function weekCards(input: WeekInput): WeekCard[] {

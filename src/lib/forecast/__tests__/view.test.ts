@@ -69,7 +69,10 @@ function day(over: Partial<ForecastDayView>): ForecastDayView {
     uv: 5,
     high: "85 °F",
     rainfall: null,
+    rainNote: "Dry",
+    today: false,
     usePpm: 2,
+    useText: "2.0 ppm",
     add: null,
     algaeRisk: false,
     dilutionPercent: null,
@@ -151,6 +154,19 @@ describe("buildForecastView", () => {
     expect(view.why).toBe("Strong sun Monday to Wednesday burns most of it; Thursday's 1.4 in of rain dilutes stabilizer about 2%.");
     expect(view.target).toEqual({ min: 3, low: 5, high: 7 });
     expect(view.salt).toBeNull();
+  });
+
+  it("marks today, gives each day's rain with its chance, and the week's chlorine", () => {
+    const { plan, view } = viewFor();
+    expect(view.days.map((d) => d.today)).toEqual([true, false, false, false, false, false, false]);
+    expect(view.days[0].rainNote).toBe("Dry");
+    expect(view.days[3].rainNote).toBe("1.4 in");
+    expect(view.days[0].useText).toBe("2.1 ppm"); // 2.149… to 0.1
+    // The week's additions together: Σ addPpm × 56,781 L ÷ 125 mg/mL, in quarts to 0.25.
+    const ppm = plan.days.reduce((sum, d) => sum + d.addPpm, 0);
+    const qt = Math.round(((ppm * 56_781) / 125 / 946.352946) * 4) / 4;
+    expect(view.weekAdd).toBe(`${qt.toLocaleString("en-US")} qt`);
+    expect(view.startPpm).toBe(5);
   });
 
   it("rounds every displayed number", () => {

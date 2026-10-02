@@ -129,6 +129,15 @@ export function formatRainAmount(mm: number, units: Units, inDecimals = 2): stri
   return `${mm < 1 ? mm.toFixed(1) : Math.round(mm)} mm`;
 }
 
+/** A day's rain for a card: "0.8 in · 52%", "40% chance" or "Dry" (the chart's rule). */
+export function rainLabel(mm: number | null, chance: number | null | undefined, units: Units): string | null {
+  if (mm === null) return null;
+  if (isDry(mm, chance)) return "Dry";
+  if (chanceOnly(mm, chance)) return `${Math.round(chance!)}% chance`;
+  const amount = formatRainAmount(mm, units, 1);
+  return chance === null || chance === undefined ? amount : `${amount} · ${Math.round(chance)}%`;
+}
+
 /** A forecast with a chance of rain but no amount: "40% chance" says it; "0 in · 40%" does not. */
 export function chanceOnly(mm: number, chance: number | null | undefined): boolean {
   return !(mm > 0) && chance !== null && chance !== undefined;

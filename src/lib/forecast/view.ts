@@ -1,5 +1,5 @@
 import type { Plan } from "@/engine/server";
-import { formatVolume, type Units } from "@/lib/format";
+import { formatVolume, rainLabel, type Units } from "@/lib/format";
 import type { ForecastInput } from "./params";
 
 /**
@@ -27,6 +27,8 @@ export interface ForecastWeatherDay {
   uvIndexMax: number | null;
   tmaxC: number | null;
   rainMm: number | null;
+  /** Chance of rain, percent; null when the forecast has none. */
+  rainChance?: number | null;
 }
 
 export interface ForecastDayView {
@@ -41,10 +43,16 @@ export interface ForecastDayView {
   high: string | null;
   /** "1.4 in" / "36 mm"; null for no measurable rain. */
   rainfall: string | null;
+  /** For the card: "0.3 in · 60%", "40% chance" or "Dry". */
+  rainNote: string;
+  /** The first day of the week (today at the pool). */
+  today: boolean;
   /** Chlorine used that day, ppm, to 0.5. */
   usePpm: number;
   /** Manual pools: liquid chlorine 12.5% to add, "1.25 qt" / "1.5 L"; null for nothing. */
   add: string | null;
+  /** Chlorine used that day, ppm, to 0.1 (the card's "Sun and heat use ≈ 1.8 ppm"). */
+  useText: string;
   algaeRisk: boolean;
   /** Share of the water the day's rain replaces, whole percent; null when below the flag. */
   dilutionPercent: number | null;
@@ -73,6 +81,10 @@ export interface ForecastView {
   salt: { needPpm: number; percent: number | null; cell: string } | null;
   volume: string;
   cya: number;
+  /** Manual pools: the week's liquid chlorine, "2.5 qt"; null when nothing is added. */
+  weekAdd: string | null;
+  /** The level the plan starts from, ppm. */
+  startPpm: number;
 }
 
 export function roundTo(value: number, step: number): number {
@@ -172,7 +184,7 @@ export function buildForecastView({ input, plan, weather, sunShare, summerDayPpm
   const units = input.units;
   const byDate = new Map(weather.map((w) => [w.date, w]));
   const swg = plan.kind === "swg";
-  const days: ForecastDayView[] = plan.days.map((d) => {
+  const days: ForecastDayView[] = plan.days.map((d, i) => {
     const w = byDate.get(d.date);
     const names = dayNames(d.date);
     return {
@@ -181,7 +193,10 @@ export function buildForecastView({ input, plan, weather, sunShare, summerDayPpm
       uv: w?.uvIndexMax === null || w?.uvIndexMax === undefined ? null : Math.round(w.uvIndexMax),
       high: temperatureText(w?.tmaxC ?? null, units),
       rainfall: rainText(d.rainMm, units),
+      rainNote: rainLabel(d.rainMm ?? 0, w?.rainChance ?? null, units) ?? "Dry",
+      today: i === 0,
       usePpm: roundTo(d.lossPpm, 0.5),
+      useText: `${roundTo(d.lossPpm, 0.1).toFixed(1)} ppm`,
       add: swg ? null : liquidChlorine(d.addPpm, input.volumeL, units),
       algaeRisk: d.algaeRisk,
       dilutionPercent: d.dilution ? Math.max(1, Math.round(d.dilution.percent)) : null,
@@ -209,5 +224,7 @@ export function buildForecastView({ input, plan, weather, sunShare, summerDayPpm
     // As everywhere in the app: exact below 1,000, to the 100 above.
     volume: formatVolume(input.volumeL, units),
     cya: input.cya,
+    weekAdd: swg ? null : liquidChlorine(plan.days.reduce((sum, d) => sum + d.addPpm, 0), input.volumeL, units),
+    startPpm: plan.days.length ? roundTo(plan.days[0].fcAfterAdd - plan.days[0].addPpm, 0.5) : plan.fc.targetLow,
   };
 }

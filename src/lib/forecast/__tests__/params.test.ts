@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  forecastTown,
   cleanPlace,
   defaultUnits,
   defaultVolumeL,
@@ -142,3 +143,17 @@ describe("links", () => {
     );
   });
 });
+
+describe("forecastTown", () => {
+  it("names the town a forecast sign-in came from", () => {
+    const href = signupHref(
+      { place: "Tampa, FL, US", lat: 27.95, lon: -82.46, volumeL: 56_781, cya: 40, sanitizer: "chlorine", units: "us" },
+      { ref: null, timezone: "America/New_York" },
+    );
+    const next = new URLSearchParams(href.slice(href.indexOf("?") + 1)).get("next");
+    expect(forecastTown(next)).toBe("Tampa");
+    expect(forecastTown("/app")).toBeNull();
+    expect(forecastTown(null)).toBeNull();
+  });
+});
+
