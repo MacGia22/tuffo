@@ -102,3 +102,30 @@ describe("basicsFromForm", () => {
     expect(basicsFromForm(form({ ...base, surface: "steel" })).ok).toBe(false);
   });
 });
+
+describe("pump schedule unit, metric and Another pump", () => {
+  it("sets a flow pump in L/min on a metric pool", () => {
+    expect(pumpScheduleUnit({ catalog: "pentair-intelliflo3-vsf" }, "metric")).toBe("lpm");
+    expect(pumpScheduleUnit({ catalog: "hayward-tristar-vs-950" }, "metric")).toBe("rpm");
+  });
+
+  it("keeps how Another pump is set", () => {
+    const pump = equipmentFromForm("pump", (n) => ({ catalog: "other", speed: "variable", model: "Davey Silensor", unit: "level" })[n] ?? null);
+    expect(pump).toMatchObject({ ok: true, details: { speed: "variable", catalog: null, unit: "level" } });
+    expect(pumpScheduleUnit({ catalog: null, unit: "level" })).toBe("level");
+    expect(pumpScheduleUnit({ catalog: null, unit: "nonsense" })).toBeNull();
+  });
+});
+
+describe("Australian pumps", () => {
+  it("sets the Davey ProMaster by its numbered dial and the preset pumps in RPM", () => {
+    expect(pumpScheduleUnit({ catalog: "davey-promaster-pm200bt" }, "metric")).toBe("level");
+    expect(pumpScheduleUnit({ catalog: "waterco-hydrostorm-eco-v-100" }, "metric")).toBe("rpm");
+    expect(pumpScheduleUnit({ catalog: "astralpool-viron-p320-xt" }, "metric")).toBe("rpm");
+    expect(equipmentFromForm("pump", (n) => (n === "catalog" ? "zodiac-flopro-e3" : null))).toMatchObject({
+      ok: true,
+      model: "Zodiac FloPro E3",
+      details: { speed: "variable", catalog: "zodiac-flopro-e3" },
+    });
+  });
+});

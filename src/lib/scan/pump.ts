@@ -28,8 +28,13 @@ const TOOL = {
             start: { type: "string", description: "Start time as shown, e.g. 08:00 or 8:00 AM." },
             end: { type: "string", description: "End time as shown." },
             speed: { type: ["number", "null"], description: "The run's speed or flow setting as a number, if shown." },
-            speed_unit: { type: ["string", "null"], enum: ["rpm", "gpm", null], description: "rpm for speed, gpm for a flow setting in gallons per minute." },
-            speed_label: { type: ["string", "null"], description: "Speed name if shown instead (Low, High, Speed 2)." },
+            speed_unit: {
+              type: ["string", "null"],
+              enum: ["rpm", "gpm", "lpm", "pct", "level", null],
+              description:
+                "rpm for speed in RPM, gpm for flow in US gallons per minute, lpm for flow in litres per minute (convert m³/h × 16.67), pct for speed in percent, level for a numbered speed (Speed 1, 2, 3…).",
+            },
+            speed_label: { type: ["string", "null"], description: "Speed name if shown instead of a number (Low, High, Eco)." },
           },
           required: ["start", "end"],
         },
@@ -48,9 +53,10 @@ const TOOL = {
 };
 
 const INSTRUCTIONS = `You are reading an image for a pool-care app. It shows a pool pump's daily
-schedule: a variable-speed pump app or control panel (Pentair, Hayward, Jandy, CircuPool
-and others) or a mechanical timer. Record each scheduled run with its start and end time
-and its setting: speed in RPM, or flow in GPM when the pump is set by flow.
+schedule: a variable-speed pump app or control panel (Pentair, Hayward, Jandy, CircuPool,
+AstralPool, Zodiac, Davey, Waterco and others) or a mechanical timer. Record each scheduled
+run with its start and end time and its setting as the pump shows it: speed in RPM, flow in
+GPM or L/min, speed in percent, or a numbered speed (Speed 1, 2, 3…).
 Only runs with a start and end time on the daily schedule count. Leave out programs that
 run for a set time when started by hand (for example "Timer: 10 hours", quick clean,
 manual or boost runs) and list their names in skipped. If a program is only partly

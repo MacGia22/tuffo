@@ -131,6 +131,9 @@ The public launch (end of milestone 3) happens when all of these hold:
   published g/h found).
 - Batch L — done 2026-10-04 (#81): Facebook and Instagram as plain text links in the
   landing footer (no SDK or pixel; no Organization JSON-LD to add `sameAs` to).
+- AU7 pumps — done 2026-10-04 (#82): pump runs set in RPM, GPM, L/min, percent or a
+  numbered speed (form, validation, photo scan); flow pumps in L/min on metric pools;
+  Australian pumps in the catalog from the makers' manuals.
 
 ## Milestone 3: forecast and premium = public launch (target 2026-11-13)
 

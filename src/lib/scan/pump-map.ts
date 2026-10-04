@@ -3,7 +3,7 @@
  * Pure, so it is unit-tested without the API.
  */
 
-import { cellLikelyOn, type SpeedUnit } from "@/lib/pump";
+import { cellLikelyOn, isSpeedUnit, speedUnitInfo, type SpeedUnit } from "@/lib/pump";
 
 export interface PumpScanOutput {
   runs?: Array<{ start?: unknown; end?: unknown; speed?: unknown; speed_unit?: unknown; speed_label?: unknown }>;
@@ -52,16 +52,20 @@ export function normalizeTime(value: unknown): string | null {
 
 export function mapPumpScan(output: PumpScanOutput): PumpScanResult {
   const runs = output.runs ?? [];
-  // One unit per schedule: flow if any run is in GPM, else speed.
-  const unit: SpeedUnit = runs.some((r) => r.speed_unit === "gpm") ? "gpm" : "rpm";
+  // One unit per schedule: the one most runs are read in (RPM when none is given).
+  const counts = new Map<SpeedUnit, number>();
+  for (const r of runs) if (isSpeedUnit(r.speed_unit)) counts.set(r.speed_unit, (counts.get(r.speed_unit) ?? 0) + 1);
+  const unit: SpeedUnit = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "rpm";
+  const info = speedUnitInfo(unit);
   const rows: PumpRow[] = [];
   for (const run of runs) {
     const start = normalizeTime(run.start);
     const end = normalizeTime(run.end);
     if (!start || !end) continue;
     const sameUnit = (run.speed_unit ?? unit) === unit;
-    const raw = typeof run.speed === "number" && Number.isFinite(run.speed) && run.speed > 0 && sameUnit ? run.speed : null;
-    const speed = raw === null ? null : unit === "rpm" ? Math.round(raw) : Math.round(raw * 10) / 10;
+    const raw =
+      typeof run.speed === "number" && Number.isFinite(run.speed) && run.speed > 0 && run.speed <= info.max && sameUnit ? run.speed : null;
+    const speed = raw === null ? null : info.integer ? Math.round(raw) : Math.round(raw * 10) / 10;
     rows.push({ start, end, speed, unit, cell: cellLikelyOn(speed, unit) });
     if (rows.length >= 24) break;
   }

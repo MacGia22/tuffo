@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cellHoursPerDay, cellLikelyOn, pumpHoursPerDay, scheduleFromForm } from "../pump";
+import { cellHoursPerDay, cellLikelyOn, lowRunsText, pumpHoursPerDay, scheduleFromForm, speedText } from "../pump";
 
 describe("cellHoursPerDay", () => {
   it("adds the runs with the cell on, once each", () => {
@@ -87,5 +87,43 @@ describe("pumpHoursPerDay", () => {
       ]),
     ).toBe(10);
     expect(pumpHoursPerDay([{ start: "8", end: "12:00", cell: true }])).toBeNull();
+  });
+});
+
+describe("speed units beyond RPM and GPM", () => {
+  const form = (unit: string, speed: string) => (name: string) =>
+    ({ speed_unit: unit, start_0: "08:00", end_0: "16:00", speed_0: speed, cell_0: "on" })[name] ?? null;
+
+  it("reads flow in L/min, percent and numbered speeds", () => {
+    expect(scheduleFromForm(form("lpm", "130,5"))).toMatchObject({ ok: true, segments: [{ speed: 130.5, unit: "lpm" }] });
+    expect(scheduleFromForm(form("pct", "60"))).toMatchObject({ ok: true, segments: [{ speed: 60, unit: "pct" }] });
+    expect(scheduleFromForm(form("level", "3"))).toMatchObject({ ok: true, segments: [{ speed: 3, unit: "level" }] });
+  });
+
+  it("refuses out-of-range values per unit", () => {
+    expect(scheduleFromForm(form("pct", "120"))).toEqual({ ok: false, error: "Run 1: speed is 0 to 100%." });
+    expect(scheduleFromForm(form("level", "2.5"))).toEqual({ ok: false, error: "Run 1: the speed number is a whole number up to 20." });
+    expect(scheduleFromForm(form("lpm", "900"))).toEqual({ ok: false, error: "Run 1: flow is 0 to 760 L/min." });
+    // An unknown unit falls back to RPM.
+    expect(scheduleFromForm(form("furlongs", "2400"))).toMatchObject({ ok: true, segments: [{ unit: "rpm" }] });
+  });
+
+  it("guesses the cell from flow in L/min, and assumes it on for percent and numbered speeds", () => {
+    // 20 GPM ≈ 75 L/min.
+    expect(cellLikelyOn(60, "lpm")).toBe(false);
+    expect(cellLikelyOn(110, "lpm")).toBe(true);
+    expect(cellLikelyOn(20, "pct")).toBe(true);
+    expect(cellLikelyOn(1, "level")).toBe(true);
+  });
+
+  it("words a setting as the pump shows it", () => {
+    expect(speedText(2400, "rpm")).toBe("2400 RPM");
+    expect(speedText(130, "lpm")).toBe("130 L/min");
+    expect(speedText(60, "pct")).toBe("60%");
+    expect(speedText(3, "level")).toBe("speed 3");
+    expect(speedText(2400, undefined)).toBe("2400 RPM");
+    expect(lowRunsText("rpm")).toBe("Runs under 1,500 RPM");
+    expect(lowRunsText("lpm")).toBe("Runs under 75 L/min");
+    expect(lowRunsText("pct")).toBeNull();
   });
 });
