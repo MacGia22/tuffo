@@ -1,5 +1,6 @@
 import "server-only";
 
+import { placesInOrder } from "./place-order";
 import { labelFor, parseQuery, rankResults, type GeoResult } from "./place-query";
 
 /**
@@ -36,7 +37,11 @@ async function lookup(name: string, count: number): Promise<GeoResult[]> {
   return data.results ?? [];
 }
 
-export async function searchPlaces(query: string, limit = 6): Promise<Place[]> {
+/**
+ * Up to `limit` places for a town or ZIP query, the visitor's country first (`country`,
+ * used only for this order and never kept), then the US, then the rest.
+ */
+export async function searchPlaces(query: string, { limit = 6, country = null }: { limit?: number; country?: string | null } = {}): Promise<Place[]> {
   const parsed = parseQuery(query);
   const names = parsed.names.filter((n) => n.length >= 2 && n.length <= 80);
   if (names.length === 0) return [];
@@ -44,11 +49,12 @@ export async function searchPlaces(query: string, limit = 6): Promise<Place[]> {
   const batches = await Promise.all(names.map((n) => lookup(n, parsed.postal ? 5 : 10).catch(() => [] as GeoResult[])));
   const ranked = rankResults(batches.flat(), parsed.qualifier);
 
-  return ranked.slice(0, limit).map((r) => ({
+  const places = ranked.map((r) => ({
     label: labelFor(r),
     lat: r.latitude,
     lon: r.longitude,
     timezone: r.timezone,
     country: r.country_code ?? "",
   }));
+  return placesInOrder(places, country).slice(0, limit);
 }
