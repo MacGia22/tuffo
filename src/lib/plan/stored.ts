@@ -33,6 +33,8 @@ export interface StoredPlanSummary {
   cellSetting?: number | null;
   /** Salt pools: what is missing for a setting in percent. */
   cellNeeds?: "rating" | "pump" | null;
+  /** Salt pools whose cell is set in levels 1 to this many (wording only). Absent on older plans. */
+  cellLevels?: number | null;
 }
 
 export interface StoredPlan {

@@ -18,7 +18,7 @@ import { loadPopulationPrior } from "@/lib/model/recompute";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { dayShareLeft, estimateStartFc, type StoredPlanDay, type StoredPlanSummary } from "./stored";
 import { loadOwnRain, withOwnRain } from "@/lib/weather/own-rain";
-import { cellLevels } from "@/lib/salt-cells";
+import { cellLevelCount, cellScaleLevels, poolSaltTarget } from "@/lib/salt-cells";
 import { loadPoolEstimate } from "@/lib/model/pool-estimate";
 import { loadSunShare } from "@/lib/model/sun-share";
 
@@ -41,6 +41,9 @@ interface PoolRow {
   covered: boolean;
   swg_cell_lb_per_day: number | string | null;
   swg_cell_model?: string | null;
+  salt_target_low_ppm?: number | null;
+  salt_target_high_ppm?: number | null;
+  swg_cell_levels?: number | null;
   timezone: string | null;
   cell_id: string | null;
 }
@@ -79,7 +82,8 @@ function weatherOf(row: ForecastRow): WeatherDrivers {
 export async function buildPlan(admin: SupabaseClient, poolId: string, now = Date.now()): Promise<boolean> {
   const { data: pool, error } = await admin
     .from("pools")
-    .select("id, volume_l, surface_area_m2, sanitizer, surface, covered, swg_cell_lb_per_day, swg_cell_model, timezone, cell_id")
+    // "*": the salt range and cell levels exist only once their migration has run.
+    .select("*")
     .eq("id", poolId)
     .maybeSingle<PoolRow>();
   if (error) throw new Error(`pool: ${error.message}`);
@@ -209,8 +213,10 @@ export async function buildPlan(admin: SupabaseClient, poolId: string, now = Dat
       surface: pool.surface,
       // What the cell makes a day at 100% with the pump hours it runs now.
       cellPpmPerDay: swg && lb && lb > 0 && cellHours ? ((lb * GRAMS_PER_POUND * 1000) / volumeL) * (cellHours / 24) : null,
-      // The settings the cell's own control offers (CircuPool CORE: 25/50/75/100%).
-      cellLevels: cellLevels(pool.swg_cell_model),
+      // The settings the cell's own control offers (CircuPool CORE: 25/50/75/100%; an
+      // "Other" cell set in levels 1 to 8: 12.5% steps).
+      cellLevels: cellScaleLevels(pool.swg_cell_model, pool.swg_cell_levels),
+      saltTarget: poolSaltTarget(pool),
     },
     water: { fc: fcStart, cya, ch: latest("ch"), salt: latest("salt") },
     days,
@@ -238,6 +244,7 @@ export async function buildPlan(admin: SupabaseClient, poolId: string, now = Dat
     cellHours,
     cellSetting,
     cellNeeds: !swg ? null : !(lb && lb > 0) ? "rating" : !cellHours ? "pump" : null,
+    cellLevels: swg ? cellLevelCount(pool.swg_cell_model, pool.swg_cell_levels) : null,
   };
   const storedDays: StoredPlanDay[] = plan.days.map((d) => ({
     ...d,

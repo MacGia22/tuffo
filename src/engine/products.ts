@@ -116,6 +116,17 @@ export const products: Record<string, Product> = {
     density: 1.16,
     note: "Also lowers total alkalinity a little.",
   },
+  "pool-acid-32": {
+    id: "pool-acid-32",
+    name: "Pool acid (hydrochloric acid) 32%",
+    form: "liquid",
+    raises: "ph",
+    // Australian "pool acid": 0.32 × 1.16 g HCl per mL → mg CaCO3 equivalent
+    strength: -(0.32 * 1.16) / 36.461 * CACO3_MG_PER_EQ,
+    sideEffects: {},
+    density: 1.16,
+    note: "Also lowers total alkalinity a little.",
+  },
   "dry-acid-93": {
     id: "dry-acid-93",
     name: "Dry acid 93% (sodium bisulfate)",

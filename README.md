@@ -230,6 +230,22 @@ refitted. With it, the 7-day plan suggests the lowest cell output that holds fre
 chlorine all week, and the free chlorine advice card repeats that setting; without it,
 both give the ppm per day the cell has to make and ask for the rating.
 
+The same form asks for the salt level the chlorinator wants (a range, or one number that
+becomes ±10%; `parseSaltTarget`), stored as `pools.salt_target_low_ppm` and
+`salt_target_high_ppm`. Australian cells range from 1,500 ppm (low-salt units) to 6,000 ppm
+(AstralPool E Series). Unset, a listed cell's own range applies (`saltPpm` in
+`src/lib/salt-cells.ts`), else 2,800–3,600 ppm. `targetsFor` takes it as `saltTarget`, so the
+salt card, its dose to the middle of the range, the Water now tile and the plan's rain note
+(`dilution.saltLow`, in the weekly email) all use the pool's range. An "Other" cell can be
+set in percent or in levels 1 to N (`pools.swg_cell_levels`, 2–20; AstralPool E Series 1–8):
+the plan picks among N even steps, and the Today page, plan notes, emails, the activity list
+and the cell-setting form say "level 5 of 8". Settings are still stored in percent.
+
+Product names follow the profile's units: metric pools get "pool acid" (hydrochloric acid
+32%, `pool-acid-32`) for pH and alkalinity and "baking soda (buffer)", as Australian shops
+label them; US pools keep muriatic acid 31.45% and baking soda (`acidFor`, `productShort` in
+`src/lib/catalog.ts`).
+
 What the cell makes depends on its setting and on how long water flows through it, so
 both are recorded over time: a cell setting is an event ("Salt cell set to 50%", with an
 "I set it" link next to the plan's suggestion), and the pump schedule

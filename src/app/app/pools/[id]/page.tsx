@@ -13,7 +13,7 @@ import { TestHistory } from "@/components/test-history";
 import { NextSevenDays, TestStatusCard, TrendsLink, WhatToDoNow } from "@/components/today-sections";
 import { WarmOffline } from "@/components/warm-offline";
 import { WaterNow } from "@/components/water-now";
-import { catalogProduct } from "@/lib/catalog";
+import { catalogProduct, productShort } from "@/lib/catalog";
 import { baseToShelf, formatShelf } from "@/lib/dose-format";
 import { KIND_LABELS } from "@/lib/equipment";
 import { feedbackHref } from "@/lib/feedback";
@@ -26,7 +26,7 @@ import { planAddLabel } from "@/lib/plan/add-label";
 import { bandAdvice } from "@/lib/plan/band";
 import { cellPercentOn, confidenceText, planHasFcLine } from "@/lib/plan/stored";
 import { fromParam } from "@/lib/return-to";
-import { cellLevels, cellRatedHours } from "@/lib/salt-cells";
+import { cellLevelCount, cellRatedHours, cellScaleLevels, cellSettingText, poolSaltTarget } from "@/lib/salt-cells";
 import { setupSteps } from "@/lib/setup";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { historyCells, TILE_LABELS, waterLine, waterTiles, type TileKey } from "@/lib/tiles";
@@ -115,7 +115,7 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
       if (shelf.value > 0) {
         const amount = formatShelf(shelf.value, shelf.unit);
         dose = {
-          text: `${amount} of ${catalogProduct(item.dose.productId)?.short ?? item.dose.productId}`,
+          text: `${amount} of ${productShort(item.dose.productId, units)}`,
           amount,
           href: `${base}/doses/new?${new URLSearchParams({ product: item.dose.productId, amount: String(shelf.value), unit: shelf.unit })}&${here}`,
           notes: item.dose.notes,
@@ -171,7 +171,9 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
   }
 
   // Today's plan step and whether the week leaves the target band.
-  const levels = swg ? cellLevels(pool.swg_cell_model) : null;
+  const levels = swg ? cellScaleLevels(pool.swg_cell_model, pool.swg_cell_levels) : null;
+  // An "Other" cell set in levels 1 to N: settings read "level 5 of 8".
+  const levelCount = swg ? cellLevelCount(pool.swg_cell_model, pool.swg_cell_levels) : null;
   const planToday = plan?.days.find((d) => d.date === today) ?? null;
   const cellNow = plan && swg ? cellPercentOn(plan.summary, today) : null;
   // Chlorine logged since the plan was built is not in it yet: no second "Add" today.
@@ -187,9 +189,10 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
             kind: "cell",
             percent: cellNow,
             logged: saltStatus?.setting ?? null,
-            href: `${base}/events/new?kind=cell_setting&value=${cellNow}&${here}`,
+            href: `${base}/events/new?kind=cell_setting&value=${Math.round(cellNow * 2) / 2}&${here}`,
             needPpm: plan.summary.swgNeedPpm,
             cellHours: plan.summary.cellHours ?? null,
+            levelCount,
           }
         : plan && addToday && addShelf
           ? {
@@ -201,7 +204,7 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
               target: `${plan.summary.fc.targetLow}–${plan.summary.fc.targetHigh} ppm`,
             }
           : null,
-    band: plan ? bandAdvice(plan, today, levels) : null,
+    band: plan ? bandAdvice(plan, today, levels, levelCount) : null,
     retests,
     maintenance: upkeepDue.map((s) => ({
       id: s.task.id,
@@ -224,6 +227,7 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
       ? {
           kind: plan.summary.kind,
           loggedPercent: saltStatus?.setting ?? null,
+          levelCount,
           days: plan.days.map((d) => ({
             date: d.date,
             // A salt pool's plan without the cell's output has no meaningful FC line.
@@ -344,7 +348,7 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
           {saltStatus ? (
             <>
               <p>
-                Setting: <strong>{saltStatus.setting === null ? "not logged yet" : `${saltStatus.setting}%`}</strong>
+                Setting: <strong>{saltStatus.setting === null ? "not logged yet" : cellSettingText(saltStatus.setting, levelCount)}</strong>
                 {saltStatus.settingSince ? ` since ${saltStatus.settingSince}` : ""} ·{" "}
                 <Link href={`${base}/events/new?kind=cell_setting&${here}`} className="inline-flex min-h-11 items-center font-semibold text-lagoon">
                   Log a change
@@ -377,7 +381,13 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
             current={{
               model: pool.swg_cell_model ?? null,
               lbPerDay: pool.swg_cell_lb_per_day === null ? null : Number(pool.swg_cell_lb_per_day),
+              saltTarget:
+                pool.salt_target_low_ppm != null && pool.salt_target_high_ppm != null
+                  ? { low: Number(pool.salt_target_low_ppm), high: Number(pool.salt_target_high_ppm) }
+                  : null,
+              levels: levelCount,
             }}
+            salt={poolSaltTarget(pool)}
           />
         </section>
       ) : null}

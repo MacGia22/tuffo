@@ -115,3 +115,16 @@ describe("pH dosing with the carbonate model", () => {
     expect(() => doseForPh("baking-soda", { ...water, targetPh: 7.4 })).toThrow();
   });
 });
+
+describe("pool acid 32%", () => {
+  it("one liter in 50,000 L lowers TA by about 10.2 ppm", () => {
+    // 0.32 × 1.16 g/mL = 0.3712 g HCl per mL = 10.18 mmol → 509.5 mg CaCO3 per mL;
+    // 1,000 mL × 509.5 / 50,000 L = 10.19 ppm.
+    expect(effectsOf("pool-acid-32", 1000, 50_000).ta).toBeCloseTo(-10.19, 2);
+  });
+
+  it("is 32 / 31.45 as strong as muriatic acid 31.45%", () => {
+    const ratio = effectsOf("pool-acid-32", 1000, 50_000).ta! / effectsOf("muriatic-acid-31.45", 1000, 50_000).ta!;
+    expect(ratio).toBeCloseTo(32 / 31.45, 6);
+  });
+});

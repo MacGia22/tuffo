@@ -87,3 +87,25 @@ describe("maintenance reminder", () => {
     expect(email.text).toContain("Friday: nothing to add (watch: may run low)");
   });
 });
+
+describe("salt pools", () => {
+  const saltPlan = {
+    ...plan,
+    summary: { ...plan.summary, kind: "swg", swgPercent: 62.5, swgNeedPpm: 2.1, cellLevels: 8 },
+    days: [
+      plan.days[0],
+      { ...plan.days[1], dilution: { percent: 3.3, cya: 68, ch: 290, salt: 5220, saltLow: true } },
+    ],
+  } as StoredPlan;
+
+  it("words the cell setting as a level and flags rain that takes salt below the chlorinator's range", () => {
+    const email = renderAlertEmail([{ poolId: POOL, poolName: "Backyard", kind: "weekly", detail: {} }], {
+      ...ctx,
+      plans: { [POOL]: saltPlan },
+    });
+    expect(email.text).toContain("Salt cell at about level 5 of 8 this week (about 2.1 ppm of chlorine a day).");
+    expect(email.text).toContain(
+      "Heavy rain on Friday may take salt down to about 5,220 ppm, below what your chlorinator asks for: test salt after it.",
+    );
+  });
+});

@@ -1,3 +1,4 @@
+import { cellSettingText } from "@/lib/salt-cells";
 import type { StoredPlan } from "./stored";
 
 /**
@@ -17,10 +18,17 @@ export interface BandAdvice {
 
 /**
  * `days` are the plan's days from today on. `levels` are the settings the cell offers
- * (percent, ascending), or null for any 5% step.
+ * (percent, ascending), or null for any 5% step. `levelCount`: the cell is set in levels
+ * 1 to that many, so settings read "level 5 of 8" (default: the plan's own).
  */
-export function bandAdvice(plan: Pick<StoredPlan, "summary" | "days">, today: string, levels: number[] | null): BandAdvice | null {
+export function bandAdvice(
+  plan: Pick<StoredPlan, "summary" | "days">,
+  today: string,
+  levels: number[] | null,
+  levelCount?: number | null,
+): BandAdvice | null {
   const { summary } = plan;
+  const at = (percent: number) => cellSettingText(percent, levelCount === undefined ? summary.cellLevels : levelCount);
   const days = plan.days.filter((d) => d.date >= today);
   if (days.length === 0) return null;
   const { targetHigh, min } = summary.fc;
@@ -32,7 +40,7 @@ export function bandAdvice(plan: Pick<StoredPlan, "summary" | "days">, today: st
       direction: "low",
       text:
         summary.kind === "swg"
-          ? `Free chlorine may fall below ${min} ppm by ${label(low.date)} even at ${summary.swgPercent ?? 100}%: test that morning and top up with liquid chlorine if it is low.`
+          ? `Free chlorine may fall below ${min} ppm by ${label(low.date)} even at ${at(summary.swgPercent ?? 100)}: test that morning and top up with liquid chlorine if it is low.`
           : `Free chlorine may fall below ${min} ppm by ${label(low.date)} even with the plan: test that morning and add more if it is low.`,
     };
   }
@@ -61,13 +69,13 @@ export function bandAdvice(plan: Pick<StoredPlan, "summary" | "days">, today: st
   if (start && today < start.until && start.percent > percent) {
     return {
       direction: "low",
-      text: `Free chlorine is below the ${summary.fc.targetLow}–${targetHigh} ppm target: run the cell at ${start.percent}% until ${weekday(start.until)}, then ${percent === 0 ? "switch it off" : `${percent}%`} so it does not climb past the target. Test before you turn it down.`,
+      text: `Free chlorine is below the ${summary.fc.targetLow}–${targetHigh} ppm target: run the cell at ${at(start.percent)} until ${weekday(start.until)}, then ${percent === 0 ? "switch it off" : at(percent)} so it does not climb past the target. Test before you turn it down.`,
     };
   }
   if (start && today < start.until) {
     return {
       direction: "high",
-      text: `Free chlorine is above the ${targetHigh} ppm target: ${start.percent === 0 ? "switch the cell off" : `run the cell at ${start.percent}%`} until ${weekday(start.until)}, then ${percent}%. Test before you turn it back up.`,
+      text: `Free chlorine is above the ${targetHigh} ppm target: ${start.percent === 0 ? "switch the cell off" : `run the cell at ${at(start.percent)}`} until ${weekday(start.until)}, then ${at(percent)}. Test before you turn it back up.`,
     };
   }
   const high = days.find((d) => d.fcEnd > targetHigh);
@@ -93,17 +101,17 @@ export function bandAdvice(plan: Pick<StoredPlan, "summary" | "days">, today: st
       text:
         lower === undefined || lower === 0
           ? `${nowText}: switch the cell off for a day, then test.`
-          : `${nowText}: lower the cell to ${lower}% today, then test in a day or two.`,
+          : `${nowText}: lower the cell to ${at(lower)} today, then test in a day or two.`,
     };
   }
   if (lower === undefined || lower === 0) {
     return {
       direction: "high",
-      text: `Even at ${percent}% free chlorine climbs above ${targetHigh} ppm by ${when}: switch the cell off for a day when a test shows it above ${targetHigh}.`,
+      text: `Even at ${at(percent)} free chlorine climbs above ${targetHigh} ppm by ${when}: switch the cell off for a day when a test shows it above ${targetHigh}.`,
     };
   }
   return {
     direction: "high",
-    text: `At ${percent}% free chlorine climbs above ${targetHigh} ppm by ${when}: lower the cell to ${lower}% from ${when}, then test.`,
+    text: `At ${at(percent)} free chlorine climbs above ${targetHigh} ppm by ${when}: lower the cell to ${at(lower)} from ${when}, then test.`,
   };
 }

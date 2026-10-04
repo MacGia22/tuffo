@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { TrendChart } from "@/components/trend-chart";
 import { isUuid } from "@/lib/form-data";
 import { bandAdvice } from "@/lib/plan/band";
-import { cellLevels } from "@/lib/salt-cells";
+import { cellLevelCount, cellScaleLevels } from "@/lib/salt-cells";
 import { parseRange, TREND_RANGES, DEFAULT_RANGE } from "@/lib/trends";
 import { loadPoolView } from "../pool-view";
 import { TrendsEmpty } from "./empty";
@@ -24,7 +24,14 @@ export default async function TrendsPage({ params, searchParams }: PageProps<"/a
   const fcTests = allReadings.filter((r) => r.fc !== null).length;
   const base = `/app/pools/${pool.id}`;
   const swg = pool.sanitizer === "swg";
-  const band = plan ? bandAdvice(plan, today, swg ? cellLevels(pool.swg_cell_model) : null) : null;
+  const band = plan
+    ? bandAdvice(
+        plan,
+        today,
+        swg ? cellScaleLevels(pool.swg_cell_model, pool.swg_cell_levels) : null,
+        swg ? cellLevelCount(pool.swg_cell_model, pool.swg_cell_levels) : null,
+      )
+    : null;
   const stats = between?.stats ?? [];
 
   return (

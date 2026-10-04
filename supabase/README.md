@@ -121,6 +121,9 @@ migration must survive a second run.
   days per task id) and `pools.swg_cell_installed_on` hold the owner's settings;
   `pools.enclosure` (screen kind) and `pools.enclosure_sun_pct` (5–100, share of sun through it)
   the screen enclosure;
+  `pools.salt_target_low_ppm` / `salt_target_high_ppm` (both or neither, 500–10,000, low <
+  high) the salt range the chlorinator asks for, and `pools.swg_cell_levels` (2–20, null for
+  percent) a cell set in levels;
   `alert_settings.maintenance` switches the reminder email on.
 - `pool_rain`: the rain an owner entered for a day at the pool (mm, one row per pool and
   day), used instead of the weather cell's rain; owner reads, inserts, updates and deletes.

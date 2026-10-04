@@ -43,3 +43,19 @@ describe("pool targets", () => {
     expect(targetsFor({ cya: 40 }).salt).toBeUndefined();
   });
 });
+
+describe("targetsFor, salt", () => {
+  it("uses 2,800–3,600 ppm when the chlorinator's own range is not set", () => {
+    expect(targetsFor({ cya: 70, swg: true }).salt).toEqual({ low: 2800, high: 3600 });
+    expect(targetsFor({ cya: 70, swg: true, saltTarget: null }).salt).toEqual({ low: 2800, high: 3600 });
+  });
+
+  it("uses the chlorinator's range: 6,000 ppm (±10%) and a 1,500 ppm low-salt unit", () => {
+    expect(targetsFor({ cya: 70, swg: true, saltTarget: { low: 5400, high: 6600 } }).salt).toEqual({ low: 5400, high: 6600 });
+    expect(targetsFor({ cya: 70, swg: true, saltTarget: { low: 1350, high: 1650 } }).salt).toEqual({ low: 1350, high: 1650 });
+  });
+
+  it("has no salt target for a chlorine pool", () => {
+    expect(targetsFor({ cya: 40, saltTarget: { low: 5400, high: 6600 } }).salt).toBeUndefined();
+  });
+});
