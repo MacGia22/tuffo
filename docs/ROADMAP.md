@@ -124,7 +124,11 @@ The public launch (end of milestone 3) happens when all of these hold:
   (`pools.salt_target_low_ppm`/`_high_ppm`, used by targets, advice, doses, the plan's rain
   note); "pool acid" 32% and "baking soda (buffer)" for metric pools; an "Other" cell set in
   levels 1 to N (`pools.swg_cell_levels`), worded "level 5 of 8".
-- AU6: Australian cells in the salt cell catalog.
+- AU6 — done 2026-10-04 (#80): 48 Australian cells from the makers' published g/h, with
+  their salt ranges: AstralPool (E, VX, Viron, eQuilibrium, Halo Chlor; levels 1–8), Zodiac
+  (TRi-XO, eXO iQ, EL Series, Ezi Salt), Davey (EcoSalt2, EcoSalt) and Waterco (Electrochlor,
+  Hydrochlor). Still missing: Zodiac's older TRi/LM/Clearwater and AstralPool Halo Pure (no
+  published g/h found).
 - Batch L: Facebook and Instagram text links in the landing footer.
 
 ## Milestone 3: forecast and premium = public launch (target 2026-11-13)

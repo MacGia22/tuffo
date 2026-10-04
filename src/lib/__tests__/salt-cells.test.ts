@@ -12,6 +12,7 @@ import {
   levelToPercent,
   parseSaltTarget,
   poolSaltTarget,
+  SALT_CELLS,
   saltTargetText,
   toLbPerDay,
 } from "../salt-cells";
@@ -125,5 +126,53 @@ describe("cell levels", () => {
     expect(cellLevelsFromForm("CircuPool CORE35", "levels", "8")).toEqual({ ok: true, count: null });
     expect(cellLevelsFromForm("Other", "levels", "1").ok).toBe(false);
     expect(cellLevelsFromForm("Other", "levels", "8.5").ok).toBe(false);
+  });
+});
+
+describe("Australian cells (AstralPool)", () => {
+  it("converts the published g/h to lb/day", () => {
+    // 25 g/h × 24 h = 600 g/day = 1.32 lb/day; 42 g/h → 1,008 g/day = 2.22 lb/day.
+    expect(cellFromForm({ model: "astralpool-e25", value: "", unit: "" })).toEqual({ ok: true, lbPerDay: 1.32, model: "AstralPool E25" });
+    expect(cellFromForm({ model: "astralpool-vx11t", value: "", unit: "" })).toEqual({ ok: true, lbPerDay: 2.22, model: "AstralPool VX 11T" });
+    expect(cellFromForm({ model: "astralpool-halo18", value: "", unit: "" })).toEqual({ ok: true, lbPerDay: 0.95, model: "AstralPool Halo Chlor 18G" });
+  });
+
+  it("uses the maker's salt level and levels 1 to 8", () => {
+    expect(poolSaltTarget({ swg_cell_model: "AstralPool E25" })).toEqual({ low: 4000, high: 4800 });
+    expect(poolSaltTarget({ swg_cell_model: "AstralPool Viron eQuilibrium EQ35" })).toEqual({ low: 3600, high: 4400 });
+    // The pool's own range still wins (an E Series in cold water at 6,000 ppm).
+    expect(poolSaltTarget({ swg_cell_model: "AstralPool E25", salt_target_low_ppm: 5400, salt_target_high_ppm: 6600 })).toEqual({ low: 5400, high: 6600 });
+    expect(cellLevelCount("AstralPool E35", null)).toBe(8);
+    expect(cellScaleLevels("AstralPool E35", null)).toEqual([12.5, 25, 37.5, 50, 62.5, 75, 87.5, 100]);
+    expect(cellSettingText(62.5, cellLevelCount("AstralPool E35", null))).toBe("level 5 of 8");
+    // Viron V series: control not published, so 5% steps and percent wording.
+    expect(cellLevelCount("AstralPool Viron V25", null)).toBeNull();
+    expect(cellScaleLevels("AstralPool Viron V25", null)).toBeNull();
+  });
+
+  it("has unique ids and names", () => {
+    expect(new Set(SALT_CELLS.map((c) => c.id)).size).toBe(SALT_CELLS.length);
+    expect(new Set(SALT_CELLS.map((c) => c.name)).size).toBe(SALT_CELLS.length);
+  });
+});
+
+describe("Zodiac, Davey and Waterco cells", () => {
+  it("converts the published g/h and keeps each maker's salt range", () => {
+    // 35 g/h × 24 = 840 g/day = 1.85 lb/day; 13 g/h → 312 g = 0.69 lb.
+    expect(cellFromForm({ model: "zodiac-tri-xo-35", value: "", unit: "" })).toEqual({ ok: true, lbPerDay: 1.85, model: "Zodiac TRi-XO 35" });
+    expect(cellFromForm({ model: "davey-des13ce", value: "", unit: "" })).toEqual({ ok: true, lbPerDay: 0.69, model: "Davey EcoSalt DES13CE" });
+    expect(poolSaltTarget({ swg_cell_model: "Zodiac eXO iQ 25" })).toEqual({ low: 3600, high: 4400 });
+    // EcoSalt2: 500 ppm above the add-salt alarm, 1,000 wide (the manual gives no ideal).
+    expect(poolSaltTarget({ swg_cell_model: "Davey EcoSalt2 DES2-25E" })).toEqual({ low: 3500, high: 4500 });
+    expect(poolSaltTarget({ swg_cell_model: "Davey EcoSalt2 DES2-15EL (low salt)" })).toEqual({ low: 2000, high: 3000 });
+    expect(poolSaltTarget({ swg_cell_model: "Davey EcoSalt DES20CE" })).toEqual({ low: 4000, high: 5000 });
+    expect(poolSaltTarget({ swg_cell_model: "Waterco Hydrochlor MK3 Series 2500" })).toEqual({ low: 5000, high: 6000 });
+  });
+
+  it("offers the Electrochlor's 10% steps and percent wording elsewhere", () => {
+    expect(cellScaleLevels("Waterco Electrochlor Mineral Series 2500", null)).toEqual([10, 20, 30, 40, 50, 60, 70, 80, 90, 100]);
+    expect(cellLevelCount("Waterco Electrochlor Mineral Series 2500", null)).toBeNull();
+    expect(cellScaleLevels("Zodiac TRi-XO 25", null)).toBeNull();
+    expect(cellScaleLevels("Waterco Hydrochlor MK3 Series 2000", null)).toBeNull();
   });
 });

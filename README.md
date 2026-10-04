@@ -229,7 +229,11 @@ the typical-pools and floor notes sit under "ⓘ How this plan works".
 
 A salt pool's page asks which cell it has: a listed model (Hayward TurboCell T-15/T-9/T-5,
 Pentair IntelliChlor IC60/IC40/IC20, CircuPool CORE55/35/15, EDGE40/25/15 and RJ-60/30
-Plus, with their rated lb/day, `src/lib/salt-cells.ts`)
+Plus, with their rated lb/day; AstralPool E25/E35, VX 7T/9T/11T, Viron V18–V45, Viron
+eQuilibrium EQ18–EQ45 and Halo Chlor 18G–45G; Zodiac TRi-XO, eXO iQ, EL Series and Ezi
+Salt; Davey EcoSalt2 (standard and low-salt) and EcoSalt; Waterco Electrochlor Mineral, Plus
+and Pro and Hydrochlor MK3 and ST, all from their published g/h, each with its source
+document noted, `src/lib/salt-cells.ts`)
 or the rated output from the label in lb/day, g/hour or kg/day. It is stored as
 `pools.swg_cell_lb_per_day` and `swg_cell_model`, and the chlorine model and plan are
 refitted. With it, the 7-day plan suggests the lowest cell output that holds free
@@ -240,7 +244,9 @@ The same form asks for the salt level the chlorinator wants (a range, or one num
 becomes ±10%; `parseSaltTarget`), stored as `pools.salt_target_low_ppm` and
 `salt_target_high_ppm`. Australian cells range from 1,500 ppm (low-salt units) to 6,000 ppm
 (AstralPool E Series). Unset, a listed cell's own range applies (`saltPpm` in
-`src/lib/salt-cells.ts`), else 2,800–3,600 ppm. `targetsFor` takes it as `saltTarget`, so the
+`src/lib/salt-cells.ts`: AstralPool's recommended 4,000 ppm ±10%, 4,000–4,800 for the E
+Series), else 2,800–3,600 ppm. AstralPool E, VX, eQuilibrium and Halo Chlor controls are set
+in levels 1 to 8 (`levelCount`), so their settings read "level 5 of 8" too. `targetsFor` takes it as `saltTarget`, so the
 salt card, its dose to the middle of the range, the Water now tile and the plan's rain note
 (`dilution.saltLow`, in the weekly email) all use the pool's range. An "Other" cell can be
 set in percent or in levels 1 to N (`pools.swg_cell_levels`, 2–20; AstralPool E Series 1–8):
