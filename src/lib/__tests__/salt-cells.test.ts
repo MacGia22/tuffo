@@ -162,7 +162,9 @@ describe("Zodiac, Davey and Waterco cells", () => {
     expect(cellFromForm({ model: "zodiac-tri-xo-35", value: "", unit: "" })).toEqual({ ok: true, lbPerDay: 1.85, model: "Zodiac TRi-XO 35" });
     expect(cellFromForm({ model: "davey-des13ce", value: "", unit: "" })).toEqual({ ok: true, lbPerDay: 0.69, model: "Davey EcoSalt DES13CE" });
     expect(poolSaltTarget({ swg_cell_model: "Zodiac eXO iQ 25" })).toEqual({ low: 3600, high: 4400 });
-    expect(poolSaltTarget({ swg_cell_model: "Davey EcoSalt2 DES2-15EL (low salt)" })).toEqual({ low: 1500, high: 6000 });
+    // EcoSalt2: 500 ppm above the add-salt alarm, 1,000 wide (the manual gives no ideal).
+    expect(poolSaltTarget({ swg_cell_model: "Davey EcoSalt2 DES2-25E" })).toEqual({ low: 3500, high: 4500 });
+    expect(poolSaltTarget({ swg_cell_model: "Davey EcoSalt2 DES2-15EL (low salt)" })).toEqual({ low: 2000, high: 3000 });
     expect(poolSaltTarget({ swg_cell_model: "Davey EcoSalt DES20CE" })).toEqual({ low: 4000, high: 5000 });
     expect(poolSaltTarget({ swg_cell_model: "Waterco Hydrochlor MK3 Series 2500" })).toEqual({ low: 5000, high: 6000 });
   });

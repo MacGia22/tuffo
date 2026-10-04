@@ -100,13 +100,16 @@ const ZODIAC_SALT = { low: 3600, high: 4400 };
 /**
  * Davey, from its installation manuals:
  * [D1] EcoSalt2, https://daveywater.com/wp-content/uploads/2022/11/Chl_EcoSalt2_IOI.pdf
- *      (output table "DES2-25E(L) 25" g/h at 100%; operating range 3,000-6,000 ppm, low-salt
- *      models 1,500-6,000; output set in 5% steps)
+ *      (output table "DES2-25E(L) 25" g/h at 100%; operating range 3,000-6,000 ppm with the
+ *      add-salt alarm at about 3,000, low-salt models 1,500-6,000 with the alarm at about 1,500;
+ *      output set in 5% steps). The manual gives no ideal level, so the range here starts 500 ppm
+ *      above the alarm and is 1,000 ppm wide: advice aims at 4,000 (2,500 for low salt), not at
+ *      the middle of the whole operating range.
  * [D2] EcoSalt, https://daveywater.com/wp-content/uploads/2022/11/Chl_EcoSalt_IOI.pdf
  *      ("DES13CE 13.0" maximum g/h at 100%; never below 4,000 ppm, ideal 4,500, at most 7,000)
  */
-const ECOSALT2_SALT = { low: 3000, high: 6000 };
-const ECOSALT2_LOW_SALT = { low: 1500, high: 6000 };
+const ECOSALT2_SALT = { low: 3500, high: 4500 };
+const ECOSALT2_LOW_SALT = { low: 2000, high: 3000 };
 const ECOSALT_SALT = { low: 4000, high: 5000 };
 
 /**
