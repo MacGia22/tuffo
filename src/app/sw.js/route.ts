@@ -35,16 +35,18 @@ function pageKey(url) {
   return url.origin + url.pathname;
 }
 
-async function networkFirst(request, url) {
-  const cache = await caches.open(PAGES);
+// The page streams to the screen at once; its copy is kept in the background.
+async function networkFirst(event, request, url) {
   try {
     const response = await fetch(request);
     const html = (response.headers.get("content-type") || "").includes("text/html");
     if (response.ok && response.type === "basic" && !response.redirected && html) {
-      await cache.put(pageKey(url), response.clone());
+      const copy = response.clone();
+      event.waitUntil(caches.open(PAGES).then((cache) => cache.put(pageKey(url), copy)).catch(() => {}));
     }
     return response;
   } catch (error) {
+    const cache = await caches.open(PAGES);
     const copy = await cache.match(pageKey(url));
     if (copy) return copy;
     const offline = await caches.match(OFFLINE);
@@ -80,7 +82,7 @@ self.addEventListener("fetch", (event) => {
 
   const page = request.mode === "navigate" || request.headers.get("x-tuffo-warm") === "1";
   if (page && url.pathname.startsWith("/app") && !url.pathname.startsWith("/app/admin") && !url.searchParams.has("_rsc")) {
-    event.respondWith(networkFirst(request, url));
+    event.respondWith(networkFirst(event, request, url));
   }
 });
 `;
