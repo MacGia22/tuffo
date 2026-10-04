@@ -508,7 +508,10 @@ Pools created before September 30, 2026 are on the older 0.05° grid until the o
 tiles, loaded by the browser; named in `/privacy`) shows the grid around the town and the owner
 taps the square the pool is in, within 0.3° of the town; only the square's center is sent
 (`src/components/cell-map.tsx`, `src/components/place-picker.tsx`). North/South/West/East
-buttons move the square for keyboard users. Moving a pool fetches the new cell with
+buttons move the square for keyboard users. Search results list places in the visitor's
+country first (Vercel's `x-vercel-ip-country` header, read in the server action, used only
+for the order and never stored or logged), then US places, then the rest
+(`src/lib/weather/place-order.ts`). Moving a pool fetches the new cell with
 92 days of history (`backfill`), refits the model and plan, and stops refreshing the old
 cell if no pool uses it.
 
@@ -557,7 +560,10 @@ inputs live in the URL so a result can be shared:
 (plus `u=us|metric` when it differs from the place's default, and `ref` when the visitor came
 from a labelled link). Coordinates are always the 0.03° cell's center; a link with a finer
 point is redirected to its cell. Bad volume or CYA fall back to the defaults (15,000 gal /
-57,000 L, CYA 40) with a notice (`src/lib/forecast/params.ts`).
+57,000 L, CYA 40) with a notice (`src/lib/forecast/params.ts`). Before a place is picked, the
+form shows metric when the browser's time zone is in Australia or its language region is not
+the US; the new-pool form does the same when the profile has no units yet
+(`src/lib/browser-units.ts`, worked out in the browser, nothing sent).
 
 - Weather: a cell Tuffo already tracks is read from `weather_forecast`; any other is fetched
   from Open-Meteo (forecast only) and cached per cell for 3 hours with `unstable_cache`.
