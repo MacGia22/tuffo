@@ -1,14 +1,16 @@
 import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/session";
-import { safeNextPath } from "@/lib/auth/redirects";
+import { needsSession, safeNextPath } from "@/lib/auth/redirects";
 import { refToCount } from "@/lib/ref-visits";
 import { countRefVisit } from "@/lib/ref-visits-store";
 
 /**
- * Session refresh plus optimistic access checks. Signed-out visitors asking for the
- * app are sent to sign in (and back afterwards); signed-in visitors skip the sign-in
- * page. Pages still verify the user themselves before touching data. A page load from
- * a ?ref= link adds one to that label's count for the day, after the response.
+ * Session refresh plus optimistic access checks, for the app, sign-in and auth paths
+ * only: public pages (and their prefetches) skip the call to Supabase Auth. Signed-out
+ * visitors asking for the app are sent to sign in (and back afterwards); signed-in
+ * visitors skip the sign-in page. Pages still verify the user themselves before
+ * touching data. On every path, a page load from a ?ref= link adds one to that label's
+ * count for the day, after the response.
  */
 export async function proxy(request: NextRequest, event: NextFetchEvent) {
   const { pathname, search, searchParams } = request.nextUrl;
@@ -28,6 +30,8 @@ export async function proxy(request: NextRequest, event: NextFetchEvent) {
     callback.search = search;
     return NextResponse.redirect(callback);
   }
+
+  if (!needsSession(pathname)) return NextResponse.next({ request });
 
   const { response, user } = await updateSession(request);
 
