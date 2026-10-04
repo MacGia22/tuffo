@@ -79,3 +79,32 @@ describe("mapPumpScan", () => {
     expect(mapPumpScan({})).toEqual({ rows: [], unit: "rpm", confidence: "low", notes: null, cutOff: false });
   });
 });
+
+describe("mapPumpScan, Australian panels", () => {
+  it("keeps L/min, percent and numbered speeds, picking the unit most runs use", () => {
+    const lpm = mapPumpScan({
+      runs: [
+        { start: "8:00", end: "12:00", speed: 140, speed_unit: "lpm" },
+        { start: "12:00", end: "14:00", speed: 60, speed_unit: "lpm" },
+      ],
+      confidence: "high",
+    });
+    expect(lpm.unit).toBe("lpm");
+    expect(lpm.rows.map((r) => [r.speed, r.cell])).toEqual([[140, true], [60, false]]);
+
+    const levels = mapPumpScan({
+      runs: [
+        { start: "9:00 AM", end: "1:00 PM", speed: 3, speed_unit: "level" },
+        { start: "1:00 PM", end: "3:00 PM", speed: 1, speed_unit: "level" },
+      ],
+      confidence: "medium",
+    });
+    expect(levels.unit).toBe("level");
+    // No flow to guess from: the cell stays on for the person to check.
+    expect(levels.rows.map((r) => [r.speed, r.cell])).toEqual([[3, true], [1, true]]);
+
+    const pct = mapPumpScan({ runs: [{ start: "07:00", end: "15:00", speed: 140, speed_unit: "pct" }], confidence: "high" });
+    // Over 100% is not a speed.
+    expect(pct.rows[0].speed).toBeNull();
+  });
+});

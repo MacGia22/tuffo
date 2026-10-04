@@ -5,7 +5,7 @@ import { PoolCrumbs } from "@/components/pool-crumbs";
 import { serverEnv } from "@/lib/env";
 import { formatDay } from "@/lib/format";
 import { isUuid } from "@/lib/form-data";
-import type { PumpSegment } from "@/lib/pump";
+import { speedText, type PumpSegment } from "@/lib/pump";
 import { monthlyUsed, resetLabel, scanLimits } from "@/lib/scan/quota";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { pumpScheduleUnit } from "@/lib/equipment";
@@ -26,12 +26,13 @@ export default async function PumpPage({ params, searchParams }: PageProps<"/app
   if (!isUuid(id)) notFound();
 
   const supabase = await createSupabaseServerClient();
-  const [{ data: pool }, { data: schedules }, { data: pump }] = await Promise.all([
+  const [{ data: pool }, { data: profile }, { data: schedules }, { data: pump }] = await Promise.all([
     supabase
       .from("pools")
       .select("id, name, timezone")
       .eq("id", id)
       .maybeSingle<{ id: string; name: string; timezone: string | null }>(),
+    supabase.from("profiles").select("units").maybeSingle<{ units: "us" | "metric" }>(),
     supabase
       .from("pump_schedules")
       .select("id, effective_from, segments, cell_hours")
@@ -80,7 +81,7 @@ export default async function PumpPage({ params, searchParams }: PageProps<"/app
         current={history[0]?.segments ?? null}
         scanEnabled={scanEnabled}
         allowance={allowance}
-        defaultUnit={pumpScheduleUnit(pump?.details) ?? "rpm"}
+        defaultUnit={pumpScheduleUnit(pump?.details, profile?.units ?? "us") ?? "rpm"}
       />
       {history.length > 0 ? (
         <section aria-labelledby="pump-history" className="flex flex-col gap-2">
@@ -92,7 +93,7 @@ export default async function PumpPage({ params, searchParams }: PageProps<"/app
               <li key={s.id}>
                 From {formatDay(s.effective_from, tz)}: cell {Number(s.cell_hours)} h a day (
                 {s.segments
-                  .map((seg) => `${seg.start}–${seg.end}${seg.speed ? ` at ${seg.speed} ${seg.unit === "gpm" ? "GPM" : "RPM"}` : ""}${seg.cell ? "" : ", cell off"}`)
+                  .map((seg) => `${seg.start}–${seg.end}${seg.speed ? ` at ${speedText(seg.speed, seg.unit)}` : ""}${seg.cell ? "" : ", cell off"}`)
                   .join("; ")})
               </li>
             ))}

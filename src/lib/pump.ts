@@ -14,16 +14,76 @@ export interface PumpSegment {
   unit?: SpeedUnit;
 }
 
-/** Variable-speed pumps are set by speed (RPM) or by flow (gallons per minute). */
-export type SpeedUnit = "rpm" | "gpm";
+/**
+ * How a pump's runs are set, as its own control shows them: speed in RPM, flow in US
+ * gallons or litres per minute, speed in percent, or a numbered speed (1, 2, 3…; many
+ * Australian pumps). Stored with each run as entered; for reference and the cell guess only.
+ */
+export type SpeedUnit = "rpm" | "gpm" | "lpm" | "pct" | "level";
+
+export interface SpeedUnitInfo {
+  value: SpeedUnit;
+  /** In "The pump is set by …". */
+  label: string;
+  /** The field's label. */
+  field: string;
+  placeholder: string;
+  max: number;
+  integer: boolean;
+  /** Below this, many salt cells see too little flow and stay off; null: no guess. */
+  low: number | null;
+  /** The allowed range, for the error message. */
+  range: string;
+}
+
+export const SPEED_UNITS: SpeedUnitInfo[] = [
+  { value: "rpm", label: "speed (RPM)", field: "Speed (RPM, optional)", placeholder: "2400", max: 5000, integer: true, low: 1500, range: "speed is 0 to 5,000 RPM" },
+  { value: "gpm", label: "flow (GPM)", field: "Flow (GPM, optional)", placeholder: "35", max: 200, integer: false, low: 20, range: "flow is 0 to 200 GPM" },
+  // 20 GPM is about 75 L/min.
+  { value: "lpm", label: "flow (L/min)", field: "Flow (L/min, optional)", placeholder: "130", max: 760, integer: false, low: 75, range: "flow is 0 to 760 L/min" },
+  { value: "pct", label: "speed (%)", field: "Speed (%, optional)", placeholder: "60", max: 100, integer: false, low: null, range: "speed is 0 to 100%" },
+  { value: "level", label: "speed number (1, 2, 3…)", field: "Speed number (optional)", placeholder: "3", max: 20, integer: true, low: null, range: "the speed number is a whole number up to 20" },
+];
+
+export function speedUnitInfo(unit: SpeedUnit): SpeedUnitInfo {
+  return SPEED_UNITS.find((u) => u.value === unit) ?? SPEED_UNITS[0];
+}
+
+export function isSpeedUnit(value: unknown): value is SpeedUnit {
+  return SPEED_UNITS.some((u) => u.value === value);
+}
 
 /** Below these, many salt cells see too little flow and stay off; only a first guess. */
 export const LOW_RPM = 1500;
 export const LOW_GPM = 20;
 
+/** Percent and numbered speeds give no flow to guess from: the cell is assumed on. */
 export function cellLikelyOn(speed: number | null, unit: SpeedUnit): boolean {
-  if (speed === null) return true;
-  return unit === "gpm" ? speed >= LOW_GPM : speed >= LOW_RPM;
+  const low = speedUnitInfo(unit).low;
+  if (speed === null || low === null) return true;
+  return speed >= low;
+}
+
+/** "2400 RPM", "35 GPM", "130 L/min", "60%", "speed 3". */
+export function speedText(speed: number, unit: SpeedUnit | undefined): string {
+  switch (unit) {
+    case "gpm":
+      return `${speed} GPM`;
+    case "lpm":
+      return `${speed} L/min`;
+    case "pct":
+      return `${speed}%`;
+    case "level":
+      return `speed ${speed}`;
+    default:
+      return `${speed} RPM`;
+  }
+}
+
+/** "Runs under 1,500 RPM", for the note under a scan; null when no speed rule applies. */
+export function lowRunsText(unit: SpeedUnit): string | null {
+  const low = speedUnitInfo(unit).low;
+  return low === null ? null : `Runs under ${speedText(low, unit).replace(/^1500 /, "1,500 ")}`;
 }
 
 function minutes(hhmm: string): number | null {
@@ -71,7 +131,9 @@ export type ScheduleResult = { ok: true; segments: PumpSegment[]; cellHours: num
  * i = 0…23. Empty rows are skipped.
  */
 export function scheduleFromForm(get: (name: string) => string | null): ScheduleResult {
-  const unit: SpeedUnit = get("speed_unit") === "gpm" ? "gpm" : "rpm";
+  const given = get("speed_unit");
+  const unit: SpeedUnit = isSpeedUnit(given) ? given : "rpm";
+  const info = speedUnitInfo(unit);
   const segments: PumpSegment[] = [];
   for (let i = 0; i < MAX_RUNS; i += 1) {
     const start = (get(`start_${i}`) ?? "").trim();
@@ -81,11 +143,8 @@ export function scheduleFromForm(get: (name: string) => string | null): Schedule
     const speedText = (get(`speed_${i}`) ?? "").trim().replace(",", ".");
     const speed = speedText ? Number(speedText) : null;
     if (speed !== null) {
-      const ok =
-        unit === "rpm"
-          ? Number.isInteger(speed) && speed >= 0 && speed <= 5000
-          : Number.isFinite(speed) && speed >= 0 && speed <= 200;
-      if (!ok) return { ok: false, error: `Run ${i + 1}: ${unit === "rpm" ? "speed is 0 to 5,000 RPM" : "flow is 0 to 200 GPM"}.` };
+      const ok = Number.isFinite(speed) && speed >= 0 && speed <= info.max && (!info.integer || Number.isInteger(speed));
+      if (!ok) return { ok: false, error: `Run ${i + 1}: ${info.range}.` };
     }
     segments.push({ start, end, cell: get(`cell_${i}`) === "on", speed: speed === null ? null : Math.round(speed * 10) / 10, unit });
   }

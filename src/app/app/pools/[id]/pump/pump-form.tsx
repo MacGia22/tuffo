@@ -5,7 +5,7 @@ import { CancelLink, ReturnTo } from "@/components/form-cancel";
 import { useActionState, useState } from "react";
 import { savePumpSchedule, type PumpState } from "../actions";
 import { ScanButton, type ScanAllowance, type ScanResponse } from "@/components/scan-button";
-import { cellHoursPerDay, LOW_GPM, LOW_RPM, MAX_RUNS, type PumpSegment, type SpeedUnit } from "@/lib/pump";
+import { cellHoursPerDay, lowRunsText, MAX_RUNS, SPEED_UNITS, speedUnitInfo, type PumpSegment, type SpeedUnit } from "@/lib/pump";
 
 const initial: PumpState = {};
 const field = "h-11 rounded-xl border border-border-input bg-surface px-2 text-base text-foreground outline-none focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
@@ -41,7 +41,7 @@ export function PumpForm({
   current: PumpSegment[] | null;
   scanEnabled: boolean;
   allowance: ScanAllowance | null;
-  /** From the pump in the pool's settings: GPM for pumps usually set by flow. */
+  /** From the pump in the pool's settings (and the pool's units): how its runs are usually set. */
   defaultUnit?: SpeedUnit;
 }) {
   const [state, action, pending] = useActionState(savePumpSchedule, initial);
@@ -72,10 +72,11 @@ export function PumpForm({
     });
     if (result.unit) setUnit(result.unit);
     setSource("screenshot");
+    const low = lowRunsText(result.unit ?? unit);
     setScanNote(
       `${result.confidence === "low" ? "Read with low confidence: check every time." : "Read from your screenshot: check the times."}${
         result.notes ? ` ${result.notes}` : ""
-      } Runs under ${(result.unit ?? unit) === "gpm" ? `${LOW_GPM} GPM` : `${LOW_RPM.toLocaleString("en-US")} RPM`} are marked without the cell; check your cell's minimum flow and change that if it runs lower.`,
+      }${low ? ` ${low} are marked without the cell; check your cell's minimum flow and change that if it runs lower.` : " Check that the salt cell is on for each run where it makes chlorine."}`,
     );
   }
 
@@ -112,15 +113,16 @@ export function PumpForm({
       <input type="hidden" name="speed_unit" value={unit} />
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-1 text-sm font-semibold">Runs in a day</legend>
-        <div className="flex items-center gap-2 text-sm">
+        <label className="flex flex-wrap items-center gap-2 text-sm">
           <span className="text-muted">The pump is set by</span>
-          {(["rpm", "gpm"] as const).map((u) => (
-            <label key={u} className="flex items-center gap-1.5">
-              <input type="radio" name="unit_choice" checked={unit === u} onChange={() => setUnit(u)} className="accent-lagoon" />
-              {u === "rpm" ? "speed (RPM)" : "flow (GPM)"}
-            </label>
-          ))}
-        </div>
+          <select value={unit} onChange={(e) => setUnit(e.target.value as SpeedUnit)} className={`${field} px-3`}>
+            {SPEED_UNITS.map((u) => (
+              <option key={u.value} value={u.value}>
+                {u.label}
+              </option>
+            ))}
+          </select>
+        </label>
         {rows.map((r, i) => (
           <div key={r.key} className="flex flex-wrap items-end gap-2">
             <label className="flex flex-col gap-1 text-xs text-muted">
@@ -132,13 +134,13 @@ export function PumpForm({
               <input type="time" name={`end_${i}`} value={r.end} onChange={(e) => set(r.key, { end: e.target.value })} className={field} />
             </label>
             <label className="flex flex-col gap-1 text-xs text-muted">
-              {unit === "rpm" ? "Speed (RPM, optional)" : "Flow (GPM, optional)"}
+              {speedUnitInfo(unit).field}
               <input
                 name={`speed_${i}`}
-                inputMode="decimal"
+                inputMode={speedUnitInfo(unit).integer ? "numeric" : "decimal"}
                 value={r.speed}
-                onChange={(e) => set(r.key, { speed: e.target.value.replace(unit === "rpm" ? /[^0-9]/g : /[^0-9.]/g, "") })}
-                placeholder={unit === "rpm" ? "2400" : "35"}
+                onChange={(e) => set(r.key, { speed: e.target.value.replace(speedUnitInfo(unit).integer ? /[^0-9]/g : /[^0-9.,]/g, "") })}
+                placeholder={speedUnitInfo(unit).placeholder}
                 className={`${field} w-24`}
               />
             </label>

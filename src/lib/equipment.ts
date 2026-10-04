@@ -8,6 +8,7 @@
  */
 
 import { displayVolumeToLiters, type Units } from "@/lib/format";
+import { isSpeedUnit, type SpeedUnit } from "@/lib/pump";
 
 export const EQUIPMENT_KINDS = ["pump", "feeder", "filter", "heater"] as const;
 export type EquipmentKind = (typeof EQUIPMENT_KINDS)[number];
@@ -35,8 +36,11 @@ export interface PumpModel {
   id: string;
   name: string;
   speed: PumpSpeed;
-  /** How its schedule is usually set: speed (RPM), or flow (GPM) on pumps that can. */
-  unit: "rpm" | "gpm";
+  /**
+   * How its schedule is usually set on its own control: speed (RPM), flow (GPM; L/min on
+   * metric pools), speed in percent, or a numbered speed.
+   */
+  unit: SpeedUnit;
 }
 
 /** Common residential pumps. Anything else: "Another pump" with its name typed in. */
@@ -56,6 +60,31 @@ export const PUMP_MODELS: PumpModel[] = [
   { id: "hayward-maxflo-xl", name: "Hayward MaxFlo XL", speed: "single", unit: "rpm" },
   { id: "jandy-vs-flopro", name: "Jandy VS FloPro", speed: "variable", unit: "rpm" },
   { id: "jandy-epump", name: "Jandy ePump", speed: "variable", unit: "rpm" },
+  // Australian pumps, from the makers' manuals and pages. Their presets (Low/Medium/High,
+  // Eco/Clean/Boost) are set in RPM; the Davey ProMaster's dial is numbered 1 to 10.
+  // https://daveywater.com/wp-content/uploads/2022/11/Pool_ProMaster_IOI.pdf ("Speed 1 being the slowest and speed 10 being the fastest")
+  { id: "davey-promaster-pm200bt", name: "Davey ProMaster PM200BT", speed: "variable", unit: "level" },
+  { id: "davey-promaster-pm400bt", name: "Davey ProMaster PM400BT", speed: "variable", unit: "level" },
+  // https://daveywater.com/wp-content/uploads/2022/11/Pool_PowerMasterEco_IOI.pdf (Eco 1500 / Mid 2400 / High 2850 RPM)
+  { id: "davey-powermaster-eco", name: "Davey PowerMaster ECO", speed: "variable", unit: "rpm" },
+  // https://daveywater.com/au/product/powermaster/ ("single speed"), https://daveywater.com/au/product/silensor/
+  { id: "davey-powermaster", name: "Davey PowerMaster", speed: "single", unit: "rpm" },
+  { id: "davey-silensor", name: "Davey Silensor", speed: "single", unit: "rpm" },
+  // https://www.waterco.com.au/waterco/manuals/pool-spa/pumps/ (ECO-V 100 and 150 instruction sheets, Sept 2022: presets in 25 RPM steps, RPM on the display)
+  { id: "waterco-hydrostorm-eco-v-100", name: "Waterco Hydrostorm ECO-V 100", speed: "variable", unit: "rpm" },
+  { id: "waterco-hydrostorm-eco-v-150", name: "Waterco Hydrostorm ECO-V 150", speed: "variable", unit: "rpm" },
+  // https://www.waterco.com.au/waterco/brochures/pool-spa/pumps/high-performance-pump-zzb1285-2018.pdf (2860 RPM)
+  { id: "waterco-hydrostorm-plus", name: "Waterco Hydrostorm Plus", speed: "single", unit: "rpm" },
+  // https://s3-ap-southeast-2.amazonaws.com/astralpools-au/manuals/H0717700_REVA_Viron_XT_Installation.pdf ("settings per 25 rpm step", RPM on the LCD)
+  { id: "astralpool-viron-p320-xt", name: "AstralPool Viron P320 XT", speed: "variable", unit: "rpm" },
+  { id: "astralpool-viron-p520-xt", name: "AstralPool Viron P520 XT", speed: "variable", unit: "rpm" },
+  // https://astralpools-au-2.s3.ap-southeast-2.amazonaws.com/Products/XP_Pump/Pumps%20Installation%20Manual%20-%20H0717800_REVB.PDF ("Operation at 2850 rpm")
+  { id: "astralpool-e-series", name: "AstralPool E-Series", speed: "single", unit: "rpm" },
+  { id: "astralpool-ctx", name: "AstralPool CTX-Series", speed: "single", unit: "rpm" },
+  // https://s3-ap-southeast-2.amazonaws.com/zodiac-au/resources/Zodiac_FloPro_E3_Manual_H0394700_REVD.PDF (Eco 1400 / Clean 2150 / Boost 2850 RPM, 50 RPM steps)
+  { id: "zodiac-flopro-e3", name: "Zodiac FloPro E3", speed: "variable", unit: "rpm" },
+  // https://www.zodiac.com.au/products/pool-pumps/single-speed/flopro-ss-pool-pump (listed under single speed)
+  { id: "zodiac-flopro-ss", name: "Zodiac FloPro SS", speed: "single", unit: "rpm" },
 ];
 
 export type FeederType = "floater" | "inline" | "liquid" | "controller";
@@ -85,7 +114,7 @@ export const HEATER_TYPES: { value: HeaterType; label: string }[] = [
 ];
 
 export type EquipmentDetails =
-  | { speed: PumpSpeed; catalog: string | null }
+  | { speed: PumpSpeed; catalog: string | null; unit?: SpeedUnit }
   | { type: FeederType; setting: string | null }
   | { type: FilterType }
   | { type: HeaterType; inUse: boolean };
@@ -115,7 +144,13 @@ export function equipmentFromForm(kind: EquipmentKind, get: (name: string) => st
     if (choice !== "other") return { ok: false, error: "Pick your pump, or choose “Another pump”.", field: "catalog" };
     const speed = pick(PUMP_SPEEDS, get("speed"));
     if (!speed) return { ok: false, error: "Pick the pump's speed type.", field: "speed" };
-    return { ok: true, kind, model: clean(get("model"), MODEL_MAX), details: { speed, catalog: null } };
+    const unit = get("unit");
+    return {
+      ok: true,
+      kind,
+      model: clean(get("model"), MODEL_MAX),
+      details: { speed, catalog: null, ...(isSpeedUnit(unit) ? { unit } : {}) },
+    };
   }
   if (kind === "feeder") {
     const type = pick(FEEDER_TYPES, get("type"));
@@ -153,10 +188,14 @@ export function describeEquipment(kind: EquipmentKind, model: string | null, det
   return parts.filter(Boolean).join(", ") || KIND_LABELS[kind];
 }
 
-/** The schedule unit a pump is usually set in (GPM for Pentair VSF pumps), or null. */
-export function pumpScheduleUnit(details: unknown): "rpm" | "gpm" | null {
-  const catalog = (details as { catalog?: unknown } | null)?.catalog;
-  return PUMP_MODELS.find((p) => p.id === catalog)?.unit ?? null;
+/**
+ * The schedule unit a pump is usually set in (GPM for Pentair VSF pumps), or null. A flow
+ * pump on a metric pool is set in L/min.
+ */
+export function pumpScheduleUnit(details: unknown, units: Units = "us"): SpeedUnit | null {
+  const d = (details ?? {}) as { catalog?: unknown; unit?: unknown };
+  const unit = PUMP_MODELS.find((p) => p.id === d.catalog)?.unit ?? (isSpeedUnit(d.unit) ? d.unit : null);
+  return unit === "gpm" && units === "metric" ? "lpm" : unit;
 }
 
 export const SURFACES = [

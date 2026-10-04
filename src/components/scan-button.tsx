@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import type { SpeedUnit } from "@/lib/pump";
 
 export interface ScanResponse {
   ok: boolean;
@@ -13,8 +14,8 @@ export interface ScanResponse {
   uncertain?: string[];
   notes?: string | null;
   /** Pump-schedule scans: the runs read. */
-  rows?: Array<{ start: string; end: string; speed: number | null; unit: "rpm" | "gpm"; cell: boolean }>;
-  unit?: "rpm" | "gpm";
+  rows?: Array<{ start: string; end: string; speed: number | null; unit: SpeedUnit; cell: boolean }>;
+  unit?: SpeedUnit;
   cutOff?: boolean;
   /** Scans left this month after this one; null when not counted. */
   remaining?: number | null;

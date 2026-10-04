@@ -261,7 +261,9 @@ label them; US pools keep muriatic acid 31.45% and baking soda (`acidFor`, `prod
 What the cell makes depends on its setting and on how long water flows through it, so
 both are recorded over time: a cell setting is an event ("Salt cell set to 50%", with an
 "I set it" link next to the plan's suggestion), and the pump schedule
-(`/app/pools/[id]/pump`) is a list of runs with times, the pump's speed (RPM) or flow (GPM), and whether the
+(`/app/pools/[id]/pump`) is a list of runs with times, the pump's setting as its own control shows it
+(speed in RPM, flow in GPM or L/min, speed in percent, or a numbered speed such as the Davey
+ProMaster's 1–10 dial; `SPEED_UNITS` in `src/lib/pump.ts`, kept with each run), and whether the
 cell runs during each, typed or read from a screenshot of the pump's app or panel
 (`POST /api/scan/pump`, one scan of the allowance). Between two tests the model counts
 rated output × setting × cell hours ÷ 24 for the settings and schedules in force
@@ -357,7 +359,13 @@ so each item has one edit place. An install date can be a day or "Not sure: abou
 ago" (`installDateFrom`). A card warns when the upkeep log has entries before the item's
 install date and no earlier item of that kind covered them (`installConflicts`). The pump's
 running hours come from the pump schedules, like the cell's (`pumpHoursPerDay`).
-The pump schedule page starts in GPM for pumps usually set by flow (Pentair VSF).
+The pump schedule page starts in the unit the pump is set in: GPM for pumps set by flow
+(Pentair VSF; L/min on metric pools), a numbered speed for the Davey ProMaster, RPM for the
+rest, or the unit chosen for "Another pump". The catalog lists common US pumps and Australian
+ones (AstralPool Viron XT, E-Series, CTX; Davey ProMaster, PowerMaster ECO, PowerMaster,
+Silensor; Waterco Hydrostorm ECO-V and Plus; Zodiac FloPro E3 and SS), each with its maker
+source in `src/lib/equipment.ts`. With percent or numbered speeds there is no flow to guess
+from, so every run starts with the salt cell on for the owner to check.
 Feeders are recorded only; counting them in the chlorine model is a later step.
 
 ## Maintenance

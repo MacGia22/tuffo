@@ -21,6 +21,7 @@ import {
 import { ENCLOSURES, suggestedSunPct, type EnclosureKind } from "@/lib/enclosure";
 import type { Units } from "@/lib/format";
 import type { Tone } from "@/lib/maintenance";
+import { SPEED_UNITS } from "@/lib/pump";
 import {
   deletePool,
   removeEquipment,
@@ -256,6 +257,16 @@ function KindFields({ kind, current }: { kind: EquipmentKind; current: CurrentIt
                 {PUMP_SPEEDS.map((s) => (
                   <option key={s.value} value={s.value}>
                     {s.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={label}>
+              Its runs are set by
+              <select name="unit" defaultValue={str(d.unit) || "rpm"} className={field}>
+                {SPEED_UNITS.map((u) => (
+                  <option key={u.value} value={u.value}>
+                    {u.label}
                   </option>
                 ))}
               </select>
