@@ -5,6 +5,8 @@ import { CancelLink, ReturnTo } from "@/components/form-cancel";
 import { useActionState, useState } from "react";
 import { savePumpSchedule, type PumpState } from "../actions";
 import { ScanButton, type ScanAllowance, type ScanResponse } from "@/components/scan-button";
+import { MisreadReport } from "@/components/misread-report";
+import { pumpChanges, pumpRuns, type PumpRead } from "@/lib/scan/report";
 import { cellHoursPerDay, lowRunsText, MAX_RUNS, SPEED_UNITS, speedUnitInfo, type PumpSegment, type SpeedUnit } from "@/lib/pump";
 
 const initial: PumpState = {};
@@ -53,23 +55,29 @@ export function PumpForm({
   const [source, setSource] = useState<"manual" | "screenshot">("manual");
   const [unit, setUnit] = useState<SpeedUnit>(current?.find((s) => s.unit)?.unit ?? defaultUnit);
   const [scanNote, setScanNote] = useState<string | null>(null);
+  // What the scans put in the form, and the last screenshot (in memory only), for "Report a misread".
+  const [scanned, setScanned] = useState<{ read: PumpRead; photo: Blob; count: number } | null>(null);
 
   const hours = cellHoursPerDay(rows.filter((r) => r.start && r.end).map((r) => ({ start: r.start, end: r.end, cell: r.cell })));
   const set = (key: number, patch: Partial<Row>) => setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
 
-  function applyScan(result: ScanResponse) {
+  function applyScan(result: ScanResponse, photo: Blob) {
     const read = result.rows ?? [];
     if (read.length === 0) {
       setScanNote(result.notes ?? "No runs could be read. Type them below.");
       return;
     }
-    const scanned = read.map((r) => row({ start: r.start, end: r.end, speed: r.speed ? String(r.speed) : "", cell: r.cell }));
+    const fresh = read.map((r) => row({ start: r.start, end: r.end, speed: r.speed ? String(r.speed) : "", cell: r.cell }));
     // A second screenshot (a list that went past the screen) adds its runs to the first.
-    setRows((rs) => {
-      if (source !== "screenshot") return scanned;
-      const seen = new Set(rs.map((r) => `${r.start}-${r.end}`));
-      return [...rs, ...scanned.filter((r) => !seen.has(`${r.start}-${r.end}`))].slice(0, MAX_RUNS);
-    });
+    const seen = new Set(rows.map((r) => `${r.start}-${r.end}`));
+    const next = source !== "screenshot" ? fresh : [...rows, ...fresh.filter((r) => !seen.has(`${r.start}-${r.end}`))].slice(0, MAX_RUNS);
+    setRows(next);
+    const readUnit = result.unit ?? unit;
+    setScanned((s) => ({
+      read: { rows: pumpRuns(next), unit: readUnit, confidence: result.confidence ?? null },
+      photo,
+      count: (s?.count ?? 0) + 1,
+    }));
     if (result.unit) setUnit(result.unit);
     setSource("screenshot");
     const low = lowRunsText(result.unit ?? unit);
@@ -106,6 +114,15 @@ export function PumpForm({
             <p role="status" className="rounded-xl bg-ice/20 px-3 py-2 text-sm">
               {scanNote}
             </p>
+          ) : null}
+          {scanned ? (
+            <MisreadReport
+              key={scanned.count}
+              kind="pump"
+              read={{ ...scanned.read }}
+              changes={pumpChanges(scanned.read, { rows: pumpRuns(rows), unit })}
+              photo={scanned.photo}
+            />
           ) : null}
         </div>
       ) : null}

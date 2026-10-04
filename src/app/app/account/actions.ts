@@ -7,6 +7,7 @@ import { isUuid } from "@/lib/form-data";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { failed } from "@/lib/errors";
+import { deleteUserReportFiles, removeReportPhotos } from "@/lib/scan/report-store";
 
 export interface AccountState {
   message?: string;
@@ -25,8 +26,9 @@ export async function updateUnits(_prev: AccountState, formData: FormData): Prom
 
 /**
  * Deletes the account and everything under it. Pools (with their readings, doses,
- * events and 7-day plans), scans and feedback cascade from auth.users; the profile row too, and any waitlist entry for the same
- * address is removed. The confirmation word is checked
+ * events and 7-day plans), scans, scan reports and feedback cascade from auth.users; the profile row too, and any waitlist entry for the same
+ * address is removed. Shared scan photos do not cascade: they are removed from storage
+ * first (and tried again after, if that failed). The confirmation word is checked
  * server-side so a stray click cannot do it.
  */
 export async function deleteAccount(_prev: AccountState, formData: FormData): Promise<AccountState> {
@@ -35,8 +37,12 @@ export async function deleteAccount(_prev: AccountState, formData: FormData): Pr
     return { error: "Type DELETE to confirm." };
   }
   const admin = createSupabaseAdminClient();
+  const filesGone = await deleteUserReportFiles(admin, user.id);
   const { error } = await admin.auth.admin.deleteUser(user.id);
   if (error) return { error: failed("account delete", error.message, "Couldn't delete the account. Try again in a minute, or write to privacy@tuffo.app.") };
+  if (!filesGone && !(await deleteUserReportFiles(admin, user.id))) {
+    console.error("[account] shared scan photos left in storage after account delete; remove the user's folder in scan-reports");
+  }
   if (user.email) {
     const { error: waitlistError } = await admin.from("waitlist").delete().eq("email", user.email.toLowerCase());
     if (waitlistError) console.error(`[account] waitlist cleanup: ${waitlistError.message}`);
@@ -78,4 +84,35 @@ export async function saveAlertSettings(_prev: AlertState, formData: FormData): 
   revalidatePath("/app/account");
   const any = on("algae") || on("test_reminder") || on("weekly") || on("maintenance");
   return { message: any ? "Saved. Emails come from hello@tuffo.app, at most one a day." : "Saved. No alert emails for this pool." };
+}
+
+export interface PhotoState {
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Deletes one shared scan photo, or all of them ("all"), from storage and clears the
+ * report's photo; the text report stays. The person's own client finds the rows (row-
+ * level security limits it to theirs); the service client removes the files.
+ */
+export async function deleteScanPhotos(_prev: PhotoState, formData: FormData): Promise<PhotoState> {
+  await requireUser("/app/account");
+  const id = String(formData.get("id") ?? "");
+  const all = id === "all";
+  if (!all && !isUuid(id)) return { error: "Unknown photo." };
+
+  const supabase = await createSupabaseServerClient();
+  let query = supabase.from("scan_reports").select("id, photo_path").not("photo_path", "is", null);
+  if (!all) query = query.eq("id", id);
+  const { data, error } = await query.returns<{ id: string; photo_path: string | null }[]>();
+  if (error) return { error: failed("scan photos", error.message) };
+  if (!data || data.length === 0) {
+    revalidatePath("/app/account");
+    return { message: "Already deleted." };
+  }
+  const removed = await removeReportPhotos(createSupabaseAdminClient(), data);
+  if (removed === null) return { error: "Couldn't delete the photo. Try again in a minute, or write to privacy@tuffo.app." };
+  revalidatePath("/app/account");
+  return { message: removed === 1 ? "Photo deleted." : `${removed} photos deleted.` };
 }

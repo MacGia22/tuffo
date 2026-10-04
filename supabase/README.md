@@ -65,7 +65,7 @@ What `rls.sql` proves, with two users A and B who own one pool each:
 - every table in `public` has row-level security on, and `anon` holds no privilege on
   any of them (checked from the catalog, so new tables are covered automatically);
 - a signed-out visitor cannot read any table;
-- A sees only A's own profile, pools, readings, doses, events, scans and feedback, and
+- A sees only A's own profile, pools, readings, doses, events, scans, scan reports and feedback, and
   cannot read, update, delete, create or move rows into B's; A can edit A's own
   readings, doses and events in place, and an unfiltered update touches only those;
 - a device id (`client_id`) can be stored only once;
@@ -77,6 +77,8 @@ What `rls.sql` proves, with two users A and B who own one pool each:
   message in 24 hours is refused; feedback goes when the account is deleted;
 - users cannot write `scans`, read or write `pool_models` or the `waitlist`, or write
   weather;
+- A reads and deletes only A's own scan reports, cannot write or change any, a stored
+  photo without consent is refused, and reports go when the account is deleted;
 - users cannot read `ref_visits` or call `count_ref_visit` / `users_with_tests`; the
   server counts visits per label and day, ignores malformed labels and keeps at most 200
   labels a day;
@@ -100,6 +102,14 @@ migration must survive a second run.
 - `scans` is written only by the server (the photo-scan route); users can read their
   own rows, which is how the app shows the scans left this month. Rows older than a
   year are deleted by the nightly job.
+- `scan_reports` (misread reports) is written only by the server (`/api/scan-report`,
+  the admin page); users read and delete their own rows, never insert or update. A row
+  with `photo_path` must carry `photo_consent_at`, `consent_version` and
+  `photo_delete_after` (check constraint). The photo itself is in the private Storage
+  bucket `scan-reports` (created by the migration, no storage policies: only the service
+  key reads or writes it). Rows cascade from `auth.users`; files do not, so account
+  deletion removes the `{user_id}/` folder in code. The alerts job deletes photos past
+  `photo_delete_after`.
 - `waitlist` has no policies and no user grants: only the server writes it (the
   waitlist route, the admin invite page). A row is deleted when the person is invited,
   asks to be removed, or deletes an account with the same address.

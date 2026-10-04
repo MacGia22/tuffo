@@ -184,6 +184,31 @@ most 6 attempts per user in 10 minutes, and a daily total across everyone as a s
 backstop. If the table is missing or a count fails, scanning stays open. The hard cap
 is the monthly spend limit set in the Anthropic console.
 
+### Report a misread
+
+After a scan fills the test form or the pump schedule, "Read something wrong? Report it"
+opens an inline panel (`src/components/misread-report.tsx`). It lists each field changed
+since the scan ("pH: read 7.8, now 7.4"; `src/lib/scan/report.ts`), takes an optional
+note (500 characters) and, only when the person ticks the box, the photo: cropped on the
+device (`src/components/photo-crop.tsx`, four 44 px edge handles, arrow keys) and
+re-encoded as JPEG, at most 1,600 px and 2 MB. The scanned photo stays in browser memory
+until the form is saved or left. Sending never saves the test.
+
+`POST /api/scan-report` (multipart: `report` JSON, optional `photo`) is for signed-in
+users, at most 10 reports a day. It checks the JPEG magic bytes, uploads the photo to the
+private Storage bucket `scan-reports` at `{user_id}/{report_id}.jpg` and writes one
+`scan_reports` row with the model and reader version (`SCAN_PROMPT_VERSION` in
+`src/lib/scan/extract.ts`, `PUMP_PROMPT_VERSION` in `src/lib/scan/pump.ts`; bump them
+when a prompt changes) and the consent (`REPORT_CONSENT_VERSION`). Photos are shown only
+through 5-minute signed URLs made on the server.
+
+People see and delete their photos on the Account page (Shared scan photos; the text
+report stays); deleting the account removes their folder in the bucket as well. The
+admin page lists reports newest first (no email), with status, delete photo and "Read
+again", which runs the current reader on the photo without counting or storing it. The
+daily alerts job deletes photos past `photo_delete_after` (12 months). Shared photos are
+never committed to the repo or used in automated tests.
+
 ## Estimate since the last test
 
 `src/lib/model/estimate.ts` replays free chlorine from a test: each local day's predicted
@@ -529,7 +554,7 @@ When a batch request fails, each of its cells is tried on its own, so one bad an
 does not leave every cell stale; failures are logged as `[weather] nightly:` (and reach
 Sentry).
 It then refits every pool's chlorine model, rebuilds every 7-day plan and deletes photo-scan log rows older than a
-year. Trigger it by hand with
+year. The alerts job also deletes shared scan photos whose 12 months are up (production only). Trigger it by hand with
 `curl -H "Authorization: Bearer $CRON_SECRET" https://tuffo.app/api/jobs/weather`.
 
 Weather does not wait for the cron: creating a pool fetches its cell in the background

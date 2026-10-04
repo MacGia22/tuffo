@@ -9,7 +9,7 @@ export async function GET() {
   if (!user) return new Response("Sign in first.", { status: 401 });
 
   const supabase = await createSupabaseServerClient();
-  const [profile, pools, readings, doses, events, scans, feedback, plans, alertSettings, alertLog, pumpSchedules, poolRain, poolEquipment, poolMaintenance, poolPressure] = await Promise.all([
+  const [profile, pools, readings, doses, events, scans, feedback, plans, alertSettings, alertLog, pumpSchedules, poolRain, poolEquipment, poolMaintenance, poolPressure, scanReports] = await Promise.all([
     supabase.from("profiles").select("display_name, locale, units, consent_marketing_at, created_at").maybeSingle(),
     supabase.from("pools").select("*").order("created_at"),
     supabase.from("readings").select("*").order("taken_at"),
@@ -30,6 +30,11 @@ export async function GET() {
     supabase.from("pool_equipment").select("pool_id, kind, model, details, installed_on, removed_on").order("installed_on"),
     supabase.from("pool_maintenance").select("pool_id, task, done_on, created_at").order("done_on"),
     supabase.from("pool_pressure").select("pool_id, read_on, kpa, clean, created_at").order("read_on"),
+    // Misread reports: the numbers read, the corrections and the note; never the image bytes.
+    supabase
+      .from("scan_reports")
+      .select("id, created_at, kind, source, model, prompt_version, read, corrected, note, photo_path, photo_consent_at, consent_version, photo_delete_after, status")
+      .order("created_at"),
   ]);
 
   const body = {
@@ -56,6 +61,9 @@ export async function GET() {
     equipment: poolEquipment.data ?? [],
     maintenance_done: poolMaintenance.data ?? [],
     filter_pressure: poolPressure.data ?? [],
+    misread_reports: scanReports.data ?? [],
+    misread_reports_note:
+      "Photos you shared with a report are not in this file. Where photo_path is set, the photo is still stored: view or delete it on the Account page, under Shared scan photos.",
     units_note: "Volumes in liters, temperatures in °C, rain in millimeters, filter pressure in kPa, doses in grams or milliliters; locations are 0.03° weather cells (0.05° for pools not moved since September 2026).",
   };
 

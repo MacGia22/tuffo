@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <LegalPage title="Terms of use" updated="September 27, 2026">
+    <LegalPage title="Terms of use" updated="October 4, 2026">
       <p>
         These terms are the agreement between you and Tuffo&apos;s developer for using Tuffo at tuffo.app. By signing
         in, you accept them. If something here is unclear, ask at <a href="mailto:hello@tuffo.app">hello@tuffo.app</a>.
@@ -64,7 +64,8 @@ export default function TermsPage() {
       <h2>Photo scanning</h2>
       <p>
         Numbers read from a photo can be wrong. Check every number before you save the test. Scans have a monthly
-        allowance, shown under the scan button, because each one costs money to run.
+        allowance, shown under the scan button, because each one costs money to run. Photos you share when reporting a
+        misread are used only to improve the scan and are never published.
       </p>
 
       <h2>Your data</h2>

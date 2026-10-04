@@ -15,6 +15,17 @@ export type ScanMediaType = (typeof SCAN_MEDIA_TYPES)[number];
 
 const DEFAULT_MODEL = "claude-sonnet-4-6";
 
+/**
+ * Which version of the reader (the tool schema and INSTRUCTIONS below) read a photo,
+ * stored with each misread report. Bump it whenever either changes.
+ */
+export const SCAN_PROMPT_VERSION = "test-1";
+
+/** The vision model photo scans use: SCAN_MODEL, else the default. */
+export function scanModel(): string {
+  return serverEnv.scanModel() ?? DEFAULT_MODEL;
+}
+
 const TOOL = {
   name: "record_water_test",
   description: "Record the water test results visible in the photo.",
@@ -76,7 +87,7 @@ export async function extractReading(image: { bytes: Buffer; mediaType: ScanMedi
   if (!apiKey) throw new Error("scan-not-configured");
 
   const client = new Anthropic({ apiKey, maxRetries: 1, timeout: 45_000 });
-  const model = serverEnv.scanModel() ?? DEFAULT_MODEL;
+  const model = scanModel();
 
   const response = await client.messages.create({
     model,
