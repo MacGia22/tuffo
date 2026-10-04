@@ -26,6 +26,7 @@ export function PlacePicker({
   label = "Town or ZIP code",
   primaryFind = false,
   note,
+  onPlace,
 }: {
   find: (query: string) => Promise<{ places: Place[]; error?: string }>;
   initialQuery?: string;
@@ -38,6 +39,8 @@ export function PlacePicker({
   primaryFind?: boolean;
   /** Shown under the field (the forecast box's privacy line). */
   note?: ReactNode;
+  /** Told about the town picked (the new-pool form sets units from its country). */
+  onPlace?: (place: Place) => void;
 }) {
   const [query, setQuery] = useState(initialQuery);
   const [places, setPlaces] = useState<Place[]>([]);
@@ -50,6 +53,7 @@ export function PlacePicker({
   function setPlace(p: Place) {
     setPlaceState(p);
     setCell(cellFor(p.lat, p.lon));
+    onPlace?.(p);
     onPick?.(p, cellFor(p.lat, p.lon));
   }
 

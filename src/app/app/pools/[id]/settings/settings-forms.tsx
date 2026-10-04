@@ -22,6 +22,8 @@ import { ENCLOSURES, suggestedSunPct, type EnclosureKind } from "@/lib/enclosure
 import type { Units } from "@/lib/format";
 import type { Tone } from "@/lib/maintenance";
 import { SPEED_UNITS } from "@/lib/pump";
+import { groupByRegion } from "@/lib/region";
+import { useRegion } from "@/components/region-context";
 import {
   deletePool,
   removeEquipment,
@@ -221,6 +223,7 @@ function KindFields({ kind, current }: { kind: EquipmentKind; current: CurrentIt
   const d = current?.details ?? {};
   const listed = kind === "pump" ? PUMP_MODELS.find((p) => p.id === d.catalog) : undefined;
   const [catalog, setCatalog] = useState(listed?.id ?? (current ? "other" : ""));
+  const region = useRegion();
 
   if (kind === "pump") {
     return (
@@ -231,11 +234,20 @@ function KindFields({ kind, current }: { kind: EquipmentKind; current: CurrentIt
             <option value="" disabled>
               Choose…
             </option>
-            {PUMP_MODELS.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
+            {groupByRegion(PUMP_MODELS, region).map((group) => {
+              const options = group.items.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ));
+              return group.label ? (
+                <optgroup key={group.label} label={group.label}>
+                  {options}
+                </optgroup>
+              ) : (
+                options
+              );
+            })}
             <option value="other">Another pump</option>
           </select>
         </label>

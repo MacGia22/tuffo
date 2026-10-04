@@ -5,6 +5,7 @@ import { CancelLink } from "@/components/form-cancel";
 import { useActionState, useState } from "react";
 import { PlacePicker } from "@/components/place-picker";
 import { useBrowserUnits } from "@/components/use-browser-units";
+import { unitsForCountry } from "@/lib/browser-units";
 import type { Units } from "@/lib/format";
 import type { PoolPrefill } from "@/lib/forecast/prefill";
 import { createPool, findPlaces, type CreatePoolState } from "./actions";
@@ -20,9 +21,12 @@ export function PoolForm({ defaultUnits, prefill = null }: { defaultUnits: Units
   const [state, action, pending] = useActionState(createPool, initial);
   const f = state.fields ?? prefill?.fields ?? {};
 
+  // Units: what the person picks, else (the profile's, else) the pool's country once a town
+  // is picked, else the browser's.
   const browserUnits = useBrowserUnits();
   const [picked, setUnits] = useState<Units | null>((f.units as Units) || defaultUnits);
-  const units = picked ?? browserUnits;
+  const [placeUnits, setPlaceUnits] = useState<Units | null>(null);
+  const units = picked ?? placeUnits ?? browserUnits;
 
   return (
     <form action={action} className="flex max-w-xl flex-col gap-6">
@@ -36,6 +40,25 @@ export function PoolForm({ defaultUnits, prefill = null }: { defaultUnits: Units
         </p>
       ) : null}
       <input type="hidden" name="units" value={units} />
+
+      <fieldset className="flex flex-col gap-3 rounded-2xl border border-border p-4">
+        <legend className="px-1 text-sm font-semibold">Where the pool is</legend>
+        <p className="text-xs text-muted">
+          Type a ZIP or postal code, or a town (&ldquo;St. Petersburg, FL&rdquo;). Tuffo keeps only a 3 km (2 mile) weather
+          cell and the town name; no address is asked for or stored, and nothing finer would be used anyway.
+        </p>
+        <PlacePicker
+          find={findPlaces}
+          onPlace={(place) => setPlaceUnits(unitsForCountry(place.country))}
+          initialQuery={f.query ?? ""}
+          initialPlace={
+            f.lat && f.lon && f.timezone && f.place_label
+              ? { label: f.place_label, lat: Number(f.lat), lon: Number(f.lon), timezone: f.timezone, country: "" }
+              : null
+          }
+        />
+      </fieldset>
+
       <div className="flex flex-col gap-2">
         <label htmlFor="name" className={label}>
           Pool name
@@ -99,22 +122,6 @@ export function PoolForm({ defaultUnits, prefill = null }: { defaultUnits: Units
         Usually covered when not in use
       </label>
 
-      <fieldset className="flex flex-col gap-3 rounded-2xl border border-border p-4">
-        <legend className="px-1 text-sm font-semibold">Location for weather</legend>
-        <p className="text-xs text-muted">
-          Type a ZIP or postal code, or a town (&ldquo;St. Petersburg, FL&rdquo;). Tuffo keeps only a 3 km (2 mile) weather
-          cell and the town name; no address is asked for or stored, and nothing finer would be used anyway.
-        </p>
-        <PlacePicker
-          find={findPlaces}
-          initialQuery={f.query ?? ""}
-          initialPlace={
-            f.lat && f.lon && f.timezone && f.place_label
-              ? { label: f.place_label, lat: Number(f.lat), lon: Number(f.lon), timezone: f.timezone, country: "" }
-              : null
-          }
-        />
-      </fieldset>
 
       {state.error ? (
         <p role="alert" className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">

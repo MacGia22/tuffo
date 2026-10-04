@@ -7,7 +7,9 @@ import { ChlorineUse } from "@/components/chlorine-use";
 import { ChevronDownIcon, GearIcon, PlusIcon } from "@/components/icons";
 import { MenuButton } from "@/components/log-menu";
 import { HealthRow } from "@/components/maintenance-visuals";
+import { RegionProvider } from "@/components/region-context";
 import { SaltCellForm } from "@/components/salt-cell-form";
+import { regionForTimeZone } from "@/lib/region";
 import { SetupChecklist } from "@/components/setup-checklist";
 import { TestHistory } from "@/components/test-history";
 import { NextSevenDays, TestStatusCard, TrendsLink, WhatToDoNow } from "@/components/today-sections";
@@ -341,6 +343,7 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
       {latest || pool.cell_id ? <TrendsLink href={`${base}/trends`} /> : null}
 
       {swg ? (
+        <RegionProvider region={regionForTimeZone(pool.timezone)}>
         <section id="salt-cell" aria-labelledby="salt-cell-title" className="flex flex-col gap-2 rounded-2xl border border-border bg-surface p-4 text-sm">
           <h2 id="salt-cell-title" className="text-lg font-semibold">
             Salt cell
@@ -390,6 +393,7 @@ export default async function PoolPage({ params }: PageProps<"/app/pools/[id]">)
             salt={poolSaltTarget(pool)}
           />
         </section>
+        </RegionProvider>
       ) : null}
 
       <HealthRow items={health} href={`${base}/maintenance#life`} />

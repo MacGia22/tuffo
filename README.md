@@ -601,6 +601,11 @@ point is redirected to its cell. Bad volume or CYA fall back to the defaults (15
 form shows metric when the browser's time zone is in Australia or its language region is not
 the US; the new-pool form does the same when the profile has no units yet
 (`src/lib/browser-units.ts`, worked out in the browser, nothing sent).
+The new-pool form asks where the pool is first. Picking the town sets the units from its country
+(`unitsForCountry`) unless the profile already has units or the person picked them. The cell and
+pump pickers list the pool's region first ("Common in Australia", then "Other models";
+`groupByRegion` in `src/lib/region.ts`), from the pool's time zone, or the visitor's IP country
+before a location is set. Nothing new is stored.
 
 - Weather: a cell Tuffo already tracks is read from `weather_forecast`; any other is fetched
   from Open-Meteo (forecast only) and cached per cell for 3 hours with `unstable_cache`.

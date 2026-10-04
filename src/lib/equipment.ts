@@ -9,6 +9,7 @@
 
 import { displayVolumeToLiters, type Units } from "@/lib/format";
 import { isSpeedUnit, type SpeedUnit } from "@/lib/pump";
+import type { Region } from "@/lib/region";
 
 export const EQUIPMENT_KINDS = ["pump", "feeder", "filter", "heater"] as const;
 export type EquipmentKind = (typeof EQUIPMENT_KINDS)[number];
@@ -41,6 +42,8 @@ export interface PumpModel {
    * metric pools), speed in percent, or a numbered speed.
    */
   unit: SpeedUnit;
+  /** Where it is sold, for the picker's order; absent: the US. */
+  region?: Region;
 }
 
 /** Common residential pumps. Anything else: "Another pump" with its name typed in. */
@@ -63,28 +66,28 @@ export const PUMP_MODELS: PumpModel[] = [
   // Australian pumps, from the makers' manuals and pages. Their presets (Low/Medium/High,
   // Eco/Clean/Boost) are set in RPM; the Davey ProMaster's dial is numbered 1 to 10.
   // https://daveywater.com/wp-content/uploads/2022/11/Pool_ProMaster_IOI.pdf ("Speed 1 being the slowest and speed 10 being the fastest")
-  { id: "davey-promaster-pm200bt", name: "Davey ProMaster PM200BT", speed: "variable", unit: "level" },
-  { id: "davey-promaster-pm400bt", name: "Davey ProMaster PM400BT", speed: "variable", unit: "level" },
+  { id: "davey-promaster-pm200bt", name: "Davey ProMaster PM200BT", speed: "variable", unit: "level", region: "AU" },
+  { id: "davey-promaster-pm400bt", name: "Davey ProMaster PM400BT", speed: "variable", unit: "level", region: "AU" },
   // https://daveywater.com/wp-content/uploads/2022/11/Pool_PowerMasterEco_IOI.pdf (Eco 1500 / Mid 2400 / High 2850 RPM)
-  { id: "davey-powermaster-eco", name: "Davey PowerMaster ECO", speed: "variable", unit: "rpm" },
+  { id: "davey-powermaster-eco", name: "Davey PowerMaster ECO", speed: "variable", unit: "rpm", region: "AU" },
   // https://daveywater.com/au/product/powermaster/ ("single speed"), https://daveywater.com/au/product/silensor/
-  { id: "davey-powermaster", name: "Davey PowerMaster", speed: "single", unit: "rpm" },
-  { id: "davey-silensor", name: "Davey Silensor", speed: "single", unit: "rpm" },
+  { id: "davey-powermaster", name: "Davey PowerMaster", speed: "single", unit: "rpm", region: "AU" },
+  { id: "davey-silensor", name: "Davey Silensor", speed: "single", unit: "rpm", region: "AU" },
   // https://www.waterco.com.au/waterco/manuals/pool-spa/pumps/ (ECO-V 100 and 150 instruction sheets, Sept 2022: presets in 25 RPM steps, RPM on the display)
-  { id: "waterco-hydrostorm-eco-v-100", name: "Waterco Hydrostorm ECO-V 100", speed: "variable", unit: "rpm" },
-  { id: "waterco-hydrostorm-eco-v-150", name: "Waterco Hydrostorm ECO-V 150", speed: "variable", unit: "rpm" },
+  { id: "waterco-hydrostorm-eco-v-100", name: "Waterco Hydrostorm ECO-V 100", speed: "variable", unit: "rpm", region: "AU" },
+  { id: "waterco-hydrostorm-eco-v-150", name: "Waterco Hydrostorm ECO-V 150", speed: "variable", unit: "rpm", region: "AU" },
   // https://www.waterco.com.au/waterco/brochures/pool-spa/pumps/high-performance-pump-zzb1285-2018.pdf (2860 RPM)
-  { id: "waterco-hydrostorm-plus", name: "Waterco Hydrostorm Plus", speed: "single", unit: "rpm" },
+  { id: "waterco-hydrostorm-plus", name: "Waterco Hydrostorm Plus", speed: "single", unit: "rpm", region: "AU" },
   // https://s3-ap-southeast-2.amazonaws.com/astralpools-au/manuals/H0717700_REVA_Viron_XT_Installation.pdf ("settings per 25 rpm step", RPM on the LCD)
-  { id: "astralpool-viron-p320-xt", name: "AstralPool Viron P320 XT", speed: "variable", unit: "rpm" },
-  { id: "astralpool-viron-p520-xt", name: "AstralPool Viron P520 XT", speed: "variable", unit: "rpm" },
+  { id: "astralpool-viron-p320-xt", name: "AstralPool Viron P320 XT", speed: "variable", unit: "rpm", region: "AU" },
+  { id: "astralpool-viron-p520-xt", name: "AstralPool Viron P520 XT", speed: "variable", unit: "rpm", region: "AU" },
   // https://astralpools-au-2.s3.ap-southeast-2.amazonaws.com/Products/XP_Pump/Pumps%20Installation%20Manual%20-%20H0717800_REVB.PDF ("Operation at 2850 rpm")
-  { id: "astralpool-e-series", name: "AstralPool E-Series", speed: "single", unit: "rpm" },
-  { id: "astralpool-ctx", name: "AstralPool CTX-Series", speed: "single", unit: "rpm" },
+  { id: "astralpool-e-series", name: "AstralPool E-Series", speed: "single", unit: "rpm", region: "AU" },
+  { id: "astralpool-ctx", name: "AstralPool CTX-Series", speed: "single", unit: "rpm", region: "AU" },
   // https://s3-ap-southeast-2.amazonaws.com/zodiac-au/resources/Zodiac_FloPro_E3_Manual_H0394700_REVD.PDF (Eco 1400 / Clean 2150 / Boost 2850 RPM, 50 RPM steps)
-  { id: "zodiac-flopro-e3", name: "Zodiac FloPro E3", speed: "variable", unit: "rpm" },
+  { id: "zodiac-flopro-e3", name: "Zodiac FloPro E3", speed: "variable", unit: "rpm", region: "AU" },
   // https://www.zodiac.com.au/products/pool-pumps/single-speed/flopro-ss-pool-pump (listed under single speed)
-  { id: "zodiac-flopro-ss", name: "Zodiac FloPro SS", speed: "single", unit: "rpm" },
+  { id: "zodiac-flopro-ss", name: "Zodiac FloPro SS", speed: "single", unit: "rpm", region: "AU" },
 ];
 
 export type FeederType = "floater" | "inline" | "liquid" | "controller";

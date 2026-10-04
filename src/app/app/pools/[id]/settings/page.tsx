@@ -12,6 +12,10 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { cellLevelCount, cellRatedHours, DEFAULT_SALT_TARGET_PPM, poolSaltTarget, saltTargetText } from "@/lib/salt-cells";
 import { AddEquipmentRow, BasicsForm, CellCard, DeletePoolForm, EnclosureForm, EquipmentCard, type CardFacts } from "./settings-forms";
 import { isEnclosureKind } from "@/lib/enclosure";
+import { headers } from "next/headers";
+import { RegionProvider } from "@/components/region-context";
+import { regionForCountry, regionForTimeZone } from "@/lib/region";
+import { visitorCountry } from "@/lib/weather/place-order";
 
 export const metadata: Metadata = { title: "Pool settings" };
 
@@ -30,6 +34,7 @@ interface PoolRow {
   salt_target_low_ppm?: number | null;
   salt_target_high_ppm?: number | null;
   swg_cell_levels?: number | null;
+  timezone?: string | null;
 }
 
 export interface EquipmentRow {
@@ -144,6 +149,9 @@ export default async function PoolSettingsPage({ params, searchParams }: PagePro
   };
   const missing = EQUIPMENT_KINDS.filter((kind) => !current.some((c) => c.kind === kind));
   const cellLb = pool.swg_cell_lb_per_day === null ? null : Number(pool.swg_cell_lb_per_day);
+  // The pool's region lists its own makers first; before a location, the visitor's country.
+  const region =
+    regionForTimeZone(pool.timezone) ?? regionForCountry(visitorCountry((await headers()).get("x-vercel-ip-country")));
   // The pool's own salt range, as typed in the cell form (not the listed cell's or the usual one).
   const ownSalt =
     pool.salt_target_low_ppm != null && pool.salt_target_high_ppm != null
@@ -226,6 +234,7 @@ export default async function PoolSettingsPage({ params, searchParams }: PagePro
         </p>
       </section>
 
+      <RegionProvider region={region}>
       <section aria-labelledby="equipment" className="flex flex-col gap-4">
         <h2 id="equipment" className="text-xl font-semibold">
           Equipment
@@ -272,6 +281,7 @@ export default async function PoolSettingsPage({ params, searchParams }: PagePro
         ))}
         <AddEquipmentRow poolId={pool.id} kinds={missing} />
       </section>
+      </RegionProvider>
 
       {isNew ? (
         <Link

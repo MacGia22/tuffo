@@ -134,6 +134,9 @@ The public launch (end of milestone 3) happens when all of these hold:
 - AU7 pumps — done 2026-10-04 (#82): pump runs set in RPM, GPM, L/min, percent or a
   numbered speed (form, validation, photo scan); flow pumps in L/min on metric pools;
   Australian pumps in the catalog from the makers' manuals.
+- AU8 — done 2026-10-04 (#83): the new-pool form starts with the town, which sets the units
+  from its country; cell and pump pickers list the pool's region first (from its time zone,
+  or the visitor's IP country).
 
 ## Milestone 3: forecast and premium = public launch (target 2026-11-13)
 
