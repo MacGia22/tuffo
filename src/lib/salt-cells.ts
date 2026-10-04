@@ -5,6 +5,8 @@
  * the rating from the cell's label or manual.
  */
 
+import type { Region } from "@/lib/region";
+
 // Kept here, not imported from the engine: the cell picker runs in the browser.
 const GRAMS_PER_POUND = 453.59237;
 
@@ -29,6 +31,8 @@ export interface SaltCell {
   gPerHour?: number;
   /** The control is set in levels 1 to this many (wording "level 5 of 8"); `levels` holds their percents. */
   levelCount?: number;
+  /** Where it is sold, for the picker's order; absent: the US. */
+  region?: Region;
 }
 
 /** Pentair IntelliChlor power center: 20% steps above 10% (finer only through automation). */
@@ -74,6 +78,7 @@ const astral = (id: string, name: string, g: number, salt: { low: number; high: 
   lbPerDay: fromGramsPerHour(g),
   gPerHour: g,
   saltPpm: salt,
+  region: "AU",
   ...(levels ? { levels: EIGHT_LEVELS, levelCount: 8 } : {}),
 });
 
@@ -84,6 +89,7 @@ const perHour = (id: string, name: string, g: number, salt: { low: number; high:
   lbPerDay: fromGramsPerHour(g),
   gPerHour: g,
   saltPpm: salt,
+  region: "AU",
   ...(levels ? { levels } : {}),
 });
 

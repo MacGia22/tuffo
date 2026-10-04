@@ -4,6 +4,8 @@ import { useActionState, useState } from "react";
 import { saveSaltCell, type CellState } from "@/app/app/pools/[id]/actions";
 import { DEFAULT_SALT_TEXT, MAX_CELL_LEVELS, MIN_CELL_LEVELS, OUTPUT_UNITS, SALT_CELLS, saltTargetText } from "@/lib/salt-cells";
 import { InstallDateField } from "@/components/install-date-field";
+import { useRegion } from "@/components/region-context";
+import { groupByRegion } from "@/lib/region";
 
 const initial: CellState = {};
 const field = "h-11 rounded-xl border border-border-input bg-surface px-3 text-base text-foreground outline-none focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
@@ -37,6 +39,8 @@ export function CellForm({
   onCancel?: () => void;
 }) {
   const [state, action, pending] = useActionState(saveSaltCell, initial);
+  // The pool's region lists its own makers first ("Common in Australia").
+  const region = useRegion();
   const fresh = mode === "replace";
   const listed = fresh ? undefined : SALT_CELLS.find((c) => c.name === current.model);
   const start = fresh ? "" : (listed?.id ?? (current.lbPerDay ? "other" : ""));
@@ -56,11 +60,20 @@ export function CellForm({
             <option value="" disabled>
               Choose…
             </option>
-            {SALT_CELLS.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} ({c.gPerHour ? `${c.gPerHour} g/h` : `${c.lbPerDay} lb/day`})
-              </option>
-            ))}
+            {groupByRegion(SALT_CELLS, region).map((group) => {
+              const options = group.items.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.gPerHour ? `${c.gPerHour} g/h` : `${c.lbPerDay} lb/day`})
+                </option>
+              ));
+              return group.label ? (
+                <optgroup key={group.label} label={group.label}>
+                  {options}
+                </optgroup>
+              ) : (
+                options
+              );
+            })}
             <option value="other">Another cell: enter its rated output</option>
           </select>
         </label>

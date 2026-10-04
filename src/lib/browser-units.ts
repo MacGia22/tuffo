@@ -12,3 +12,10 @@ export function unitsForBrowser({ timeZone, language }: { timeZone?: string | nu
   if (region && /^[A-Za-z]{2}$/.test(region) && region.toUpperCase() !== "US") return "metric";
   return "us";
 }
+
+/** Units for a pool in this country (two letters): US units in the US (and Liberia, Myanmar), metric elsewhere. */
+export function unitsForCountry(code: string | null | undefined): Units | null {
+  const c = (code ?? "").toUpperCase();
+  if (!/^[A-Z]{2}$/.test(c)) return null;
+  return c === "US" || c === "LR" || c === "MM" ? "us" : "metric";
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { unitsForBrowser } from "../browser-units";
+import { unitsForBrowser, unitsForCountry } from "../browser-units";
 
 describe("unitsForBrowser", () => {
   it("uses metric in an Australian time zone, whatever the language", () => {
@@ -19,5 +19,15 @@ describe("unitsForBrowser", () => {
     expect(unitsForBrowser({})).toBe("us");
     // A script subtag is not a region.
     expect(unitsForBrowser({ timeZone: "America/Los_Angeles", language: "zh-Hant" })).toBe("us");
+  });
+});
+
+describe("unitsForCountry", () => {
+  it("uses US units in the US, metric elsewhere, nothing for an unknown country", () => {
+    expect(unitsForCountry("US")).toBe("us");
+    expect(unitsForCountry("AU")).toBe("metric");
+    expect(unitsForCountry("gb")).toBe("metric");
+    expect(unitsForCountry("")).toBeNull();
+    expect(unitsForCountry(undefined)).toBeNull();
   });
 });
