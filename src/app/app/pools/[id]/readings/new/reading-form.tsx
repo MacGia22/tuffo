@@ -7,9 +7,11 @@ import { CancelLink, ReturnTo } from "@/components/form-cancel";
 import { useActionState, useState } from "react";
 import { QueuedNotice, useOfflineLog } from "@/components/offline-log";
 import { ScanButton, type ScanAllowance, type ScanResponse } from "@/components/scan-button";
+import { MisreadReport } from "@/components/misread-report";
 import { READING_METHODS, type Units } from "@/lib/format";
 import { rangeHint, type HintField } from "@/lib/reading-hints";
 import { scanTakenAt } from "@/lib/scan/map";
+import { testChanges, type TestRead } from "@/lib/scan/report";
 import { EditFields, type EditTarget } from "@/components/edit-fields";
 import { saveReading, type LogState as ReadingState } from "../../actions";
 
@@ -74,6 +76,8 @@ export function ReadingForm({
   const more = swg ? [CH, BORATE, PHOSPHATE] : [CH, SALT, BORATE, PHOSPHATE];
   const [showMore, setShowMore] = useState(more.some((m) => Boolean(f[m.name])));
   const [scan, setScan] = useState<ScanResponse | null>(null);
+  // The last scan's photo, in memory only until the form is saved or left, for "Report a misread".
+  const [scanPhoto, setScanPhoto] = useState<{ blob: Blob; count: number } | null>(null);
 
   const set = (name: string, value: string) => setValues((v) => ({ ...v, [name]: value }));
   // Range hints show once a field is left (or the form sent, or a value arrived filled in),
@@ -82,7 +86,18 @@ export function ReadingForm({
   const check = (name: string) => setChecked((c) => (c.has(name) ? c : new Set(c).add(name)));
   const uncertain = new Set(scan?.uncertain ?? []);
 
-  function applyScan(result: ScanResponse) {
+  const scanRead: TestRead | null = scan
+    ? {
+        fields: scan.fields ?? {},
+        waterTempC: scan.waterTempC ?? null,
+        method: scan.method ?? null,
+        testDate: scan.testDate ?? null,
+        confidence: scan.confidence ?? null,
+        uncertain: scan.uncertain ?? [],
+      }
+    : null;
+
+  function applyScan(result: ScanResponse, photo: Blob) {
     const next: Values = { ...values };
     for (const [name, value] of Object.entries(result.fields ?? {})) next[name] = String(value);
     if (typeof result.waterTempC === "number") {
@@ -96,6 +111,7 @@ export function ReadingForm({
     if (more.some((m) => result.fields?.[m.name] !== undefined)) setShowMore(true);
     setValues(next);
     setScan(result);
+    setScanPhoto((p) => ({ blob: photo, count: (p?.count ?? 0) + 1 }));
     setChecked((c) => new Set([...c, ...Object.keys(result.fields ?? {})]));
   }
 
@@ -189,7 +205,7 @@ export function ReadingForm({
               </summary>
               <p className="mt-1 max-w-sm">
                 Photograph the pool store&apos;s printout, a test strip beside its chart, or a tester screen. The
-                numbers land in the form for you to check; the photo is read once and not kept.
+                numbers land in the form for you to check; the photo is read once and not kept, unless you choose to share it in a misread report.
               </p>
             </details>
           </div>
@@ -206,6 +222,16 @@ export function ReadingForm({
               {uncertain.size > 0 ? " Highlighted fields were hard to read." : ""}
               {scan.notes ? ` ${scan.notes}` : ""}
             </p>
+          ) : null}
+          {scan && scanRead ? (
+            <MisreadReport
+              key={scanPhoto?.count ?? 0}
+              kind="test"
+              source={scan.source}
+              read={{ ...scanRead }}
+              changes={testChanges(scanRead, values, units)}
+              photo={scanPhoto?.blob ?? null}
+            />
           ) : null}
         </div>
       ) : null}

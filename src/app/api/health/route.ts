@@ -146,6 +146,7 @@ const TABLES = [
   "pool_maintenance",
   "pool_pressure",
   "ref_visits",
+  "scan_reports",
 ];
 
 /** A cell whose actuals are older than this is late: the nightly job runs every 24 hours. */
@@ -193,6 +194,16 @@ async function weatherFreshness(): Promise<{
   }
 }
 
+/** Whether the private bucket for shared scan photos exists (yes/no only). */
+async function reportBucketPresent(): Promise<boolean | null> {
+  try {
+    const { data, error } = await createSupabaseAdminClient().storage.getBucket("scan-reports");
+    return !error && data?.public === false;
+  } catch {
+    return null;
+  }
+}
+
 /** Which tables exist, checked with the secret key (a GET for zero rows, so errors carry a body). */
 async function schemaPresent(): Promise<{ tables: Record<string, boolean>; error: string | null } | null> {
   try {
@@ -226,8 +237,8 @@ export async function GET() {
     ]);
   }
   const reachable = auth === null ? null : auth === 200;
-  const [schema, weather] =
-    reachable && secretKey ? await Promise.all([schemaPresent(), weatherFreshness()]) : [null, null];
+  const [schema, weather, reportBucket] =
+    reachable && secretKey ? await Promise.all([schemaPresent(), weatherFreshness(), reportBucketPresent()]) : [null, null, null];
 
   return Response.json({
     ok: true,
@@ -255,5 +266,6 @@ export async function GET() {
     feedback: schema?.tables.feedback === true,
     admins: Boolean(serverEnv.adminEmails()),
     alerts: Boolean(serverEnv.resendApiKey()),
+    scanReportBucket: reportBucket,
   });
 }

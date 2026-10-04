@@ -65,6 +65,18 @@ export default function PrivacyPage() {
         one log line per scan: the time, whether it worked, the kind of test, how sure the model was and how much
         processing it used. That log is what counts your monthly scans.
       </p>
+      <h3>Reporting a misread</h3>
+      <p>
+        After a scan you can report numbers it read wrong. Tuffo then keeps what the scan read, the corrections you made,
+        your note if you write one, when you sent it and which version of the reader was used. The photo is kept only if
+        you tick the box to share it, for that report; you can crop it on your device first, and only the cropped part is
+        sent. Reports are used only to improve photo reading. Only Tuffo&apos;s developer sees them; they are stored with
+        Supabase in the United States, and are never published or sold. To test a fix, a shared photo may be sent to
+        Anthropic&apos;s AI model again. Shared photos are deleted 12 months after you share them; the text of a report is
+        kept until you delete it or your account. Delete a photo any time on your{" "}
+        <Link href="/app/account#scan-photos">Account</Link> page, under <strong>Shared scan photos</strong>, or write to
+        privacy@tuffo.app.
+      </p>
       <h3>Feedback</h3>
       <p>
         When you send feedback from the app, Tuffo keeps your message, the kind you picked (idea, problem, question or
@@ -147,6 +159,10 @@ export default function PrivacyPage() {
           with the link in each email or on your account page.
         </li>
         <li>
+          To improve photo reading from the misread reports you send. Legal basis: your consent for a shared photo, which
+          you can withdraw by deleting it; legitimate interest for the text of the report.
+        </li>
+        <li>
           To keep the service secure and affordable, for example by limiting photo scans. Legal basis: legitimate
           interest.
         </li>
@@ -168,8 +184,8 @@ export default function PrivacyPage() {
       </p>
       <ul>
         <li>
-          <strong>Supabase</strong> runs the database and the sign-in system. Data is stored in the United States (US
-          East).
+          <strong>Supabase</strong> runs the database, the sign-in system and the storage for files you choose to share
+          (photos sent with a misread report). Data is stored in the United States (US East).
         </li>
         <li>
           <strong>Vercel</strong> hosts the website and the app, in the United States.
@@ -180,7 +196,8 @@ export default function PrivacyPage() {
         </li>
         <li>
           <strong>Anthropic</strong> reads the numbers in photos you choose to scan, in the United States. Under
-          Anthropic&apos;s commercial terms, the photo is not used to train its models and is deleted within 30 days.
+          Anthropic&apos;s commercial terms, the photo is not used to train its models and is deleted within 30 days. A
+          photo you share with a misread report may be read again to test a fix, under the same terms.
           Its AI model may also help summarize feedback messages, as described above, without your email address or
           account.
         </li>
@@ -229,13 +246,15 @@ export default function PrivacyPage() {
         <li>Feedback: until you delete your account.</li>
         <li>Alert choices: until you change them or delete the pool; the record of alerts sent: 90 days.</li>
         <li>The photo-scan log: 12 months.</li>
+        <li>Photos you share with a misread report: 12 months, or until you delete them.</li>
+        <li>The text of misread reports: until you delete it or your account.</li>
         <li>Error reports: 90 days at most.</li>
         <li>Waitlist emails: until you are invited, or until you ask to be removed.</li>
         <li>The providers&apos; technical logs: their own short periods, usually days to weeks.</li>
       </ul>
       <p>
         Deleting your account removes it from the live database at once, with every pool, test, dose, event, plan,
-        feedback message and scan log line. Copies in the database provider&apos;s backups expire on the provider&apos;s own schedule.
+        feedback message, scan log line, misread report and shared photo. Copies in the database provider&apos;s backups expire on the provider&apos;s own schedule.
       </p>
 
       <h2>Your rights</h2>

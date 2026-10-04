@@ -14,7 +14,12 @@ export interface ScanOutput {
 
 export type ReadingMethod = "drop_kit" | "strips" | "digital" | "store_leslies" | "store_pinch" | "monitor" | "other";
 
+export const SCAN_SOURCES = ["leslies", "pinch_a_penny", "other_store", "test_strip", "test_kit", "digital_tester", "unknown"] as const;
+export type ScanSource = (typeof SCAN_SOURCES)[number];
+
 export interface ScanResult {
+  /** Where the result comes from, as the model judged it (kept with a misread report). */
+  source: ScanSource;
   /** Field name → value, as the reading form names them; temperature in °C. */
   fields: Partial<Record<"fc" | "cc" | "ph" | "ta" | "ch" | "cya" | "salt" | "phosphate" | "borate" | "tds", number>>;
   waterTempC: number | null;
@@ -110,7 +115,10 @@ export function mapScan(output: ScanOutput, usage: ScanResult["usage"]): ScanRes
   const testDate = typeof output.test_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(output.test_date) ? output.test_date : null;
   const notes = typeof output.notes === "string" && output.notes.trim() ? output.notes.trim().slice(0, 300) : null;
 
+  const source = SCAN_SOURCES.find((s) => s === output.source) ?? "unknown";
+
   return {
+    source,
     fields,
     waterTempC,
     method: METHOD[output.source ?? "unknown"] ?? "other",

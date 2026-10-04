@@ -137,6 +137,11 @@ The public launch (end of milestone 3) happens when all of these hold:
 - AU8 — done 2026-10-04 (#83): the new-pool form starts with the town, which sets the units
   from its country; cell and pump pickers list the pool's region first (from its time zone,
   or the visitor's IP country).
+- Report a misread — 2026-10-04: after a scan (test form and pump schedule), "Read something
+  wrong? Report it" sends what was read against what the person corrected, an optional note
+  and, opt-in per report, a photo cropped on the device (private bucket `scan-reports`, 12
+  months, deletable on the Account page). Admin list with status and "Read again"; the
+  privacy notice and terms say so. This is also how Australian printout samples reach us.
 
 ## Milestone 3: forecast and premium = public launch (target 2026-11-13)
 

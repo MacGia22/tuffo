@@ -19,7 +19,10 @@ import {
   type FeedbackKind,
   type FeedbackStatus,
 } from "@/lib/feedback";
-import { deleteUserAccount, inviteEmail, removeFromWaitlist, setFeedbackStatus } from "./actions";
+import { deleteScanReportPhoto, deleteUserAccount, inviteEmail, removeFromWaitlist, setFeedbackStatus, setScanReportStatus } from "./actions";
+import { ReadAgain } from "./read-again";
+import { reportLines, type ReportKind } from "@/lib/scan/report";
+import { signedPhotoUrls } from "@/lib/scan/report-store";
 
 export const metadata: Metadata = { title: "Admin" };
 
@@ -35,7 +38,40 @@ const MESSAGES: Record<string, { text: string; error?: boolean }> = {
   "user-deleted": { text: "Account deleted, with its pools, logs and feedback." },
   "delete-blocked": { text: "Your own account and other admins' accounts cannot be deleted here.", error: true },
   "delete-failed": { text: "Could not delete the account. Check the server logs.", error: true },
+  "report-saved": { text: "Scan report status saved." },
+  "photo-deleted": { text: "Photo deleted; the text report stays." },
+  "report-failed": { text: "Could not change the scan report. Check the server logs.", error: true },
 };
+
+interface ScanReportRow {
+  id: string;
+  created_at: string;
+  kind: ReportKind;
+  source: string | null;
+  model: string | null;
+  prompt_version: string | null;
+  read: unknown;
+  corrected: unknown;
+  note: string | null;
+  photo_path: string | null;
+  status: "new" | "reviewed" | "fixed";
+}
+
+const REPORT_STATUS_LABELS: Record<ScanReportRow["status"], string> = { new: "New", reviewed: "Reviewed", fixed: "Fixed" };
+
+/** Misread reports, newest first, with 5-minute signed URLs for shared photos. No user or email. */
+async function loadScanReports() {
+  const admin = createSupabaseAdminClient();
+  const { data, count, error } = await admin
+    .from("scan_reports")
+    .select("id, created_at, kind, source, model, prompt_version, read, corrected, note, photo_path, status", { count: "exact" })
+    .order("created_at", { ascending: false })
+    .limit(100)
+    .returns<ScanReportRow[]>();
+  const rows = data ?? [];
+  const urls = await signedPhotoUrls(admin, rows.flatMap((r) => (r.photo_path ? [r.photo_path] : [])));
+  return { rows, count, error, urls };
+}
 
 interface FeedbackRow {
   id: string;
@@ -126,7 +162,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/app/admin"
   const filters = new URLSearchParams();
   if (kindFilter) filters.set("kind", kindFilter);
   if (statusFilter) filters.set("fstatus", statusFilter);
-  const [feedback, users] = await Promise.all([loadFeedback(kindFilter, statusFilter), loadUsers()]);
+  const [feedback, users, reports] = await Promise.all([loadFeedback(kindFilter, statusFilter), loadUsers(), loadScanReports()]);
   const funnel = await loadFunnel(users);
 
   const admin = createSupabaseAdminClient();
@@ -238,6 +274,101 @@ export default async function AdminPage({ searchParams }: PageProps<"/app/admin"
             ))}
           </ul>
         )}
+      </section>
+
+      <section id="scan-reports" aria-labelledby="scan-reports-title" className="flex flex-col gap-3">
+        <h2 id="scan-reports-title" className="text-xl font-semibold">
+          Scan reports{reports.count !== null && reports.count !== undefined ? ` (${reports.count})` : ""}
+        </h2>
+        {reports.error ? (
+          <p className="text-sm text-muted">Scan reports are not available yet ({reports.error.code ?? "error"}).</p>
+        ) : reports.rows.length === 0 ? (
+          <p className="text-sm text-muted">No misread reports yet.</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {reports.rows.map((r) => {
+              const url = r.photo_path ? reports.urls.get(r.photo_path) : undefined;
+              return (
+                <li key={r.id} className="flex flex-col gap-3 rounded-2xl border border-border p-4 sm:flex-row">
+                  {r.photo_path ? (
+                    url ? (
+                      <a href={url} target="_blank" rel="noreferrer" className="shrink-0 self-start">
+                        {/* A 5-minute signed URL from private storage. */}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={url} alt="Shared scan photo" className="h-28 w-28 rounded-lg object-cover" />
+                      </a>
+                    ) : (
+                      <span className="flex h-28 w-28 shrink-0 items-center justify-center rounded-lg bg-surface text-xs text-muted">
+                        Photo unavailable
+                      </span>
+                    )
+                  ) : null}
+                  <div className="flex min-w-0 flex-1 flex-col gap-2">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+                      <span className="font-semibold text-foreground">{r.kind === "pump" ? "Pump schedule" : "Water test"}</span>
+                      <span className="whitespace-nowrap">{formatDateTime(r.created_at, "UTC")} UTC</span>
+                      <span>{REPORT_STATUS_LABELS[r.status] ?? r.status}</span>
+                      {r.source ? <code>{r.source}</code> : null}
+                      {r.prompt_version ? <span>reader {r.prompt_version}</span> : null}
+                      {r.model ? <span>{r.model}</span> : null}
+                      {!r.photo_path ? <span>no photo</span> : null}
+                    </div>
+                    <ul className="text-sm">
+                      {reportLines(r.kind, r.read, r.corrected).map((l) => (
+                        <li key={l.label}>
+                          {l.label}: {l.read} → <strong>{l.corrected}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                    {r.note ? <p className="text-sm whitespace-pre-wrap break-words">&ldquo;{r.note}&rdquo;</p> : null}
+                    <div className="flex flex-wrap items-start gap-2">
+                      <form action={setScanReportStatus} className="flex items-center gap-2">
+                        <input type="hidden" name="id" value={r.id} />
+                        <label htmlFor={`report-status-${r.id}`} className="sr-only">
+                          Status
+                        </label>
+                        <select
+                          id={`report-status-${r.id}`}
+                          name="status"
+                          defaultValue={r.status}
+                          className="h-10 rounded-xl border border-border-input bg-background px-2 text-sm"
+                        >
+                          {(["new", "reviewed", "fixed"] as const).map((st) => (
+                            <option key={st} value={st}>
+                              {REPORT_STATUS_LABELS[st]}
+                            </option>
+                          ))}
+                        </select>
+                        <button type="submit" className="h-10 rounded-xl border border-border px-3 text-sm font-semibold hover:border-lagoon">
+                          Save
+                        </button>
+                      </form>
+                      {r.photo_path ? (
+                        <>
+                          <ReadAgain id={r.id} />
+                          <form action={deleteScanReportPhoto}>
+                            <input type="hidden" name="id" value={r.id} />
+                            <ConfirmButton
+                              question="Delete this shared photo? The text report stays."
+                              label="Delete photo"
+                              text="Delete photo"
+                              className="h-10 rounded-xl border border-border px-3 text-sm font-semibold text-red-700 hover:border-red-700 hover:bg-red-50 disabled:opacity-50 dark:text-red-300 dark:hover:bg-red-950/40"
+                            />
+                          </form>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <p className="text-xs text-muted">
+          Misread reports from photo scans: what the reader got, what the person changed it to, and the photo only when they
+          ticked the box. Photos are deleted 12 months after sharing. Read again runs the current reader on the photo; it
+          is not counted against anyone&apos;s scans and not stored.
+        </p>
       </section>
 
       <section id="users" aria-labelledby="users-title" className="flex flex-col gap-3">

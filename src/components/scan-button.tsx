@@ -6,6 +6,8 @@ import type { SpeedUnit } from "@/lib/pump";
 export interface ScanResponse {
   ok: boolean;
   error?: string;
+  /** Where the result comes from, as the reader judged it (leslies, test_strip…). */
+  source?: string;
   fields?: Record<string, number>;
   waterTempC?: number | null;
   method?: string;
@@ -59,7 +61,9 @@ export function ScanButton({
   label = "Scan a printout or strip",
   camera = true,
 }: {
-  onResult: (result: ScanResponse) => void;
+  /** The numbers read, and the photo as sent (downscaled and re-encoded as JPEG, which drops
+   * EXIF and GPS data), kept in memory for "Report a misread". */
+  onResult: (result: ScanResponse, photo: Blob) => void;
   disabled?: boolean;
   allowance?: ScanAllowance | null;
   /** Where the photo goes: test results by default, or the pump-schedule reader. */
@@ -89,7 +93,7 @@ export function ScanButton({
         setError(data.error ?? "Could not read that photo.");
         return;
       }
-      onResult(data);
+      onResult(data, blob);
     } catch {
       setError("Could not read that photo. Try again.");
     } finally {

@@ -2,7 +2,7 @@ import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
 import { serverEnv } from "@/lib/env";
-import type { ScanMediaType } from "./extract";
+import { scanModel, type ScanMediaType } from "./extract";
 import { mapPumpScan, type PumpScanOutput, type PumpScanResult } from "./pump-map";
 
 /**
@@ -11,7 +11,8 @@ import { mapPumpScan, type PumpScanOutput, type PumpScanResult } from "./pump-ma
  * for the length of the request and is never written anywhere by Tuffo.
  */
 
-const DEFAULT_MODEL = "claude-sonnet-4-6";
+/** Like SCAN_PROMPT_VERSION, for the pump-schedule reader. Bump it when TOOL or INSTRUCTIONS change. */
+export const PUMP_PROMPT_VERSION = "pump-1";
 
 const TOOL = {
   name: "record_pump_schedule",
@@ -69,7 +70,7 @@ export async function extractPumpSchedule(image: { bytes: Buffer; mediaType: Sca
   const apiKey = serverEnv.anthropicApiKey();
   if (!apiKey) throw new Error("scan-not-configured");
   const client = new Anthropic({ apiKey, maxRetries: 1, timeout: 45_000 });
-  const model = serverEnv.scanModel() ?? DEFAULT_MODEL;
+  const model = scanModel();
   const response = await client.messages.create({
     model,
     max_tokens: 1024,

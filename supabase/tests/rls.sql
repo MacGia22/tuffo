@@ -124,6 +124,13 @@ select rls_test.check(
 );
 
 select rls_test.check(
+  not has_table_privilege('authenticated', 'public.scan_reports', 'insert, update, truncate')
+    and has_table_privilege('authenticated', 'public.scan_reports', 'select')
+    and has_table_privilege('authenticated', 'public.scan_reports', 'delete'),
+  'authenticated reads and deletes scan reports but cannot write them'
+);
+
+select rls_test.check(
   not has_table_privilege('authenticated', 'public.alert_settings', 'delete, truncate')
     and not has_table_privilege('authenticated', 'public.alert_emails', 'insert, update, delete, truncate')
     and not has_table_privilege('authenticated', 'public.alert_log', 'insert, update, delete, truncate'),
@@ -204,6 +211,11 @@ insert into public.alert_log (user_id, pool_id, kind, sent_on) values
 insert into public.feedback (id, user_id, kind, message) values
   ('00000000-0000-0000-0000-0000000000a6', '00000000-0000-0000-0000-00000000000a', 'idea', 'A idea'),
   ('00000000-0000-0000-0000-0000000000b6', '00000000-0000-0000-0000-00000000000b', 'problem', 'B problem');
+
+insert into public.scan_reports (id, user_id, kind, source, read, corrected, photo_path, photo_consent_at, consent_version, photo_delete_after) values
+  ('00000000-0000-0000-0000-0000000000a9', '00000000-0000-0000-0000-00000000000a', 'test', 'leslies', '{"fields":{"ph":7.8}}', '{"ph":7.4}', null, null, null, null),
+  ('00000000-0000-0000-0000-0000000000b9', '00000000-0000-0000-0000-00000000000b', 'test', 'test_strip', '{"fields":{"fc":3}}', '{"fc":5}',
+   '00000000-0000-0000-0000-00000000000b/00000000-0000-0000-0000-0000000000b9.jpg', now(), '2026-10-04', current_date + 365);
 
 insert into public.pool_models (pool_id, sample_count) values
   ('00000000-0000-0000-0000-0000000000a1', 3),
@@ -531,6 +543,23 @@ begin
 end;
 $$;
 
+-- scan reports: A reads and deletes only A's own; only the server writes them
+select rls_test.check(rls_test.rows('select 1 from public.scan_reports') = 1, 'A sees only A''s scan reports');
+select rls_test.check(
+  rls_test.rows('select 1 from public.scan_reports where id = ''00000000-0000-0000-0000-0000000000b9''') = 0,
+  'A cannot read B''s scan reports'
+);
+select rls_test.denied(
+  'insert into public.scan_reports (user_id, kind) values (''00000000-0000-0000-0000-00000000000a'', ''test'')',
+  'A cannot write a scan report'
+);
+select rls_test.denied('update public.scan_reports set status = ''fixed''', 'A cannot change a scan report');
+select rls_test.check(
+  rls_test.touched('delete from public.scan_reports where id = ''00000000-0000-0000-0000-0000000000b9''') = 0,
+  'A cannot delete B''s scan report'
+);
+select rls_test.check(rls_test.touched('delete from public.scan_reports') = 1, 'A can delete A''s own scan report only');
+
 -- ---------------------------------------------------------------------------
 -- Signed out (anon): no table can be read at all
 -- ---------------------------------------------------------------------------
@@ -574,6 +603,20 @@ select rls_test.check((select rain_mm = 7 from public.pool_rain where pool_id = 
 select rls_test.check((select count(*) = 1 from public.pool_maintenance where pool_id = '00000000-0000-0000-0000-0000000000b1'), 'B''s maintenance is unchanged');
 select rls_test.check((select kpa = 80 from public.pool_pressure where pool_id = '00000000-0000-0000-0000-0000000000b1'), 'B''s filter pressure is unchanged');
 
+select rls_test.check(
+  (select photo_path is not null and status = 'new' from public.scan_reports where id = '00000000-0000-0000-0000-0000000000b9'),
+  'B''s scan report is unchanged'
+);
+do $$
+begin
+  insert into public.scan_reports (user_id, kind, photo_path) values ('00000000-0000-0000-0000-00000000000b', 'test', 'x/y.jpg');
+  raise exception 'RLS FAIL: a photo was stored without consent';
+exception
+  when check_violation then
+    null;
+end;
+$$;
+
 -- one alert email per person per day: a second claim for the same day is refused
 do $$
 begin
@@ -585,7 +628,8 @@ exception
 end;
 $$;
 
--- deleting an account deletes its feedback
+-- deleting an account deletes its feedback and scan reports
+insert into public.scan_reports (user_id, kind) values ('00000000-0000-0000-0000-00000000000a', 'pump');
 delete from auth.users where id = '00000000-0000-0000-0000-00000000000a';
 select rls_test.check(
   not exists (select 1 from public.feedback where user_id = '00000000-0000-0000-0000-00000000000a'),
@@ -594,6 +638,10 @@ select rls_test.check(
 select rls_test.check(
   not exists (select 1 from public.plans where pool_id = '00000000-0000-0000-0000-0000000000a1'),
   'the plan is deleted with the account'
+);
+select rls_test.check(
+  not exists (select 1 from public.scan_reports where user_id = '00000000-0000-0000-0000-00000000000a'),
+  'scan reports are deleted with the account'
 );
 select rls_test.check(
   (select algae from public.alert_settings where pool_id = '00000000-0000-0000-0000-0000000000b1'),
