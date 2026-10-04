@@ -66,7 +66,7 @@ const ASTRAL_E_SALT = { low: 4000, high: 4800 };
  * [E] Halo Chlor V2 manual H0725000 rev C (levels 0-8 in pool mode),
  *     https://astralpools-au-2.s3.ap-southeast-2.amazonaws.com/Products/Halo_Chlor/Halo%20V2%20Owners%20manual.H0725000_REVC_online.pdf
  * The Viron V series control is not described in a published manual: 5% steps.
- * Not listed for want of a published g/h: Halo Pure (1,500 ppm), Zodiac, Davey, Waterco.
+ * Not listed for want of a published g/h: Halo Pure (1,500 ppm).
  */
 const astral = (id: string, name: string, g: number, salt: { low: number; high: number }, levels: boolean): SaltCell => ({
   id,
@@ -76,6 +76,55 @@ const astral = (id: string, name: string, g: number, salt: { low: number; high: 
   saltPpm: salt,
   ...(levels ? { levels: EIGHT_LEVELS, levelCount: 8 } : {}),
 });
+
+/** A cell rated in g/h with its maker's salt range; `levels` (percent) when its control's steps are published. */
+const perHour = (id: string, name: string, g: number, salt: { low: number; high: number }, levels?: number[]): SaltCell => ({
+  id,
+  name,
+  lbPerDay: fromGramsPerHour(g),
+  gPerHour: g,
+  saltPpm: salt,
+  ...(levels ? { levels } : {}),
+});
+
+/**
+ * Zodiac (Australia), from each product page's specifications ("Cell Output : 25 g/h",
+ * "Recommended Salinity: 4,000ppm"); the pages do not describe the output steps (5% steps):
+ * [Z1] https://www.zodiac.com.au/products/salt-chlorinators/tri-xo-chlorinator-p
+ * [Z2] https://www.zodiac.com.au/products/salt-chlorinators/exo-iq-chlorinator-p (also the pH and PRO versions)
+ * [Z3] https://www.zodiac.com.au/products/salt-chlorinators/el-series-chlorinator-p
+ * [Z4] https://www.zodiac.com.au/products/salt-chlorinators/ezi-salt-chlorinator-p
+ */
+const ZODIAC_SALT = { low: 3600, high: 4400 };
+
+/**
+ * Davey, from its installation manuals:
+ * [D1] EcoSalt2, https://daveywater.com/wp-content/uploads/2022/11/Chl_EcoSalt2_IOI.pdf
+ *      (output table "DES2-25E(L) 25" g/h at 100%; operating range 3,000-6,000 ppm, low-salt
+ *      models 1,500-6,000; output set in 5% steps)
+ * [D2] EcoSalt, https://daveywater.com/wp-content/uploads/2022/11/Chl_EcoSalt_IOI.pdf
+ *      ("DES13CE 13.0" maximum g/h at 100%; never below 4,000 ppm, ideal 4,500, at most 7,000)
+ */
+const ECOSALT2_SALT = { low: 3000, high: 6000 };
+const ECOSALT2_LOW_SALT = { low: 1500, high: 6000 };
+const ECOSALT_SALT = { low: 4000, high: 5000 };
+
+/**
+ * Waterco, from its manuals and brochures (cells named by series; the g/h table is shared
+ * by the power packs). Salt: minimum 4,000, optimum 5,500, maximum 6,000 ppm.
+ * [W1] Electrochlor Mineral manual (10-100% in 10% increments),
+ *      https://www.waterco.com.au/waterco/manuals/pool-spa/chlorination/electrochlor-mineral-chlorinator_manual_jan18_single.pdf
+ * [W2] Hydrochlor MK3 manual (four LED production levels, their share not published: 5% steps),
+ *      https://www.waterco.com.au/waterco/manuals/pool-spa/chlorination/646087_hydrochlormk3-mineral-chlorinator_manual_april2018.pdf
+ * [W3] Hydrochlor ST manual,
+ *      https://www.waterco.com.au/waterco/manuals/pool-spa/chlorination/hydrochlor-st_manual_sep2019_646088.pdf
+ * [W4] Electrochlor Mineral Plus brochure,
+ *      https://www.waterco.com.au/waterco/brochures/pool-spa/chlorination/electrochlor-mineral-plus-chlorinator-zzb1985-.pdf
+ * [W5] Electrochlor Mineral Pro brochure ("Chlorine output of 40 g/hr or 50 g/hr"),
+ *      https://www.waterco.com.au/waterco/brochures/pool-spa/chlorination/electrochlor-mineral-pro-brochure-jun19_zzb1958.pdf
+ */
+const WATERCO_SALT = { low: 5000, high: 6000 };
+const TEN_PERCENT_STEPS = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 
 export const SALT_CELLS: SaltCell[] = [
   { id: "hayward-t15", name: "Hayward TurboCell T-15", lbPerDay: 1.47, ratedHours: 10000 },
@@ -109,6 +158,37 @@ export const SALT_CELLS: SaltCell[] = [
   astral("astralpool-halo25", "AstralPool Halo Chlor 25G", 25, ASTRAL_SALT, true), // [A], [E]
   astral("astralpool-halo35", "AstralPool Halo Chlor 35G", 35, ASTRAL_SALT, true), // [A], [E]
   astral("astralpool-halo45", "AstralPool Halo Chlor 45G", 45, ASTRAL_SALT, true), // [A], [E]
+  perHour("zodiac-tri-xo-18", "Zodiac TRi-XO 18", 18, ZODIAC_SALT), // [Z1]
+  perHour("zodiac-tri-xo-25", "Zodiac TRi-XO 25", 25, ZODIAC_SALT), // [Z1]
+  perHour("zodiac-tri-xo-35", "Zodiac TRi-XO 35", 35, ZODIAC_SALT), // [Z1]
+  perHour("zodiac-exo-iq-25", "Zodiac eXO iQ 25", 25, ZODIAC_SALT), // [Z2]
+  perHour("zodiac-exo-iq-35", "Zodiac eXO iQ 35", 35, ZODIAC_SALT), // [Z2]
+  perHour("zodiac-el-25", "Zodiac EL Series 25", 25, ZODIAC_SALT), // [Z3]
+  perHour("zodiac-el-35", "Zodiac EL Series 35", 35, ZODIAC_SALT), // [Z3]
+  perHour("zodiac-ezi-salt-24", "Zodiac Ezi Salt 24", 24, ZODIAC_SALT), // [Z4]
+  perHour("zodiac-ezi-salt-40", "Zodiac Ezi Salt 40", 40, ZODIAC_SALT), // [Z4]
+  perHour("davey-des2-15e", "Davey EcoSalt2 DES2-15E", 15, ECOSALT2_SALT), // [D1]
+  perHour("davey-des2-25e", "Davey EcoSalt2 DES2-25E", 25, ECOSALT2_SALT), // [D1]
+  perHour("davey-des2-35e", "Davey EcoSalt2 DES2-35E", 35, ECOSALT2_SALT), // [D1]
+  perHour("davey-des2-15el", "Davey EcoSalt2 DES2-15EL (low salt)", 15, ECOSALT2_LOW_SALT), // [D1]
+  perHour("davey-des2-25el", "Davey EcoSalt2 DES2-25EL (low salt)", 25, ECOSALT2_LOW_SALT), // [D1]
+  perHour("davey-des13ce", "Davey EcoSalt DES13CE", 13, ECOSALT_SALT), // [D2]
+  perHour("davey-des20ce", "Davey EcoSalt DES20CE", 20, ECOSALT_SALT), // [D2]
+  perHour("davey-des26ce", "Davey EcoSalt DES26CE", 26, ECOSALT_SALT), // [D2]
+  perHour("waterco-electrochlor-2000", "Waterco Electrochlor Mineral Series 2000", 20, WATERCO_SALT, TEN_PERCENT_STEPS), // [W1]
+  perHour("waterco-electrochlor-2500", "Waterco Electrochlor Mineral Series 2500", 25, WATERCO_SALT, TEN_PERCENT_STEPS), // [W1]
+  perHour("waterco-electrochlor-3000", "Waterco Electrochlor Mineral Series 3000", 30, WATERCO_SALT, TEN_PERCENT_STEPS), // [W1]
+  perHour("waterco-hydrochlor-mk3-2000", "Waterco Hydrochlor MK3 Series 2000", 20, WATERCO_SALT), // [W2]
+  perHour("waterco-hydrochlor-mk3-2500", "Waterco Hydrochlor MK3 Series 2500", 25, WATERCO_SALT), // [W2]
+  perHour("waterco-hydrochlor-mk3-3000", "Waterco Hydrochlor MK3 Series 3000", 30, WATERCO_SALT), // [W2]
+  perHour("waterco-hydrochlor-st-2000", "Waterco Hydrochlor ST Series 2000", 20, WATERCO_SALT), // [W3]
+  perHour("waterco-hydrochlor-st-2500", "Waterco Hydrochlor ST Series 2500", 25, WATERCO_SALT), // [W3]
+  perHour("waterco-hydrochlor-st-3000", "Waterco Hydrochlor ST Series 3000", 30, WATERCO_SALT), // [W3]
+  perHour("waterco-electrochlor-plus-2000", "Waterco Electrochlor Mineral Plus 2000", 20, WATERCO_SALT), // [W4]
+  perHour("waterco-electrochlor-plus-2500", "Waterco Electrochlor Mineral Plus 2500", 25, WATERCO_SALT), // [W4]
+  perHour("waterco-electrochlor-plus-3000", "Waterco Electrochlor Mineral Plus 3000", 30, WATERCO_SALT), // [W4]
+  perHour("waterco-electrochlor-pro-4000", "Waterco Electrochlor Mineral Pro 4000", 40, WATERCO_SALT), // [W5]
+  perHour("waterco-electrochlor-pro-5000", "Waterco Electrochlor Mineral Pro 5000", 50, WATERCO_SALT), // [W5]
 ];
 
 export type OutputUnit = "lb_day" | "g_hour" | "kg_day";

@@ -224,7 +224,9 @@ the typical-pools and floor notes sit under "ⓘ How this plan works".
 A salt pool's page asks which cell it has: a listed model (Hayward TurboCell T-15/T-9/T-5,
 Pentair IntelliChlor IC60/IC40/IC20, CircuPool CORE55/35/15, EDGE40/25/15 and RJ-60/30
 Plus, with their rated lb/day; AstralPool E25/E35, VX 7T/9T/11T, Viron V18–V45, Viron
-eQuilibrium EQ18–EQ45 and Halo Chlor 18G–45G from their published g/h, each with its source
+eQuilibrium EQ18–EQ45 and Halo Chlor 18G–45G; Zodiac TRi-XO, eXO iQ, EL Series and Ezi
+Salt; Davey EcoSalt2 (standard and low-salt) and EcoSalt; Waterco Electrochlor Mineral, Plus
+and Pro and Hydrochlor MK3 and ST, all from their published g/h, each with its source
 document noted, `src/lib/salt-cells.ts`)
 or the rated output from the label in lb/day, g/hour or kg/day. It is stored as
 `pools.swg_cell_lb_per_day` and `swg_cell_model`, and the chlorine model and plan are
