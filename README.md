@@ -43,8 +43,14 @@ Providers → Google, client ID and secret from the "Tuffo" Google Cloud project
 scopes only); an invited address that signs in with Google lands in the same account.
 Errors Google or Supabase send back to the callback show on `/login` (`?error=beta` for an
 address not invited, `?error=google` otherwise; `src/lib/auth/oauth.ts`). `src/proxy.ts` refreshes the session on
-every request and bounces signed-out visitors away from `/app`; pages verify the user
-again before reading data.
+`/app`, `/login` and `/auth` requests only (public pages skip the call to Supabase Auth)
+and bounces signed-out visitors away from `/app`; pages verify the user again before
+reading data, once per request (`getCurrentUser` is wrapped in React `cache()`).
+
+Taps answer at once: `loading.tsx` skeletons for the pools list, a pool's Today page,
+Trends and `/forecast` let Next prefetch those dynamic routes up to the skeleton, and the
+bottom bar and menu links dim with `aria-busy` while their page loads (`LinkPending`,
+`useLinkStatus`). Other app pages fall back to the nearest skeleton.
 
 Who may sign in is a Supabase setting, not code: Authentication → Sign In / Providers →
 "Allow new users to sign up". Off means invite-only for every provider, Google included;
@@ -535,7 +541,8 @@ in the browser's local storage on that device).
 
 A hand-written service worker (`src/app/sw.js/route.ts`, served at `/sw.js`, registered
 in production by `OfflineSync` in the app layout) keeps the last copy of each app page
-opened (network first; never `/app/admin`) and Next.js build files (cache first), and
+opened (network first, the page shown as it streams and its copy saved in the
+background; never `/app/admin`) and Next.js build files (cache first), and
 shows `/offline` for a page never opened. The pool page asks it to keep that pool's log
 forms too. Sign-out and the sign-in page drop the kept pages.
 

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { LinkPending } from "@/components/link-pending";
 
 const menuItem =
   "block w-full rounded-lg px-3 py-2.5 text-left text-sm font-semibold hover:bg-lagoon/10 focus:bg-lagoon/10";
@@ -17,7 +18,8 @@ export function useCurrentPath(): string {
 
 /**
  * A button that opens a short menu. Closes on Escape (focus back on the button), on a
- * click outside and when an item is chosen. `placement` sets where the menu opens.
+ * click outside and once a chosen item's page has loaded (the item dims meanwhile, so
+ * the tap shows it registered). `placement` sets where the menu opens.
  */
 export function MenuButton({
   label,
@@ -33,11 +35,17 @@ export function MenuButton({
   placement?: "below" | "below-end" | "above";
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
+  // Open on the page it was opened on: a chosen link stays on screen (dimmed) until its
+  // page arrives, and the menu is closed there.
+  const pathname = usePathname();
+  const [openOn, setOpenOn] = useState<string | null>(null);
+  if (openOn !== null && openOn !== pathname) setOpenOn(null);
+  const open = openOn === pathname;
   const id = useId();
   const root = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLUListElement>(null);
+  const close = useCallback(() => setOpenOn(null), []);
 
   // Keep the open menu inside the screen: shift it back when it would overflow an edge.
   useLayoutEffect(() => {
@@ -55,11 +63,11 @@ export function MenuButton({
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent) => {
-      if (root.current && !root.current.contains(e.target as Node)) setOpen(false);
+      if (root.current && !root.current.contains(e.target as Node)) setOpenOn(null);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        setOpen(false);
+        setOpenOn(null);
         button.current?.focus();
       }
     };
@@ -81,7 +89,7 @@ export function MenuButton({
         aria-expanded={open}
         aria-controls={id}
         aria-label={label}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpenOn(open ? null : pathname)}
         className={buttonClassName}
       >
         {children}
@@ -107,8 +115,8 @@ export function MenuButton({
                   </button>
                 </form>
               ) : (
-                <Link href={item.href} data-menu-item onClick={() => setOpen(false)} className={menuItem}>
-                  {item.label}
+                <Link href={item.href} data-menu-item className={menuItem}>
+                  <LinkPending onSettled={close}>{item.label}</LinkPending>
                 </Link>
               )}
             </li>
