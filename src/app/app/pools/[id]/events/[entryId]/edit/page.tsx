@@ -7,6 +7,7 @@ import type { Units } from "@/lib/format";
 import { isUuid } from "@/lib/form-data";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { EventForm } from "../../new/event-form";
+import { cellLevelCount } from "@/lib/salt-cells";
 
 export const metadata: Metadata = { title: "Edit an event" };
 
@@ -19,9 +20,10 @@ export default async function EditEventPage({ params, searchParams }: PageProps<
   const [{ data: pool }, { data: event }, { data: profile }] = await Promise.all([
     supabase
       .from("pools")
-      .select("id, name, timezone")
+      // "*": the cell's level count exists only once its migration has run.
+      .select("*")
       .eq("id", id)
-      .maybeSingle<{ id: string; name: string; timezone: string | null }>(),
+      .maybeSingle<{ id: string; name: string; timezone: string | null; swg_cell_model: string | null; swg_cell_levels?: number | null }>(),
     supabase
       .from("events")
       .select("id, kind, value, occurred_at, notes")
@@ -43,7 +45,8 @@ export default async function EditEventPage({ params, searchParams }: PageProps<
       </div>
       <EventForm
         returnTo={safeReturnTo(from, `/app/pools/${id}`)}
-        poolId={pool.id} units={units} edit={{ id: event.id, timeZone, values: eventEditValues(event, units, timeZone) }} />
+        poolId={pool.id} units={units} edit={{ id: event.id, timeZone, values: eventEditValues(event, units, timeZone) }}
+        cellLevels={cellLevelCount(pool.swg_cell_model, pool.swg_cell_levels)} />
     </>
   );
 }

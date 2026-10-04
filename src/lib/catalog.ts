@@ -25,6 +25,7 @@ export const CATALOG: CatalogProduct[] = [
   { id: "trichlor-90", name: "Trichlor tablets or pucks", short: "trichlor", form: "solid", group: "Chlorine" },
   { id: "dichlor-56", name: "Dichlor granules", short: "dichlor", form: "solid", group: "Chlorine" },
   { id: "muriatic-acid-31.45", name: "Muriatic acid 31.45%", short: "muriatic acid", form: "liquid", group: "Lower pH" },
+  { id: "pool-acid-32", name: "Pool acid (hydrochloric acid) 32%", short: "pool acid", form: "liquid", group: "Lower pH" },
   { id: "dry-acid-93", name: "Dry acid (sodium bisulfate)", short: "dry acid", form: "solid", group: "Lower pH" },
   { id: "soda-ash", name: "Soda ash (pH up)", short: "soda ash", form: "solid", group: "Raise pH or alkalinity" },
   { id: "baking-soda", name: "Baking soda (alkalinity up)", short: "baking soda", form: "solid", group: "Raise pH or alkalinity" },
@@ -38,6 +39,20 @@ const BY_ID = new Map(CATALOG.map((p) => [p.id, p]));
 
 export function catalogProduct(id: string): CatalogProduct | undefined {
   return BY_ID.get(id);
+}
+
+/** The liquid acid advice uses: pool acid 32% for metric pools (Australia), muriatic 31.45% for US pools. */
+export function acidFor(units: "us" | "metric"): "pool-acid-32" | "muriatic-acid-31.45" {
+  return units === "metric" ? "pool-acid-32" : "muriatic-acid-31.45";
+}
+
+/**
+ * The short name for sentences. Metric pools call baking soda "baking soda (buffer)", the
+ * name on Australian shop shelves; everything else is the catalog's own.
+ */
+export function productShort(id: string, units: "us" | "metric" = "us"): string {
+  if (id === "baking-soda" && units === "metric") return "baking soda (buffer)";
+  return catalogProduct(id)?.short ?? id;
 }
 
 export const CATALOG_GROUPS = [...new Set(CATALOG.map((p) => p.group))];

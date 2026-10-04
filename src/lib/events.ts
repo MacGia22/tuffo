@@ -1,3 +1,4 @@
+import { cellSettingText } from "@/lib/salt-cells";
 import type { Units } from "@/lib/format";
 
 /**
@@ -53,15 +54,15 @@ export function depthLabel(cm: number, units: Units): string {
   return `${Math.round(cm).toLocaleString("en-US")} cm`;
 }
 
-/** One line for the activity list. */
-export function describeEvent(kind: string, value: number | null, units: Units): string {
+/** One line for the activity list. `levelCount`: the salt cell is set in levels 1 to that many. */
+export function describeEvent(kind: string, value: number | null, units: Units, levelCount: number | null = null): string {
   switch (kind) {
     case "refill":
       return value ? `Topped up ${depthLabel(value, units)} of fresh water` : "Topped up with fresh water";
     case "drain_refill":
       return value ? `Drained and refilled ${depthLabel(value, units)}` : "Drained some water and refilled";
     case "cell_setting":
-      return value === null ? "Changed the salt cell setting" : `Salt cell set to ${Math.round(value * 2) / 2}%`;
+      return value === null ? "Changed the salt cell setting" : value <= 0 ? "Salt cell switched off" : `Salt cell set to ${cellSettingText(value, levelCount)}`;
     case "heavy_use":
       return value ? `Busy day, about ${Math.round(value)} swimmers` : "Busy day in the pool";
     default:

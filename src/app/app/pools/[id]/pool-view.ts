@@ -24,6 +24,7 @@ import { FRESH_HOURS, refreshCellIfStale } from "@/lib/weather/job";
 import { loadOwnRain, withOwnRain } from "@/lib/weather/own-rain";
 import { betweenLastTests, lastTwoTests } from "@/lib/between-story";
 import { localDateRange, type WeatherDay } from "@/lib/weather/summary";
+import { cellLevelCount, poolSaltTarget } from "@/lib/salt-cells";
 
 /**
  * Everything a pool's pages show, loaded and shaped per request: the Today page and the
@@ -45,6 +46,10 @@ export interface Pool {
   timezone: string | null;
   swg_cell_lb_per_day: number | null;
   swg_cell_model: string | null;
+  /** Present once the salt-target migration has run. */
+  salt_target_low_ppm?: number | null;
+  salt_target_high_ppm?: number | null;
+  swg_cell_levels?: number | null;
 }
 
 export interface Reading {
@@ -270,7 +275,7 @@ export async function loadPoolView(id: string, range: TrendRange, options: { tre
         .filter((e) => Date.parse(e.occurred_at) >= t0 && Date.parse(e.occurred_at) < t1)
         .filter((e) => e.kind === "refill" || e.kind === "drain_refill" || e.kind === "heavy_use")
         .reverse()
-        .map((e) => `${describeEvent(e.kind, e.value === null ? null : Number(e.value), units)}, ${formatDateTime(e.occurred_at, tz)}`),
+        .map((e) => `${describeEvent(e.kind, e.value === null ? null : Number(e.value), units, cellLevelCount(pool.swg_cell_model, pool.swg_cell_levels))}, ${formatDateTime(e.occurred_at, tz)}`),
   });
 
   // Advice reads each measure from its newest test (combined chlorine with free chlorine),
@@ -305,7 +310,14 @@ export async function loadPoolView(id: string, range: TrendRange, options: { tre
 
   const advice = latest
     ? adviseFor(
-        { volumeL: liters, sanitizer: pool.sanitizer, surface: pool.surface },
+        {
+          volumeL: liters,
+          sanitizer: pool.sanitizer,
+          surface: pool.surface,
+          units,
+          saltTarget: poolSaltTarget(pool),
+          cellLevels: cellLevelCount(pool.swg_cell_model, pool.swg_cell_levels),
+        },
         {
           fc: valueOf("fc", valueTests.fc),
           cc: valueOf("cc", valueTests.fc),
@@ -367,7 +379,7 @@ export async function loadPoolView(id: string, range: TrendRange, options: { tre
             ...allDoses.map((d) => ({ added_at: d.added_at, label: `Added ${doseLabel(d, units)}` })),
             ...allEvents.map((e) => ({
               added_at: e.occurred_at,
-              label: describeEvent(e.kind, e.value === null ? null : Number(e.value), units),
+              label: describeEvent(e.kind, e.value === null ? null : Number(e.value), units, cellLevelCount(pool.swg_cell_model, pool.swg_cell_levels)),
             })),
           ],
           weather: weather.map((w) => ({
@@ -420,7 +432,7 @@ export async function loadPoolView(id: string, range: TrendRange, options: { tre
       kind: "event" as const,
       at: e.occurred_at,
       when: formatDateTime(e.occurred_at, tz),
-      text: describeEvent(e.kind, e.value === null ? null : Number(e.value), units),
+      text: describeEvent(e.kind, e.value === null ? null : Number(e.value), units, cellLevelCount(pool.swg_cell_model, pool.swg_cell_levels)),
       notes: e.notes,
     })),
   ]

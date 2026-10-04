@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy notice" updated="October 2, 2026">
+    <LegalPage title="Privacy notice" updated="October 4, 2026">
       <p>
         Tuffo is a pool-care app: you log water tests, it shows what the weather did to your water and suggests what to
         add. This notice lists what Tuffo keeps about you, who else handles it, how long it stays, and how to take it
@@ -35,7 +35,8 @@ export default function PrivacyPage() {
       <p>
         For each pool, the name you give it, its volume, surface and sanitizer, whether it has a cover, any screen enclosure over it
         and the share of sun you set for it, and optional
-        numbers such as your fill water&apos;s calcium or your salt cell&apos;s model and output. For a salt pool, also
+        numbers such as your fill water&apos;s calcium or your salt cell&apos;s model and output, whether its control is set in percent or levels, and the salt level
+        it asks for. For a salt pool, also
         the pump schedules you enter (run times, speeds, whether the cell runs) and the dates they started. If you enter the
         rain that fell at your pool on a day, that amount and date. The equipment you add (pump, chlorine feeder,
         filter, heater): its kind, make and model, setting, and the dates it was in use, and the day the salt cell

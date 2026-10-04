@@ -127,7 +127,7 @@ describe("adviseFor", () => {
     // 40 lb (18,144 g) adds 18,144 / 56.781 ≈ 320 ppm: about 2720, still below 2800.
     const fortyLb: LoggedDose = { productId: "salt", amount: 18143.7, amountText: "40 lb", dateText: "Sep 29" };
     const partial = adviseFor(swgPool, { ...balanced, salt: 2400 }, [fortyLb]).items.find((i) => i.measure === "salt");
-    expect(partial?.title).toBe("Salt about 2720 ppm is still below the chlorinator's range");
+    expect(partial?.title).toBe("Salt about 2720 ppm is still below the chlorinator's 2,800–3,600 ppm");
     expect(partial?.severity).toBe("watch");
     expect(partial?.dose).toBeUndefined();
 
@@ -331,5 +331,82 @@ describe("chlorine safety", () => {
     const doses = advice.items.filter((i) => i.dose);
     expect(doses.length).toBeGreaterThanOrEqual(2);
     for (const item of doses) expect(item.dose!.notes).toContain(NEVER_MIX_NOTE);
+  });
+});
+
+describe("adviseFor, the chlorinator's own salt range", () => {
+  // 56,781 L (15,000 gal); pool salt adds 1 ppm per gram per 1,000 L, so a dose in grams
+  // is (aim − reading) × 56.781.
+  const swgPool = { ...pool, sanitizer: "swg" as const };
+  const salt = (p: Parameters<typeof adviseFor>[0], reading: number) =>
+    adviseFor(p, { ...balanced, cya: 70, salt: reading }).items.find((i) => i.measure === "salt");
+
+  it("unset: 2,800–3,600 ppm, aiming at 3,200", () => {
+    const low = salt(swgPool, 2400);
+    expect(low?.title).toBe("Salt 2400 ppm is below the chlorinator's 2,800–3,600 ppm");
+    // (3,200 − 2,400) × 56.781 = 45,425 g.
+    expect(low?.dose?.productId).toBe("salt");
+    expect(low?.dose?.amount).toBeCloseTo(45425, -1);
+    expect(low?.detail).toContain("set it in the pool's settings");
+    expect(salt(swgPool, 3200)).toBeUndefined();
+  });
+
+  it("a 6,000 ppm cell (AstralPool E Series): 5,400–6,600, no 'too high' at 6,000", () => {
+    const sixK = { ...swgPool, saltTarget: { low: 5400, high: 6600 } };
+    expect(salt(sixK, 6000)).toBeUndefined();
+    // The same reading against the usual range would be flagged.
+    expect(salt(swgPool, 6000)?.title).toBe("Salt 6000 ppm is above the 2,800–3,600 ppm range");
+    const low = salt(sixK, 5000);
+    expect(low?.title).toBe("Salt 5000 ppm is below the chlorinator's 5,400–6,600 ppm");
+    // (6,000 − 5,000) × 56.781 = 56,781 g.
+    expect(low?.dose?.amount).toBeCloseTo(56781, -1);
+    expect(low?.detail).toContain("the middle of the 5,400–6,600 ppm your chlorinator asks for");
+    expect(adviseFor(sixK, { ...balanced, salt: 6000 }).targets.salt).toEqual({ low: 5400, high: 6600 });
+  });
+
+  it("a 1,500 ppm low-salt cell: 1,350–1,650, no salt dose at 1,500", () => {
+    const lowSalt = { ...swgPool, saltTarget: { low: 1350, high: 1650 } };
+    expect(salt(lowSalt, 1500)).toBeUndefined();
+    // Against the usual range, 1,500 would get (3,200 − 1,500) × 56.781 = 96,528 g of salt.
+    expect(salt(swgPool, 1500)?.dose?.amount).toBeCloseTo(96528, -1);
+    const low = salt(lowSalt, 1200);
+    // (1,500 − 1,200) × 56.781 = 17,034 g.
+    expect(low?.dose?.amount).toBeCloseTo(17034, -1);
+    expect(salt(lowSalt, 1800)?.title).toBe("Salt 1800 ppm is above the 1,350–1,650 ppm range");
+  });
+});
+
+describe("adviseFor, product names by units", () => {
+  it("uses pool acid 32% for metric pools and muriatic 31.45% for US pools", () => {
+    const us = adviseFor(pool, { ...balanced, ph: 8.0 }).items[0];
+    expect(us.dose?.productId).toBe("muriatic-acid-31.45");
+    expect(us.detail).toContain("with muriatic acid");
+    const metric = adviseFor({ ...pool, units: "metric" }, { ...balanced, ph: 8.0 }).items[0];
+    expect(metric.dose?.productId).toBe("pool-acid-32");
+    expect(metric.detail).toContain("with pool acid");
+    // Slightly stronger acid, slightly less of it: 31.45 / 32 of the muriatic dose.
+    expect(metric.dose!.amount).toBeCloseTo((us.dose!.amount * 31.45) / 32, 0);
+  });
+
+  it("calls baking soda 'baking soda (buffer)' for metric pools", () => {
+    const metric = adviseFor({ ...pool, units: "metric" }, { ...balanced, ta: 40 }).items.find((i) => i.measure === "ta");
+    expect(metric?.detail).toContain("with baking soda (buffer)");
+    const us = adviseFor(pool, { ...balanced, ta: 40 }).items.find((i) => i.measure === "ta");
+    expect(us?.detail).toContain("with baking soda;");
+  });
+
+  it("says high alkalinity is lowered with pool acid on a metric pool", () => {
+    const metric = adviseFor({ ...pool, units: "metric" }, { ...balanced, ta: 150 }).items.find((i) => i.measure === "ta");
+    expect(metric?.detail).toBe("Lower it over time: pool acid to pH 7.0–7.2, then aerate back up. Repeat.");
+  });
+});
+
+describe("adviseFor, a cell set in levels", () => {
+  it("says 'level 5 of 8' instead of a percent", () => {
+    const swgPool = { ...pool, sanitizer: "swg" as const, cellLevels: 8 };
+    const fc = adviseFor(swgPool, { ...balanced, cya: 70, fc: 5 }, [], { percent: 62.5, needPpm: 2 }).items.find(
+      (i) => i.measure === "fc",
+    );
+    expect(fc?.detail).toBe("The plan suggests about level 5 of 8 for this week's weather (it needs to make about 2.0 ppm a day).");
   });
 });

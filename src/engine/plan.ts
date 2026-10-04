@@ -44,6 +44,8 @@ export interface PlanPool {
   cellPpmPerDay: number | null;
   /** The output settings the cell's control offers, percent; absent or null: any 5% step. */
   cellLevels?: number[] | null;
+  /** The salt range the chlorinator asks for, ppm; absent or null: DEFAULT_SALT_TARGET. */
+  saltTarget?: { low: number; high: number } | null;
 }
 
 export interface PlanWater {
@@ -80,6 +82,8 @@ export interface Dilution {
   cya: number | null;
   ch: number | null;
   salt: number | null;
+  /** Salt pools: the rain takes salt below the low end of the chlorinator's range. */
+  saltLow?: boolean;
 }
 
 export interface PlanDay {
@@ -161,7 +165,7 @@ export function planWeek(input: PlanInput): Plan | null {
   if (input.days.length === 0 || !Number.isFinite(water.fc)) return null;
 
   const cya = water.cya ?? DEFAULT_CYA;
-  const targets = targetsFor({ swg: pool.swg, surface: pool.surface, cya });
+  const targets = targetsFor({ swg: pool.swg, surface: pool.surface, cya, saltTarget: pool.saltTarget });
   const fc = targets.fc;
   const confidence = input.pairs >= PLAN_OWN_MODEL_PAIRS ? "own" : "typical";
   const floor = planFloor(fc, input.pairs);
@@ -199,6 +203,7 @@ export function planWeek(input: PlanInput): Plan | null {
           cya: cyaLevel === null ? null : Math.round(cyaLevel),
           ch: chLevel === null ? null : Math.round(chLevel),
           salt: saltLevel === null ? null : Math.round(saltLevel),
+          ...(targets.salt && saltLevel !== null ? { saltLow: saltLevel < targets.salt.low } : {}),
         }
       : null;
   });

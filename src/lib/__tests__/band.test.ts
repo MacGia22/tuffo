@@ -35,6 +35,17 @@ describe("bandAdvice", () => {
     );
   });
 
+  it("salt: words the settings as levels for a cell set 1 to 8", () => {
+    const levels = [12.5, 25, 37.5, 50, 62.5, 75, 87.5, 100];
+    const p = plan("swg", 6, 50, [day("2026-10-01", 6.5), day("2026-10-02", 7.4), day("2026-10-03", 8)]);
+    expect(bandAdvice(p, today, levels, 8)?.text).toBe(
+      "At level 4 of 8 free chlorine climbs above 7 ppm by Friday: lower the cell to level 3 of 8 from Friday, then test.",
+    );
+    // From the stored plan's own count when none is given.
+    const stored = { ...p, summary: { ...p.summary, cellLevels: 8 } } as StoredPlan;
+    expect(bandAdvice(stored, today, levels)?.text).toContain("lower the cell to level 3 of 8");
+  });
+
   it("salt: with the cell already off, says to keep it off", () => {
     // FC 20 at CYA 70 holds above the floor all week with the cell off: the plan's setting is 0%.
     const off = plan("swg", 20, 0, [day("2026-10-01", 18.1), day("2026-10-02", 16.3)]);

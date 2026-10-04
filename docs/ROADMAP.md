@@ -120,8 +120,11 @@ The public launch (end of milestone 3) happens when all of these hold:
   (`x-vercel-ip-country`, order only, never kept), then the US; metric by default when the
   browser's time zone is Australian or its language region is not the US (landing form
   and new-pool form).
-- Batch AU, rest: salt target per chlorinator, "pool acid" and "baking soda (buffer)" for
-  metric pools, chlorinators set in levels, Australian cells in the catalog.
+- AU1 + AU4 + AU5 — done 2026-10-04 (#79): salt range per chlorinator
+  (`pools.salt_target_low_ppm`/`_high_ppm`, used by targets, advice, doses, the plan's rain
+  note); "pool acid" 32% and "baking soda (buffer)" for metric pools; an "Other" cell set in
+  levels 1 to N (`pools.swg_cell_levels`), worded "level 5 of 8".
+- AU6: Australian cells in the salt cell catalog.
 - Batch L: Facebook and Instagram text links in the landing footer.
 
 ## Milestone 3: forecast and premium = public launch (target 2026-11-13)

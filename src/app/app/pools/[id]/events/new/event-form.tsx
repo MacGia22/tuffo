@@ -7,6 +7,7 @@ import { CancelLink, ReturnTo } from "@/components/form-cancel";
 import { useActionState, useState } from "react";
 import { QueuedNotice, useOfflineLog } from "@/components/offline-log";
 import { EVENT_KINDS, eventKindInfo, type EventKind } from "@/lib/events";
+import { levelToPercent } from "@/lib/salt-cells";
 import type { Units } from "@/lib/format";
 import { EditFields, type EditTarget } from "@/components/edit-fields";
 import { saveEvent, type LogState } from "../../actions";
@@ -23,7 +24,10 @@ export function EventForm({
   swg = false,
   prefill,
   returnTo,
+  cellLevels = null,
 }: {
+  /** The salt cell is set in levels 1 to this many: the setting is entered as a level. */
+  cellLevels?: number | null;
   /** Where Save and Cancel go back to. */
   returnTo: string;
   poolId: string;
@@ -39,6 +43,11 @@ export function EventForm({
   const f: Record<string, string | undefined> = state.fields ?? edit?.values ?? prefill ?? {};
   const [kind, setKind] = useState<EventKind>((f.kind as EventKind) || "refill");
   const info = eventKindInfo(kind);
+  // Levels: the person types the level, the form sends its percent (what the log keeps).
+  const [level, setLevel] = useState(() => {
+    const percent = Number(f.value);
+    return cellLevels && f.value && Number.isFinite(percent) ? String(Math.max(1, Math.round((percent * cellLevels) / 100))) : "";
+  });
 
   if (offline.queued) return <QueuedNotice poolId={poolId} what="event" />;
 
@@ -97,7 +106,35 @@ export function EventForm({
         </div>
       ) : null}
 
-      {info?.value === "percent" ? (
+      {info?.value === "percent" && cellLevels ? (
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="cell-level" className="text-sm font-semibold">
+            New level <span className="font-normal text-muted">(0 to {cellLevels}, 0 is off)</span>
+          </label>
+          <input
+            id="cell-level"
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={cellLevels}
+            step={1}
+            required
+            value={level}
+            onChange={(e) => setLevel(e.target.value)}
+            placeholder={String(Math.ceil(cellLevels / 2))}
+            className={input}
+          />
+          <input
+            type="hidden"
+            name="value"
+            value={level === "" || !Number.isFinite(Number(level)) ? "" : String(levelToPercent(Math.min(cellLevels, Math.max(0, Math.round(Number(level)))), cellLevels))}
+          />
+          <p className="text-xs text-muted">
+            The level on the cell&apos;s control. Tuffo uses it, with the pump schedule, to count what the cell made
+            between tests.
+          </p>
+        </div>
+      ) : info?.value === "percent" ? (
         <div className="flex flex-col gap-1.5">
           <label htmlFor="value" className="text-sm font-semibold">
             New setting <span className="font-normal text-muted">(%)</span>
