@@ -25,7 +25,7 @@ export default async function NewPoolPage({ searchParams }: PageProps<"/app/pool
         <h1 className="text-3xl font-semibold">Add a pool</h1>
         <p className="text-muted">Three things: how big it is, how it is sanitized, and where it sits.</p>
       </div>
-      <PoolForm defaultUnits={prefill?.units ?? profile?.units ?? "us"} prefill={prefill} />
+      <PoolForm defaultUnits={prefill?.units ?? profile?.units ?? null} prefill={prefill} />
     </>
   );
 }
