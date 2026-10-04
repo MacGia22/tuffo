@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ConfirmButton } from "@/components/confirm-button";
 import { ResetButton } from "@/components/form-cancel";
 import { IntervalBar, ToneIcon } from "@/components/maintenance-visuals";
-import { CellForm } from "@/components/salt-cell-form";
+import { CellForm, type CurrentCell } from "@/components/salt-cell-form";
 import { InstallDateField } from "@/components/install-date-field";
 import { useActionState, useState } from "react";
 import {
@@ -526,7 +526,7 @@ export function CellCard({
   facts,
 }: {
   poolId: string;
-  current: { model: string | null; lbPerDay: number | null };
+  current: CurrentCell;
   installedOn: string | null;
   summary: string | null;
   facts: CardFacts;

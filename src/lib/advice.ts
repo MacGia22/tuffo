@@ -13,7 +13,8 @@ import {
   type SaturationVerdict,
   type Targets,
 } from "@/engine/server";
-import { catalogProduct } from "@/lib/catalog";
+import { acidFor, catalogProduct, productShort } from "@/lib/catalog";
+import { cellSettingText } from "@/lib/salt-cells";
 
 /**
  * Turns the latest test into plain recommendations. Pure given its inputs; the
@@ -25,6 +26,12 @@ export interface AdvicePool {
   volumeL: number;
   sanitizer: "chlorine" | "swg";
   surface: "plaster" | "vinyl" | "fiberglass";
+  /** Product names: metric pools get the names on Australian shelves ("pool acid"). Default "us". */
+  units?: "us" | "metric";
+  /** The salt range the chlorinator asks for, ppm; absent or null: 2,800-3,600. */
+  saltTarget?: { low: number; high: number } | null;
+  /** The cell is set in levels 1 to this many (wording only); absent or null: percent. */
+  cellLevels?: number | null;
 }
 
 export interface AdviceReading {
@@ -147,7 +154,13 @@ export function adviseFor(
   if (r.ta === null && r.ph !== null) assumptions.push(`No alkalinity test yet; pH doses assume TA ${DEFAULT_TA} ppm.`);
 
   const swg = pool.sanitizer === "swg";
-  const targets = targetsFor({ swg, surface: pool.surface, cya });
+  const targets = targetsFor({ swg, surface: pool.surface, cya, saltTarget: pool.saltTarget });
+  const units = pool.units ?? "us";
+  // Metric pools: pool acid 32% (hydrochloric) and "baking soda (buffer)", as Australian shops sell them.
+  const acid = acidFor(units);
+  const acidName = productShort(acid, units);
+  const bakingSoda = productShort("baking-soda", units);
+  const settingText = (percent: number) => cellSettingText(percent, pool.cellLevels);
   const items: Recommendation[] = [];
   const L = pool.volumeL;
   // A dose counts for a value when it was added after the test that value comes from (one
@@ -212,7 +225,7 @@ export function adviseFor(
         severity: "act",
         title: `Free chlorine ${r.fc.toFixed(1)} ppm is below the minimum of ${min} ppm`,
         detail: swg
-          ? `Boost now with liquid chlorine to about ${aim.toFixed(1)} ppm, then raise the chlorinator output${setting !== null ? ` to about ${setting}%${need}` : ""}.${unknownCell}`
+          ? `Boost now with liquid chlorine to about ${aim.toFixed(1)} ppm, then raise the chlorinator output${setting !== null ? ` to about ${settingText(setting)}${need}` : ""}.${unknownCell}`
           : `Bring it to about ${aim.toFixed(1)} ppm now; below the minimum, algae gets a head start.`,
         dose: fcDose,
       });
@@ -223,7 +236,7 @@ export function adviseFor(
         title: `Free chlorine ${r.fc.toFixed(1)} ppm is under the ${targetLow}–${targetHigh} ppm target`,
         detail: swg
           ? setting !== null
-            ? `Set the chlorinator to about ${setting}%${need}, or top up with liquid chlorine.`
+            ? `Set the chlorinator to about ${settingText(setting)}${need}, or top up with liquid chlorine.`
             : `Nudge the chlorinator output up a step, or top up with liquid chlorine.${unknownCell}`
           : `Top up to about ${aim.toFixed(1)} ppm.`,
         dose: fcDose,
@@ -234,7 +247,7 @@ export function adviseFor(
         severity: "watch",
         title: `Free chlorine ${r.fc.toFixed(1)} ppm is at shock level`,
         detail: swg
-          ? `Fine if you are clearing algae; otherwise turn the chlorinator output down${setting !== null ? ` to about ${setting}%` : ""} and let it drift down before swimming.`
+          ? `Fine if you are clearing algae; otherwise turn the chlorinator output down${setting !== null ? ` to about ${settingText(setting)}` : ""} and let it drift down before swimming.`
           : "Fine if you are clearing algae; otherwise let it drift down before swimming.",
       });
     } else if (r.fc > targetHigh) {
@@ -244,7 +257,7 @@ export function adviseFor(
         title: `Free chlorine ${r.fc.toFixed(1)} ppm is above target; nothing to add`,
         detail: swg
           ? setting !== null
-            ? `Turn the chlorinator down to about ${setting}%${need} and retest in a day or two.`
+            ? `Turn the chlorinator down to about ${settingText(setting)}${need} and retest in a day or two.`
             : `Turn the chlorinator output down a step and retest in a day or two.${unknownCell}`
           : "Sun will bring it down. Skip the next dose and retest.",
       });
@@ -255,7 +268,7 @@ export function adviseFor(
         title: `Free chlorine ${r.fc.toFixed(1)} ppm is on target (${targetLow}–${targetHigh} ppm)`,
         detail: swg
           ? setting !== null
-            ? `The plan suggests about ${setting}% for this week's weather${need}.`
+            ? `The plan suggests about ${settingText(setting)} for this week's weather${need}.`
             : `Keep the chlorinator where it is.${unknownCell}`
           : "Keep the daily dose you have been adding.",
       });
@@ -285,13 +298,13 @@ export function adviseFor(
     const { low, high, ideal } = targets.ph;
     const waterReading = { pH: r.ph, ta, cya: r.cya ?? undefined, borate: r.borate ?? undefined };
     if (r.ph > high) {
-      const dose = doseForPh("muriatic-acid-31.45", { ...waterReading, liters: L, targetPh: ideal });
+      const dose = doseForPh(acid, { ...waterReading, liters: L, targetPh: ideal });
       taFromPhDose = dose.effects.ta ?? 0;
       items.push({
         measure: "ph",
         severity: "act",
         title: `pH ${r.ph.toFixed(2)} is high`,
-        detail: `Lower it to ${ideal.toFixed(1)} with muriatic acid. High pH weakens chlorine and scales heaters.`,
+        detail: `Lower it to ${ideal.toFixed(1)} with ${acidName}. High pH weakens chlorine and scales heaters.`,
         dose,
       });
     } else if (r.ph < low) {
@@ -341,8 +354,8 @@ export function adviseFor(
           title: `Alkalinity ${Math.round(r.ta)} ppm is low`,
           detail:
             taFromPhDose === 0
-              ? `Raise it toward ${aim} ppm with baking soda; low TA lets pH swing.`
-              : `Raise it toward ${aim} ppm with baking soda, counting the ${product} for pH (about ${Math.round(withPhDose)} ppm after it); low TA lets pH swing.`,
+              ? `Raise it toward ${aim} ppm with ${bakingSoda}; low TA lets pH swing.`
+              : `Raise it toward ${aim} ppm with ${bakingSoda}, counting the ${product} for pH (about ${Math.round(withPhDose)} ppm after it); low TA lets pH swing.`,
           dose,
         });
       }
@@ -351,7 +364,7 @@ export function adviseFor(
         measure: "ta",
         severity: "watch",
         title: `Alkalinity ${Math.round(r.ta)} ppm is high`,
-        detail: "Lower it over time: muriatic acid to pH 7.0–7.2, then aerate back up. Repeat.",
+        detail: `Lower it over time: ${acidName} to pH 7.0–7.2, then aerate back up. Repeat.`,
       });
     }
   }
@@ -487,14 +500,14 @@ export function adviseFor(
         ? {
             measure: "salt",
             severity: "watch",
-            title: `Salt about ${Math.round(saltNow)} ppm is still below the chlorinator's range`,
+            title: `Salt about ${Math.round(saltNow)} ppm is still below the chlorinator's ${low.toLocaleString("en-US")}–${high.toLocaleString("en-US")} ppm`,
             detail: `${counted} Let it dissolve and circulate for a day, then retest before adding more.`,
           }
         : saltNow > high
           ? {
               measure: "salt",
               severity: "watch",
-              title: `Salt about ${Math.round(saltNow)} ppm is above range`,
+              title: `Salt about ${Math.round(saltNow)} ppm is above the ${low.toLocaleString("en-US")}–${high.toLocaleString("en-US")} ppm range`,
               detail: `${counted} Rain and refills will dilute it; no action unless the cell complains.`,
             }
           : {
@@ -511,16 +524,20 @@ export function adviseFor(
       items.push({
         measure: "salt",
         severity: "act",
-        title: `Salt ${Math.round(r.salt)} ppm is below the chlorinator's range`,
-        detail: `Add pool salt to reach about ${Math.round((low + high) / 2)} ppm; check your unit's own range.`,
+        title: `Salt ${Math.round(r.salt)} ppm is below the chlorinator's ${low.toLocaleString("en-US")}–${high.toLocaleString("en-US")} ppm`,
+        detail: pool.saltTarget
+          ? `Add pool salt to reach about ${Math.round((low + high) / 2).toLocaleString("en-US")} ppm, the middle of the ${low.toLocaleString("en-US")}–${high.toLocaleString("en-US")} ppm your chlorinator asks for.`
+          : `Add pool salt to reach about ${Math.round((low + high) / 2).toLocaleString("en-US")} ppm. Most cells want ${low.toLocaleString("en-US")}–${high.toLocaleString("en-US")} ppm; if yours asks for another level, set it in the pool's settings.`,
         dose,
       });
     } else if (r.salt > high) {
       items.push({
         measure: "salt",
         severity: "watch",
-        title: `Salt ${Math.round(r.salt)} ppm is above range`,
-        detail: "Rain and refills will dilute it; no action unless the cell complains.",
+        title: `Salt ${Math.round(r.salt)} ppm is above the ${low.toLocaleString("en-US")}–${high.toLocaleString("en-US")} ppm range`,
+        detail: pool.saltTarget
+          ? "Rain and refills will dilute it; no action unless the cell complains."
+          : "Rain and refills will dilute it; no action unless the cell complains. If your chlorinator asks for more salt, set its level in the pool's settings.",
       });
     }
   }

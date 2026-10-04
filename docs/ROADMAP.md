@@ -111,6 +111,24 @@ The public launch (end of milestone 3) happens when all of these hold:
 - A scheduled Claude routine reads it through a read-only connector to sort suggestions.
 
 ### 2.8 Fixes from the 4 Oct check (speed, Australia, social links)
+- Batch S, taps that feel dead — done 2026-10-04 (#77): `loading.tsx` skeletons for the
+  pools list, Today, Trends and `/forecast`; pending style and `aria-busy` on bottom-bar
+  and menu links (`useLinkStatus`); the proxy checks the session only on `/app`, `/login`
+  and `/auth`; one user check per request (`cache()`); the service worker returns the
+  page at once and saves its copy in the background.
+- AU2 + AU3 — done 2026-10-04 (#78): place search lists the visitor's country first
+  (`x-vercel-ip-country`, order only, never kept), then the US; metric by default when the
+  browser's time zone is Australian or its language region is not the US (landing form
+  and new-pool form).
+- AU1 + AU4 + AU5 — done 2026-10-04 (#79): salt range per chlorinator
+  (`pools.salt_target_low_ppm`/`_high_ppm`, used by targets, advice, doses, the plan's rain
+  note); "pool acid" 32% and "baking soda (buffer)" for metric pools; an "Other" cell set in
+  levels 1 to N (`pools.swg_cell_levels`), worded "level 5 of 8".
+- AU6 — done 2026-10-04 (#80): 48 Australian cells from the makers' published g/h, with
+  their salt ranges: AstralPool (E, VX, Viron, eQuilibrium, Halo Chlor; levels 1–8), Zodiac
+  (TRi-XO, eXO iQ, EL Series, Ezi Salt), Davey (EcoSalt2, EcoSalt) and Waterco (Electrochlor,
+  Hydrochlor). Still missing: Zodiac's older TRi/LM/Clearwater and AstralPool Halo Pure (no
+  published g/h found).
 - Batch L — done 2026-10-04 (#81): Facebook and Instagram as plain text links in the
   landing footer (no SDK or pixel; no Organization JSON-LD to add `sameAs` to).
 

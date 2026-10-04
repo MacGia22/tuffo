@@ -87,12 +87,17 @@ export interface Targets {
   salt?: { low: number; high: number };
 }
 
+/** Salt range for a cell whose own is not known, ppm (most US cells). */
+export const DEFAULT_SALT_TARGET = { low: 2800, high: 3600 } as const;
+
 export interface PoolProfile {
   /** Saltwater chlorine generator. */
   swg?: boolean;
   /** Plaster, pebble or other calcium-based surface (needs calcium); vinyl and fiberglass do not. */
   surface?: "plaster" | "vinyl" | "fiberglass";
   cya: number;
+  /** The salt range the chlorinator asks for, ppm; absent or null: DEFAULT_SALT_TARGET. */
+  saltTarget?: { low: number; high: number } | null;
 }
 
 /** Everyday targets for a pool, by sanitiser type and surface. */
@@ -104,6 +109,6 @@ export function targetsFor(pool: PoolProfile): Targets {
     ta: pool.swg ? { low: 60, high: 80 } : { low: 60, high: 90 },
     ch: plaster ? { low: 250, high: 450 } : { low: 100, high: 350 },
     cya: pool.swg ? { low: 60, high: 80 } : { low: 30, high: 50 },
-    salt: pool.swg ? { low: 2800, high: 3600 } : undefined,
+    salt: pool.swg ? { ...(pool.saltTarget ?? DEFAULT_SALT_TARGET) } : undefined,
   };
 }

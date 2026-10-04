@@ -4,7 +4,7 @@ import { useState, useTransition, type ReactNode } from "react";
 import { CellMap } from "@/components/cell-map";
 import { CELL_DEGREES, cellFor, cellNear, wrapLon, type WeatherCell } from "@/lib/weather/cells";
 import type { Place } from "@/lib/weather/geocode";
-import { placesFoundText, usFirst } from "@/lib/weather/place-order";
+import { placesFoundText } from "@/lib/weather/place-order";
 
 const input =
   "h-11 w-full rounded-xl border border-border-input bg-surface px-3 text-base text-foreground outline-none placeholder:text-muted/70 focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
@@ -70,7 +70,8 @@ export function PlacePicker({
       const result = await find(q);
       setSearchError(result.error);
       setStatus(result.error ? "" : placesFoundText(result.places.length));
-      setPlaces(usFirst(result.places));
+      // Already in order: the visitor's country, then the US, then the rest (server side).
+      setPlaces(result.places);
     });
   }
 

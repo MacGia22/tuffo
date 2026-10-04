@@ -11,7 +11,7 @@ import { scheduleFromForm } from "@/lib/pump";
 import { saveDoseEntry, saveEventEntry, saveReadingEntry, type LogKind, type SaveResult } from "@/lib/log/save";
 import { recomputeAfterResponse, recomputePoolModel } from "@/lib/model/recompute";
 import { basicsFromForm, equipmentFromForm, isEquipmentKind } from "@/lib/equipment";
-import { cellFromForm } from "@/lib/salt-cells";
+import { cellFromForm, cellLevelsFromForm, parseSaltTarget } from "@/lib/salt-cells";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { cellFor } from "@/lib/weather/cells";
@@ -72,6 +72,10 @@ export async function saveSaltCell(_prev: CellState, formData: FormData): Promis
   await requireUser(`/app/pools/${poolId}`);
   const choice = cellFromForm({ model: text(formData, "model"), value: text(formData, "value"), unit: text(formData, "unit") });
   if (!choice.ok) return { error: choice.error };
+  const salt = parseSaltTarget(text(formData, "salt_target"));
+  if (!salt.ok) return { error: salt.error };
+  const levels = cellLevelsFromForm(choice.model, text(formData, "cell_scale"), text(formData, "cell_levels"));
+  if (!levels.ok) return { error: levels.error };
 
   const supabase = await createSupabaseServerClient();
   // Settings sends the install date and whether the cell was replaced; the pool page
@@ -79,7 +83,13 @@ export async function saveSaltCell(_prev: CellState, formData: FormData): Promis
   const sinceDay = text(formData, "since");
   const sinceYears = text(formData, "since_years");
   const replaced = formData.get("replaced") === "on";
-  const update: Record<string, unknown> = { swg_cell_lb_per_day: choice.lbPerDay, swg_cell_model: choice.model };
+  const update: Record<string, unknown> = {
+    swg_cell_lb_per_day: choice.lbPerDay,
+    swg_cell_model: choice.model,
+    salt_target_low_ppm: salt.target?.low ?? null,
+    salt_target_high_ppm: salt.target?.high ?? null,
+    swg_cell_levels: levels.count,
+  };
   if (sinceDay || sinceYears || replaced) {
     const today = await poolToday(poolId);
     if (!today) return { error: "Unknown pool." };
@@ -121,7 +131,11 @@ export async function saveSaltCell(_prev: CellState, formData: FormData): Promis
     .eq("sanitizer", "swg")
     .select("id");
   if (error) {
-    return { error: /swg_cell_model/.test(error.message) ? "This is not available yet. Try again in a few minutes." : failed("pool settings", error.message) };
+    return {
+      error: /swg_cell_model|salt_target|swg_cell_levels/.test(error.message)
+        ? "This is not available yet. Try again in a few minutes."
+        : failed("pool settings", error.message),
+    };
   }
   if (!data || data.length === 0) return { error: "Only salt pools have a cell." };
   recomputeAfterResponse(poolId);

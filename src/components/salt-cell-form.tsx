@@ -2,15 +2,26 @@
 
 import { useActionState, useState } from "react";
 import { saveSaltCell, type CellState } from "@/app/app/pools/[id]/actions";
-import { OUTPUT_UNITS, SALT_CELLS } from "@/lib/salt-cells";
+import { DEFAULT_SALT_TEXT, MAX_CELL_LEVELS, MIN_CELL_LEVELS, OUTPUT_UNITS, SALT_CELLS, saltTargetText } from "@/lib/salt-cells";
 import { InstallDateField } from "@/components/install-date-field";
 
 const initial: CellState = {};
 const field = "h-11 rounded-xl border border-border-input bg-surface px-3 text-base text-foreground outline-none focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
 
+/** The cell as stored on the pool, for the forms. */
+export interface CurrentCell {
+  model: string | null;
+  lbPerDay: number | null;
+  /** The pool's own salt range, ppm; null: the listed cell's or the usual one. */
+  saltTarget?: { low: number; high: number } | null;
+  /** An "Other" cell set in levels 1 to this many; null: percent. */
+  levels?: number | null;
+}
+
 /**
- * The cell form on its own: model or rated output, and on the settings page an install
- * date. `replace` stores the current cell in the history and starts a new one.
+ * The cell form on its own: model or rated output (and for another cell, percent or
+ * levels), the salt level it asks for, and on the settings page an install date.
+ * `replace` stores the current cell in the history and starts a new one.
  */
 export function CellForm({
   poolId,
@@ -20,7 +31,7 @@ export function CellForm({
   onCancel,
 }: {
   poolId: string;
-  current: { model: string | null; lbPerDay: number | null };
+  current: CurrentCell;
   mode?: "set" | "fix" | "replace";
   installedOn?: string | null;
   onCancel?: () => void;
@@ -30,6 +41,9 @@ export function CellForm({
   const listed = fresh ? undefined : SALT_CELLS.find((c) => c.name === current.model);
   const start = fresh ? "" : (listed?.id ?? (current.lbPerDay ? "other" : ""));
   const [model, setModel] = useState(start);
+  const [scale, setScale] = useState<"percent" | "levels">(!fresh && current.levels ? "levels" : "percent");
+  const picked = SALT_CELLS.find((c) => c.id === model);
+  const usualSalt = picked?.saltPpm ? saltTargetText(picked.saltPpm) : DEFAULT_SALT_TEXT;
 
   return (
     <form action={action} className="flex flex-col gap-3">
@@ -44,7 +58,7 @@ export function CellForm({
             </option>
             {SALT_CELLS.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name} ({c.lbPerDay} lb/day)
+                {c.name} ({c.gPerHour ? `${c.gPerHour} g/h` : `${c.lbPerDay} lb/day`})
               </option>
             ))}
             <option value="other">Another cell: enter its rated output</option>
@@ -73,6 +87,34 @@ export function CellForm({
             </label>
           </>
         ) : null}
+        {model === "other" ? (
+          <>
+            <label className="flex flex-col gap-1 text-xs text-muted">
+              Its control is set in
+              <select name="cell_scale" value={scale} onChange={(e) => setScale(e.target.value as "percent" | "levels")} className={field}>
+                <option value="percent">Percent</option>
+                <option value="levels">Levels (1, 2, 3…)</option>
+              </select>
+            </label>
+            {scale === "levels" ? (
+              <label className="flex flex-col gap-1 text-xs text-muted">
+                Highest level
+                <input
+                  name="cell_levels"
+                  type="number"
+                  inputMode="numeric"
+                  min={MIN_CELL_LEVELS}
+                  max={MAX_CELL_LEVELS}
+                  step={1}
+                  required
+                  defaultValue={!fresh && current.levels ? String(current.levels) : ""}
+                  placeholder="8"
+                  className={`${field} w-24`}
+                />
+              </label>
+            ) : null}
+          </>
+        ) : null}
         {mode !== "set" ? (
           <InstallDateField defaultValue={fresh ? "" : (installedOn ?? "")} hint={fresh ? "(empty = today)" : undefined} />
         ) : null}
@@ -80,6 +122,23 @@ export function CellForm({
       <p className="text-xs text-muted">
         The rating is on the cell&apos;s label or in its manual, often as pounds per day or grams per hour.
       </p>
+      <div className="flex flex-col gap-1">
+        <label htmlFor={`salt-target-${mode}`} className="text-xs text-muted">
+          Salt level your chlorinator asks for (ppm)
+        </label>
+        <input
+          id={`salt-target-${mode}`}
+          name="salt_target"
+          inputMode="text"
+          aria-describedby={`salt-target-${mode}-hint`}
+          defaultValue={!fresh && current.saltTarget ? `${current.saltTarget.low}-${current.saltTarget.high}` : ""}
+          placeholder={usualSalt.replace(" ppm", "")}
+          className={`${field} w-48`}
+        />
+        <p id={`salt-target-${mode}-hint`} className="text-xs text-muted">
+          On the chlorinator&apos;s label or in its manual. A range, or one number (it becomes ±10%). Empty: {usualSalt}.
+        </p>
+      </div>
       <div className="flex items-center gap-4">
         <button
           type="submit"
@@ -121,9 +180,12 @@ export function CellForm({
 export function SaltCellForm({
   poolId,
   current,
+  salt = null,
 }: {
   poolId: string;
-  current: { model: string | null; lbPerDay: number | null };
+  current: CurrentCell;
+  /** The salt range the advice uses (the pool's own or its listed cell's); null: the usual. */
+  salt?: { low: number; high: number } | null;
 }) {
   const known = current.lbPerDay !== null;
   const form = <CellForm poolId={poolId} current={current} />;
@@ -134,7 +196,8 @@ export function SaltCellForm({
         <summary className="flex min-h-11 cursor-pointer items-center">
           <span>
           Salt cell: <span className="font-semibold">{current.model && current.model !== "Other" ? current.model : "rated"}</span>,{" "}
-          {current.lbPerDay} lb of chlorine a day at 100% <span className="font-semibold text-lagoon">· Change</span>
+          {current.lbPerDay} lb of chlorine a day at 100%, salt {salt ? saltTargetText(salt) : DEFAULT_SALT_TEXT}
+          {current.levels ? `, set in levels 1–${current.levels}` : ""} <span className="font-semibold text-lagoon">· Change</span>
           </span>
         </summary>
         <div className="mt-3">{form}</div>

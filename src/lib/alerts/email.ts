@@ -1,6 +1,7 @@
 import type { Units } from "@/lib/format";
 import { baseToShelf, formatShelf } from "@/lib/dose-format";
 import type { StoredPlan } from "@/lib/plan/stored";
+import { cellSettingText } from "@/lib/salt-cells";
 import type { DueAlert } from "./decide";
 
 /**
@@ -59,7 +60,7 @@ function section(alert: DueAlert, ctx: EmailContext): Section {
         `With the forecast, free chlorine may fall below ${min ?? "the minimum"} ppm by ${when}, when algae can get a start.`,
         salt
           ? plan?.summary.swgPercent !== null && plan?.summary.swgPercent !== undefined
-            ? `The plan suggests the salt cell at about ${plan.summary.swgPercent}%; test, and top up with liquid chlorine if it is low.`
+            ? `The plan suggests the salt cell at about ${cellSettingText(plan.summary.swgPercent, plan.summary.cellLevels)}; test, and top up with liquid chlorine if it is low.`
             : "Test, and top up with liquid chlorine if it is low."
           : add
             ? `The plan says to add ${add} of liquid chlorine that day. Test first if you can.`
@@ -87,13 +88,22 @@ function section(alert: DueAlert, ctx: EmailContext): Section {
   const lines: string[] = [];
   if (plan) {
     if (plan.summary.kind === "swg") {
+      const setting = (percent: number) => cellSettingText(percent, plan.summary.cellLevels);
       lines.push(
         plan.summary.swgPercent !== null
           ? plan.summary.swgStart
-            ? `Salt cell ${plan.summary.swgStart.percent === 0 ? "off" : `at about ${plan.summary.swgStart.percent}%`} until ${weekday(plan.summary.swgStart.until)}, then about ${plan.summary.swgPercent}% (about ${plan.summary.swgNeedPpm?.toFixed(1)} ppm of chlorine a day).`
-            : `Salt cell at about ${plan.summary.swgPercent}% this week (about ${plan.summary.swgNeedPpm?.toFixed(1)} ppm of chlorine a day).`
+            ? `Salt cell ${plan.summary.swgStart.percent === 0 ? "off" : `at about ${setting(plan.summary.swgStart.percent)}`} until ${weekday(plan.summary.swgStart.until)}, then about ${setting(plan.summary.swgPercent)} (about ${plan.summary.swgNeedPpm?.toFixed(1)} ppm of chlorine a day).`
+            : `Salt cell at about ${setting(plan.summary.swgPercent)} this week (about ${plan.summary.swgNeedPpm?.toFixed(1)} ppm of chlorine a day).`
           : `The cell needs to make about ${plan.summary.swgNeedPpm?.toFixed(1)} ppm of chlorine a day.`,
       );
+      // Heavy rain that takes salt below the chlorinator's range.
+      const today = ctx.todays?.[alert.poolId];
+      const wet = plan.days.find((d) => (!today || d.date >= today) && d.dilution?.saltLow);
+      if (wet?.dilution?.salt) {
+        lines.push(
+          `Heavy rain on ${weekday(wet.date)} may take salt down to about ${wet.dilution.salt.toLocaleString("en-US")} ppm, below what your chlorinator asks for: test salt after it.`,
+        );
+      }
     } else {
       // The nightly plan can start yesterday in the pool's time zone (it runs at 06:00 UTC).
       const today = ctx.todays?.[alert.poolId];

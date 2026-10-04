@@ -55,6 +55,18 @@ describe("todayActions", () => {
     });
   });
 
+  it("words the salt cell setting as a level for a cell set 1 to 8", () => {
+    const actions = todayActions({
+      ...base,
+      plan: { kind: "cell", percent: 62.5, logged: 50, href: "/cell?value=62.5", needPpm: 2.1, cellHours: 8, levelCount: 8 },
+    });
+    expect(actions[0]).toMatchObject({
+      title: "Set the salt cell to level 5 of 8",
+      why: "It is logged at level 4 of 8. It needs to make about 2.1 ppm of free chlorine a day with the cell running 8 h a day for this week's weather.",
+      button: { label: "I set it to level 5 of 8", href: "/cell?value=62.5" },
+    });
+  });
+
   it("asks to set the salt cell when the plan differs from what is logged, then the band and the rest", () => {
     const actions = todayActions({
       ...base,

@@ -4,6 +4,7 @@ import { CancelLink } from "@/components/form-cancel";
 
 import { useActionState, useState } from "react";
 import { PlacePicker } from "@/components/place-picker";
+import { useBrowserUnits } from "@/components/use-browser-units";
 import type { Units } from "@/lib/format";
 import type { PoolPrefill } from "@/lib/forecast/prefill";
 import { createPool, findPlaces, type CreatePoolState } from "./actions";
@@ -14,11 +15,14 @@ const input =
   "h-11 w-full rounded-xl border border-border-input bg-surface px-3 text-base text-foreground outline-none placeholder:text-muted/70 focus:border-lagoon focus:ring-2 focus:ring-lagoon/30";
 const label = "text-sm font-semibold";
 
-export function PoolForm({ defaultUnits, prefill = null }: { defaultUnits: Units; prefill?: PoolPrefill | null }) {
+/** `defaultUnits` null (no profile setting): the browser's likely units. */
+export function PoolForm({ defaultUnits, prefill = null }: { defaultUnits: Units | null; prefill?: PoolPrefill | null }) {
   const [state, action, pending] = useActionState(createPool, initial);
   const f = state.fields ?? prefill?.fields ?? {};
 
-  const [units, setUnits] = useState<Units>((f.units as Units) || defaultUnits);
+  const browserUnits = useBrowserUnits();
+  const [picked, setUnits] = useState<Units | null>((f.units as Units) || defaultUnits);
+  const units = picked ?? browserUnits;
 
   return (
     <form action={action} className="flex max-w-xl flex-col gap-6">

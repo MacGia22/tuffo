@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { requireUser } from "@/lib/auth/user";
@@ -10,6 +11,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { cellFor } from "@/lib/weather/cells";
 import { refreshCellIfStale } from "@/lib/weather/job";
 import { searchPlaces, type Place } from "@/lib/weather/geocode";
+import { visitorCountry } from "@/lib/weather/place-order";
 import { failed } from "@/lib/errors";
 
 export interface PlaceSearchResult {
@@ -17,10 +19,12 @@ export interface PlaceSearchResult {
   error?: string;
 }
 
+/** Town or ZIP search for a pool; the visitor's country (only for the order, never kept) first. */
 export async function findPlaces(query: string): Promise<PlaceSearchResult> {
   await requireUser();
   try {
-    const places = await searchPlaces(query);
+    const country = visitorCountry((await headers()).get("x-vercel-ip-country"));
+    const places = await searchPlaces(query, { country });
     return { places };
   } catch {
     return { places: [], error: "Town lookup is not answering right now. Try again in a moment." };

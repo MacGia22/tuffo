@@ -181,7 +181,36 @@ describe("planWeek, salt pool", () => {
   it("dilutes salt in heavy rain", () => {
     const wet = planWeek({ ...salt, days: [day(1, STORM)] })!;
     // 3200 × (1 − 0.03276) = 3095.
-    expect(wet.days[0].dilution).toEqual({ percent: 3.3, cya: 68, ch: 290, salt: 3095 });
+    expect(wet.days[0].dilution).toEqual({ percent: 3.3, cya: 68, ch: 290, salt: 3095, saltLow: false });
+  });
+
+  it("flags rain that takes salt below the chlorinator's own range", () => {
+    // Usual range: 2,850 × (1 − 0.03276) = 2,757, under 2,800.
+    const usual = planWeek({ ...salt, water: { ...salt.water, salt: 2850 }, days: [day(1, STORM)] })!;
+    expect(usual.days[0].dilution).toMatchObject({ salt: 2757, saltLow: true });
+    // A 6,000 ppm cell (5,400–6,600): 6,000 × 0.96724 = 5,803, still in range.
+    const high = planWeek({
+      ...salt,
+      pool: { ...salt.pool, saltTarget: { low: 5400, high: 6600 } },
+      water: { ...salt.water, salt: 6000 },
+      days: [day(1, STORM)],
+    })!;
+    expect(high.days[0].dilution).toMatchObject({ salt: 5803, saltLow: false });
+    // A 1,500 ppm cell (1,350–1,650): 1,380 × 0.96724 = 1,335, below 1,350.
+    const low = planWeek({
+      ...salt,
+      pool: { ...salt.pool, saltTarget: { low: 1350, high: 1650 } },
+      water: { ...salt.water, salt: 1380 },
+      days: [day(1, STORM)],
+    })!;
+    expect(low.days[0].dilution).toMatchObject({ salt: 1335, saltLow: true });
+  });
+
+  it("offers an Other cell's levels 1 to 8 as 12.5% steps", () => {
+    const levels = [12.5, 25, 37.5, 50, 62.5, 75, 87.5, 100];
+    const plan = planWeek({ ...salt, pool: { ...salt.pool, cellLevels: levels } })!;
+    // 20% holds on a 5% dial; the next level up is 2 of 8 (25%).
+    expect(plan.swgPercent).toBe(25);
   });
 
   it("gives the daily need when the cell's output is unknown", () => {

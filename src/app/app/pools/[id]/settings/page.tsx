@@ -9,7 +9,7 @@ import { fromParam } from "@/lib/return-to";
 import { healthItems, installConflicts, nextTaskChip, type TaskEquipment } from "@/lib/maintenance";
 import { loadPoolMaintenance } from "@/lib/maintenance-data";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { cellRatedHours } from "@/lib/salt-cells";
+import { cellLevelCount, cellRatedHours, DEFAULT_SALT_TARGET_PPM, poolSaltTarget, saltTargetText } from "@/lib/salt-cells";
 import { AddEquipmentRow, BasicsForm, CellCard, DeletePoolForm, EnclosureForm, EquipmentCard, type CardFacts } from "./settings-forms";
 import { isEnclosureKind } from "@/lib/enclosure";
 
@@ -26,6 +26,10 @@ interface PoolRow {
   swg_cell_lb_per_day: number | string | null;
   swg_cell_model: string | null;
   swg_cell_installed_on: string | null;
+  /** Present once the salt-target migration has run (the pool row is read with "*"). */
+  salt_target_low_ppm?: number | null;
+  salt_target_high_ppm?: number | null;
+  swg_cell_levels?: number | null;
 }
 
 export interface EquipmentRow {
@@ -57,7 +61,7 @@ export default async function PoolSettingsPage({ params, searchParams }: PagePro
   const [{ data: pool }, { data: profile }, { data: equipment }, { data: enclosureRow, error: enclosureError }] = await Promise.all([
     supabase
       .from("pools")
-      .select("id, name, volume_l, sanitizer, surface, covered, place_label, swg_cell_lb_per_day, swg_cell_model, swg_cell_installed_on")
+      .select("*")
       .eq("id", id)
       .maybeSingle<PoolRow>(),
     supabase.from("profiles").select("units").maybeSingle<{ units: Units }>(),
@@ -140,6 +144,11 @@ export default async function PoolSettingsPage({ params, searchParams }: PagePro
   };
   const missing = EQUIPMENT_KINDS.filter((kind) => !current.some((c) => c.kind === kind));
   const cellLb = pool.swg_cell_lb_per_day === null ? null : Number(pool.swg_cell_lb_per_day);
+  // The pool's own salt range, as typed in the cell form (not the listed cell's or the usual one).
+  const ownSalt =
+    pool.salt_target_low_ppm != null && pool.salt_target_high_ppm != null
+      ? { low: Number(pool.salt_target_low_ppm), high: Number(pool.salt_target_high_ppm) }
+      : null;
 
   return (
     <>
@@ -224,12 +233,18 @@ export default async function PoolSettingsPage({ params, searchParams }: PagePro
         {swg ? (
           <CellCard
             poolId={pool.id}
-            current={{ model: pool.swg_cell_model ?? null, lbPerDay: cellLb }}
+            current={{ model: pool.swg_cell_model ?? null, lbPerDay: cellLb, saltTarget: ownSalt, levels: cellLevelCount(pool.swg_cell_model, pool.swg_cell_levels) }}
             installedOn={cellInstalledOn}
             summary={
               cellLb === null
                 ? null
-                : `${pool.swg_cell_model && pool.swg_cell_model !== "Other" ? pool.swg_cell_model : "Rated cell"}, ${cellLb} lb of chlorine a day at 100%`
+                : [
+                    `${pool.swg_cell_model && pool.swg_cell_model !== "Other" ? pool.swg_cell_model : "Rated cell"}, ${cellLb} lb of chlorine a day at 100%`,
+                    `salt ${saltTargetText(poolSaltTarget(pool) ?? DEFAULT_SALT_TARGET_PPM)}`,
+                    cellLevelCount(pool.swg_cell_model, pool.swg_cell_levels) ? `set in levels 1–${pool.swg_cell_levels}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")
             }
             facts={facts("cell", "Salt cell", cellInstalledOn, [
               {

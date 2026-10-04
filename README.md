@@ -43,8 +43,14 @@ Providers → Google, client ID and secret from the "Tuffo" Google Cloud project
 scopes only); an invited address that signs in with Google lands in the same account.
 Errors Google or Supabase send back to the callback show on `/login` (`?error=beta` for an
 address not invited, `?error=google` otherwise; `src/lib/auth/oauth.ts`). `src/proxy.ts` refreshes the session on
-every request and bounces signed-out visitors away from `/app`; pages verify the user
-again before reading data.
+`/app`, `/login` and `/auth` requests only (public pages skip the call to Supabase Auth)
+and bounces signed-out visitors away from `/app`; pages verify the user again before
+reading data, once per request (`getCurrentUser` is wrapped in React `cache()`).
+
+Taps answer at once: `loading.tsx` skeletons for the pools list, a pool's Today page,
+Trends and `/forecast` let Next prefetch those dynamic routes up to the skeleton, and the
+bottom bar and menu links dim with `aria-busy` while their page loads (`LinkPending`,
+`useLinkStatus`). Other app pages fall back to the nearest skeleton.
 
 Who may sign in is a Supabase setting, not code: Authentication → Sign In / Providers →
 "Allow new users to sign up". Off means invite-only for every provider, Google included;
@@ -223,12 +229,34 @@ the typical-pools and floor notes sit under "ⓘ How this plan works".
 
 A salt pool's page asks which cell it has: a listed model (Hayward TurboCell T-15/T-9/T-5,
 Pentair IntelliChlor IC60/IC40/IC20, CircuPool CORE55/35/15, EDGE40/25/15 and RJ-60/30
-Plus, with their rated lb/day, `src/lib/salt-cells.ts`)
+Plus, with their rated lb/day; AstralPool E25/E35, VX 7T/9T/11T, Viron V18–V45, Viron
+eQuilibrium EQ18–EQ45 and Halo Chlor 18G–45G; Zodiac TRi-XO, eXO iQ, EL Series and Ezi
+Salt; Davey EcoSalt2 (standard and low-salt) and EcoSalt; Waterco Electrochlor Mineral, Plus
+and Pro and Hydrochlor MK3 and ST, all from their published g/h, each with its source
+document noted, `src/lib/salt-cells.ts`)
 or the rated output from the label in lb/day, g/hour or kg/day. It is stored as
 `pools.swg_cell_lb_per_day` and `swg_cell_model`, and the chlorine model and plan are
 refitted. With it, the 7-day plan suggests the lowest cell output that holds free
 chlorine all week, and the free chlorine advice card repeats that setting; without it,
 both give the ppm per day the cell has to make and ask for the rating.
+
+The same form asks for the salt level the chlorinator wants (a range, or one number that
+becomes ±10%; `parseSaltTarget`), stored as `pools.salt_target_low_ppm` and
+`salt_target_high_ppm`. Australian cells range from 1,500 ppm (low-salt units) to 6,000 ppm
+(AstralPool E Series). Unset, a listed cell's own range applies (`saltPpm` in
+`src/lib/salt-cells.ts`: AstralPool's recommended 4,000 ppm ±10%, 4,000–4,800 for the E
+Series), else 2,800–3,600 ppm. AstralPool E, VX, eQuilibrium and Halo Chlor controls are set
+in levels 1 to 8 (`levelCount`), so their settings read "level 5 of 8" too. `targetsFor` takes it as `saltTarget`, so the
+salt card, its dose to the middle of the range, the Water now tile and the plan's rain note
+(`dilution.saltLow`, in the weekly email) all use the pool's range. An "Other" cell can be
+set in percent or in levels 1 to N (`pools.swg_cell_levels`, 2–20; AstralPool E Series 1–8):
+the plan picks among N even steps, and the Today page, plan notes, emails, the activity list
+and the cell-setting form say "level 5 of 8". Settings are still stored in percent.
+
+Product names follow the profile's units: metric pools get "pool acid" (hydrochloric acid
+32%, `pool-acid-32`) for pH and alkalinity and "baking soda (buffer)", as Australian shops
+label them; US pools keep muriatic acid 31.45% and baking soda (`acidFor`, `productShort` in
+`src/lib/catalog.ts`).
 
 What the cell makes depends on its setting and on how long water flows through it, so
 both are recorded over time: a cell setting is an event ("Salt cell set to 50%", with an
@@ -508,7 +536,10 @@ Pools created before September 30, 2026 are on the older 0.05° grid until the o
 tiles, loaded by the browser; named in `/privacy`) shows the grid around the town and the owner
 taps the square the pool is in, within 0.3° of the town; only the square's center is sent
 (`src/components/cell-map.tsx`, `src/components/place-picker.tsx`). North/South/West/East
-buttons move the square for keyboard users. Moving a pool fetches the new cell with
+buttons move the square for keyboard users. Search results list places in the visitor's
+country first (Vercel's `x-vercel-ip-country` header, read in the server action, used only
+for the order and never stored or logged), then US places, then the rest
+(`src/lib/weather/place-order.ts`). Moving a pool fetches the new cell with
 92 days of history (`backfill`), refits the model and plan, and stops refreshing the old
 cell if no pool uses it.
 
@@ -535,7 +566,8 @@ in the browser's local storage on that device).
 
 A hand-written service worker (`src/app/sw.js/route.ts`, served at `/sw.js`, registered
 in production by `OfflineSync` in the app layout) keeps the last copy of each app page
-opened (network first; never `/app/admin`) and Next.js build files (cache first), and
+opened (network first, the page shown as it streams and its copy saved in the
+background; never `/app/admin`) and Next.js build files (cache first), and
 shows `/offline` for a page never opened. The pool page asks it to keep that pool's log
 forms too. Sign-out and the sign-in page drop the kept pages.
 
@@ -557,7 +589,10 @@ inputs live in the URL so a result can be shared:
 (plus `u=us|metric` when it differs from the place's default, and `ref` when the visitor came
 from a labelled link). Coordinates are always the 0.03° cell's center; a link with a finer
 point is redirected to its cell. Bad volume or CYA fall back to the defaults (15,000 gal /
-57,000 L, CYA 40) with a notice (`src/lib/forecast/params.ts`).
+57,000 L, CYA 40) with a notice (`src/lib/forecast/params.ts`). Before a place is picked, the
+form shows metric when the browser's time zone is in Australia or its language region is not
+the US; the new-pool form does the same when the profile has no units yet
+(`src/lib/browser-units.ts`, worked out in the browser, nothing sent).
 
 - Weather: a cell Tuffo already tracks is read from `weather_forecast`; any other is fetched
   from Open-Meteo (forecast only) and cached per cell for 3 hours with `unstable_cache`.

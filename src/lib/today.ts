@@ -7,6 +7,7 @@
 import { rainLabel, type Units } from "@/lib/format";
 import { ageText } from "@/lib/tiles";
 import { uvLevel, type UvLevel } from "@/lib/uv";
+import { cellSettingText } from "@/lib/salt-cells";
 
 const DAY_MS = 86_400_000;
 
@@ -76,7 +77,16 @@ export interface ActionsInput {
   /** The plan for today: a chlorine addition, or the salt cell setting and what is logged. */
   plan:
     | { kind: "add"; text: string; amount: string; href: string; floor: number; target: string }
-    | { kind: "cell"; percent: number; logged: number | null; href: string; needPpm: number | null; cellHours: number | null }
+    | {
+        kind: "cell";
+        percent: number;
+        logged: number | null;
+        href: string;
+        needPpm: number | null;
+        cellHours: number | null;
+        /** The cell is set in levels 1 to this many: "level 5 of 8" instead of "62.5%". */
+        levelCount?: number | null;
+      }
     | null;
   /** When the plan leaves the target band: "At 50% free chlorine climbs above 5 ppm by Friday: lower the cell to 25% from Friday, then test." */
   band: { direction: "high" | "low"; text: string } | null;
@@ -132,12 +142,13 @@ export function todayActions(input: ActionsInput): TodayAction[] {
   } else if (plan?.kind === "cell" && plan.logged !== plan.percent) {
     const make = plan.needPpm !== null ? ` It needs to make about ${plan.needPpm.toFixed(1)} ppm of free chlorine a day` : "";
     const hours = plan.cellHours ? ` with the cell running ${plan.cellHours} h a day` : "";
+    const setting = (percent: number) => cellSettingText(percent, plan.levelCount);
     push(2, {
       id: "plan-cell",
-      title: plan.percent === 0 ? "Switch the salt cell off" : `Set the salt cell to ${plan.percent}%`,
-      why: `${plan.logged === null ? "No setting logged yet." : `It is logged at ${plan.logged}%.`}${make ? `${make}${hours} for this week's weather.` : ""}`,
+      title: plan.percent === 0 ? "Switch the salt cell off" : `Set the salt cell to ${setting(plan.percent)}`,
+      why: `${plan.logged === null ? "No setting logged yet." : `It is logged at ${setting(plan.logged)}.`}${make ? `${make}${hours} for this week's weather.` : ""}`,
       pill: "Today",
-      button: { label: plan.percent === 0 ? "I switched it off" : `I set it to ${plan.percent}%`, href: plan.href },
+      button: { label: plan.percent === 0 ? "I switched it off" : `I set it to ${setting(plan.percent)}`, href: plan.href },
     });
   }
 
@@ -238,6 +249,8 @@ export interface WeekInput {
     days: Array<{ date: string; fcEnd: number | null; algaeRisk: boolean; add: string | null; cellPercent: number | null }>;
     /** The setting last logged, for "Keep" or "Set" on the first day. */
     loggedPercent: number | null;
+    /** The cell is set in levels 1 to this many. */
+    levelCount?: number | null;
   } | null;
   /** Short names of slow measures due for a test, by date: { "2026-10-06": ["CYA"] }. */
   tests: Record<string, string[]>;
@@ -256,7 +269,7 @@ export function weekCards(input: WeekInput): WeekCard[] {
     const p = plan.get(date);
     const actions: string[] = [];
     if (p && input.plan?.kind === "swg" && p.cellPercent !== null) {
-      const word = p.cellPercent === 0 ? "off" : `${p.cellPercent}%`;
+      const word = cellSettingText(p.cellPercent, input.plan.levelCount);
       actions.push(previousPercent === p.cellPercent ? `Keep ${word}` : p.cellPercent === 0 ? "Switch off" : `Set ${word}`);
       previousPercent = p.cellPercent;
     } else if (p && input.plan?.kind === "manual") {

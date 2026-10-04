@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { PlacePicker } from "@/components/place-picker";
+import { useBrowserUnits } from "@/components/use-browser-units";
 import { defaultUnits, defaultVolumeL, forecastHref, type ForecastInput, type Sanitizer } from "@/lib/forecast/params";
 import type { Units } from "@/lib/format";
 import type { Place } from "@/lib/weather/geocode";
@@ -41,7 +42,9 @@ export function ForecastForm({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [units, setUnits] = useState<Units | null>(current?.units ?? null);
-  const shownUnits: Units = units ?? "us";
+  // Before a pick, the browser's likely units (metric in Australia or outside en-US).
+  const browserUnits = useBrowserUnits();
+  const shownUnits: Units = units ?? browserUnits;
   const [volume, setVolume] = useState(current ? displayVolume(current.volumeL, current.units) : "");
   const [cya, setCya] = useState(current ? String(current.cya) : "");
   const [sanitizer, setSanitizer] = useState<Sanitizer>(current?.sanitizer ?? "chlorine");

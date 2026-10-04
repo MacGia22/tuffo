@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { DropIcon, GearIcon, PlusIcon, TrendIcon, WrenchIcon } from "@/components/icons";
+import { LinkPending } from "@/components/link-pending";
 import { MenuButton, useCurrentPath } from "@/components/log-menu";
 import { logLinks } from "@/lib/log-links";
 
@@ -10,6 +11,7 @@ const tab =
   "flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0.5 text-xs font-semibold";
 const item = `${tab} text-muted hover:text-foreground`;
 const current = `${tab} text-lagoon`;
+const inner = "flex max-w-full flex-col items-center gap-0.5";
 
 /**
  * A pool's sections on phones (below 768 px): Today, Trends, Log (+ menu), Maintenance,
@@ -28,18 +30,14 @@ export function PoolBottomBar({ poolId }: { poolId: string }) {
       className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
     >
       <div className="mx-auto flex max-w-lg items-stretch">
-        <Link href={pool} aria-current={on(pool) ? "page" : undefined} className={on(pool) ? current : item}>
+        <Tab href={pool} on={on(pool)}>
           <DropIcon />
           Today
-        </Link>
-        <Link
-          href={`${pool}/trends`}
-          aria-current={on(`${pool}/trends`) ? "page" : undefined}
-          className={on(`${pool}/trends`) ? current : item}
-        >
+        </Tab>
+        <Tab href={`${pool}/trends`} on={on(`${pool}/trends`)}>
           <TrendIcon />
           Trends
-        </Link>
+        </Tab>
         <div className="flex flex-1 items-stretch justify-center">
           <MenuButton
             label="Log something"
@@ -51,23 +49,24 @@ export function PoolBottomBar({ poolId }: { poolId: string }) {
             Log
           </MenuButton>
         </div>
-        <Link
-          href={`${pool}/maintenance`}
-          aria-current={on(`${pool}/maintenance`) ? "page" : undefined}
-          className={on(`${pool}/maintenance`) ? current : item}
-        >
+        <Tab href={`${pool}/maintenance`} on={on(`${pool}/maintenance`)}>
           <WrenchIcon />
           Maintenance
-        </Link>
-        <Link
-          href={`${pool}/settings`}
-          aria-current={on(`${pool}/settings`) ? "page" : undefined}
-          className={on(`${pool}/settings`) ? current : item}
-        >
+        </Tab>
+        <Tab href={`${pool}/settings`} on={on(`${pool}/settings`)}>
           <GearIcon />
           Settings
-        </Link>
+        </Tab>
       </div>
     </nav>
+  );
+}
+
+/** One section link; dims while its page loads so the tap shows it registered. */
+function Tab({ href, on, children }: { href: string; on: boolean; children: React.ReactNode }) {
+  return (
+    <Link href={href} aria-current={on ? "page" : undefined} className={on ? current : item}>
+      <LinkPending className={inner}>{children}</LinkPending>
+    </Link>
   );
 }
