@@ -627,6 +627,9 @@ link on to sign-up. "Start free" stays as the secondary button. Below, a product
 `public/screens/*.webp`, taken from the app with demo data and marked as such), a short
 FAQ (free, Pool Math import, what data is kept) and the About section. Retake the
 screenshots when the plan or chart look changes noticeably.
+The footer links Sign in, Privacy, Terms, Contact and the Facebook
+(`facebook.com/tuffoapp`) and Instagram (`instagram.com/tuffoapp`) pages as plain text links
+in a new tab: no SDK, Like button, embed or pixel, so nothing is sent until someone taps.
 
 ## Brand
 

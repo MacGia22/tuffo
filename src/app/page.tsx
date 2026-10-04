@@ -201,7 +201,7 @@ export default function Home() {
       <footer className="border-t border-border">
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 px-5 py-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} Tuffo. Made in St. Petersburg, Florida.</p>
-          <nav className="flex gap-5">
+          <nav className="flex flex-wrap gap-x-5 gap-y-1">
             <Link href="/login" className="inline-flex min-h-11 items-center hover:text-foreground">
               Sign in
             </Link>
@@ -213,6 +213,23 @@ export default function Home() {
             </Link>
             <a href="mailto:hello@tuffo.app" className="inline-flex min-h-11 items-center hover:text-foreground">
               Contact
+            </a>
+            {/* Plain links: no SDK, embed or pixel, so nothing is sent until someone taps. */}
+            <a
+              href="https://www.facebook.com/tuffoapp"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-11 items-center hover:text-foreground"
+            >
+              Facebook
+            </a>
+            <a
+              href="https://www.instagram.com/tuffoapp/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-11 items-center hover:text-foreground"
+            >
+              Instagram
             </a>
           </nav>
         </div>

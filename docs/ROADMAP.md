@@ -129,7 +129,8 @@ The public launch (end of milestone 3) happens when all of these hold:
   (TRi-XO, eXO iQ, EL Series, Ezi Salt), Davey (EcoSalt2, EcoSalt) and Waterco (Electrochlor,
   Hydrochlor). Still missing: Zodiac's older TRi/LM/Clearwater and AstralPool Halo Pure (no
   published g/h found).
-- Batch L: Facebook and Instagram text links in the landing footer.
+- Batch L — done 2026-10-04 (#81): Facebook and Instagram as plain text links in the
+  landing footer (no SDK or pixel; no Organization JSON-LD to add `sameAs` to).
 
 ## Milestone 3: forecast and premium = public launch (target 2026-11-13)
 
