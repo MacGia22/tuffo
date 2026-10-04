@@ -1,7 +1,8 @@
 /**
  * Salt chlorine generator cells and their rated chlorine output at 100%, from the
- * makers' spec sheets. Only cells whose rating is published per day are listed; for any
- * other, the person enters the rating from the cell's label or manual.
+ * makers' spec sheets. Only cells whose rating is published (per day, or per hour for
+ * Australian units) are listed, each with its source; for any other, the person enters
+ * the rating from the cell's label or manual.
  */
 
 // Kept here, not imported from the engine: the cell picker runs in the browser.
@@ -24,6 +25,10 @@ export interface SaltCell {
   ratedHours?: number;
   /** The salt range the maker asks for, ppm, when it is not the usual 2,800-3,600. */
   saltPpm?: { low: number; high: number };
+  /** Rated output as the maker publishes it in grams per hour (Australian units), for the picker. */
+  gPerHour?: number;
+  /** The control is set in levels 1 to this many (wording "level 5 of 8"); `levels` holds their percents. */
+  levelCount?: number;
 }
 
 /** Pentair IntelliChlor power center: 20% steps above 10% (finer only through automation). */
@@ -32,6 +37,45 @@ const PENTAIR_LEVELS = [20, 40, 60, 80, 100];
 const CORE_LEVELS = [25, 50, 75, 100];
 /** CircuPool EDGE: eight LEDs, 12.5% each. */
 const EDGE_LEVELS = [12.5, 25, 37.5, 50, 62.5, 75, 87.5, 100];
+
+/** A rating published in g/h, as lb/day to the hundredth (as the cell form stores it). */
+function fromGramsPerHour(g: number): number {
+  return Math.round(((g * 24) / GRAMS_PER_POUND) * 100) / 100;
+}
+
+/** AstralPool controls set in levels 1 to 8 (P1-P8): each level 12.5% of full output. */
+const EIGHT_LEVELS = [12.5, 25, 37.5, 50, 62.5, 75, 87.5, 100];
+
+/**
+ * AstralPool's recommended salt is 4,000 ppm (±10% here); the E Series asks for 4,000 at
+ * the least (and more in cold water, up to 6,000 at 15 °C), so its range starts there.
+ */
+const ASTRAL_SALT = { low: 3600, high: 4400 };
+const ASTRAL_E_SALT = { low: 4000, high: 4800 };
+
+/**
+ * Australian cells, all from AstralPool (Fluidra Australia) documents:
+ * [A] Chlorinator Range Catalogue 2023 (output in gms/hr, salt range and recommended level),
+ *     https://astralpools-au-2.s3.ap-southeast-2.amazonaws.com/Products/EL%20Series%20Chlorinator/AstralPool%20Chlorinator%20Range%20Catalogue%20120723.pdf
+ * [B] E Series manual H0712400 rev B (25/35 g/h, levels P1-P8),
+ *     https://astralpools-au-2.s3.ap-southeast-2.amazonaws.com/Products/E%20Series%20Chlorinator/H0712400_REVB%20AstralPool%20Eseries%202023.pdf
+ * [C] VX manual INST 245 (levels 1-8),
+ *     https://s3-ap-southeast-2.amazonaws.com/astralpools-au/manuals/2020_Manuals/INST_245_VX_CHLORINATOR.pdf
+ * [D] Viron eQuilibrium manual INST 464 (levels 0-8),
+ *     https://s3-ap-southeast-2.amazonaws.com/astralpools-au/INST_464_EQ_Chlorinator_REV_1.9.20_Interactive.pdf
+ * [E] Halo Chlor V2 manual H0725000 rev C (levels 0-8 in pool mode),
+ *     https://astralpools-au-2.s3.ap-southeast-2.amazonaws.com/Products/Halo_Chlor/Halo%20V2%20Owners%20manual.H0725000_REVC_online.pdf
+ * The Viron V series control is not described in a published manual: 5% steps.
+ * Not listed for want of a published g/h: Halo Pure (1,500 ppm), Zodiac, Davey, Waterco.
+ */
+const astral = (id: string, name: string, g: number, salt: { low: number; high: number }, levels: boolean): SaltCell => ({
+  id,
+  name,
+  lbPerDay: fromGramsPerHour(g),
+  gPerHour: g,
+  saltPpm: salt,
+  ...(levels ? { levels: EIGHT_LEVELS, levelCount: 8 } : {}),
+});
 
 export const SALT_CELLS: SaltCell[] = [
   { id: "hayward-t15", name: "Hayward TurboCell T-15", lbPerDay: 1.47, ratedHours: 10000 },
@@ -48,6 +92,23 @@ export const SALT_CELLS: SaltCell[] = [
   { id: "circupool-edge15", name: "CircuPool EDGE15", lbPerDay: 0.7, levels: EDGE_LEVELS },
   { id: "circupool-rj60", name: "CircuPool RJ-60 Plus", lbPerDay: 2.7, ratedHours: 15000 },
   { id: "circupool-rj30", name: "CircuPool RJ-30 Plus", lbPerDay: 1.5, ratedHours: 15000 },
+  astral("astralpool-e25", "AstralPool E25", 25, ASTRAL_E_SALT, true), // [A], [B]
+  astral("astralpool-e35", "AstralPool E35", 35, ASTRAL_E_SALT, true), // [A], [B]
+  astral("astralpool-vx7t", "AstralPool VX 7T", 25, ASTRAL_SALT, true), // [A], [C]
+  astral("astralpool-vx9t", "AstralPool VX 9T", 30, ASTRAL_SALT, true), // [A], [C]
+  astral("astralpool-vx11t", "AstralPool VX 11T", 42, ASTRAL_SALT, true), // [A], [C]
+  astral("astralpool-v18", "AstralPool Viron V18", 18, ASTRAL_SALT, false), // [A]
+  astral("astralpool-v25", "AstralPool Viron V25", 25, ASTRAL_SALT, false), // [A]
+  astral("astralpool-v35", "AstralPool Viron V35", 35, ASTRAL_SALT, false), // [A]
+  astral("astralpool-v45", "AstralPool Viron V45", 45, ASTRAL_SALT, false), // [A]
+  astral("astralpool-eq18", "AstralPool Viron eQuilibrium EQ18", 18, ASTRAL_SALT, true), // [A], [D]
+  astral("astralpool-eq25", "AstralPool Viron eQuilibrium EQ25", 25, ASTRAL_SALT, true), // [A], [D]
+  astral("astralpool-eq35", "AstralPool Viron eQuilibrium EQ35", 35, ASTRAL_SALT, true), // [A], [D]
+  astral("astralpool-eq45", "AstralPool Viron eQuilibrium EQ45", 45, ASTRAL_SALT, true), // [A]
+  astral("astralpool-halo18", "AstralPool Halo Chlor 18G", 18, ASTRAL_SALT, true), // [A], [E]
+  astral("astralpool-halo25", "AstralPool Halo Chlor 25G", 25, ASTRAL_SALT, true), // [A], [E]
+  astral("astralpool-halo35", "AstralPool Halo Chlor 35G", 35, ASTRAL_SALT, true), // [A], [E]
+  astral("astralpool-halo45", "AstralPool Halo Chlor 45G", 45, ASTRAL_SALT, true), // [A], [E]
 ];
 
 export type OutputUnit = "lb_day" | "g_hour" | "kg_day";
@@ -180,9 +241,11 @@ export function cellScaleLevels(modelName: string | null | undefined, count: num
   return cellLevels(modelName);
 }
 
-/** The level count when the pool's cell is set in levels (an "Other" cell only); else null. */
+/** The level count when the pool's cell is set in levels (a listed one, or an "Other" cell set so); else null. */
 export function cellLevelCount(modelName: string | null | undefined, count: number | null | undefined): number | null {
-  return cellScaleLevels(modelName, count) && count && !SALT_CELLS.some((c) => c.name === modelName) ? count : null;
+  const listed = SALT_CELLS.find((c) => c.name === modelName);
+  if (listed) return listed.levelCount ?? null;
+  return cellScaleLevels(modelName, count) && count ? count : null;
 }
 
 /**

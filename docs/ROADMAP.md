@@ -115,6 +115,9 @@ The public launch (end of milestone 3) happens when all of these hold:
   (`pools.salt_target_low_ppm`/`_high_ppm`, used by targets, advice, doses, the plan's rain
   note); "pool acid" 32% and "baking soda (buffer)" for metric pools; an "Other" cell set in
   levels 1 to N (`pools.swg_cell_levels`), worded "level 5 of 8".
+- AU6 — done 2026-10-04 (#80): 17 AstralPool cells (E, VX, Viron, eQuilibrium, Halo Chlor)
+  from AstralPool's published g/h, with salt level and levels 1–8. Zodiac, Davey and Waterco
+  wait for their spec sheets (their sites were unreachable when this was built).
 
 ## Milestone 3: forecast and premium = public launch (target 2026-11-13)
 

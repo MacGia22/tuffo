@@ -58,7 +58,7 @@ export function CellForm({
             </option>
             {SALT_CELLS.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name} ({c.lbPerDay} lb/day)
+                {c.name} ({c.gPerHour ? `${c.gPerHour} g/h` : `${c.lbPerDay} lb/day`})
               </option>
             ))}
             <option value="other">Another cell: enter its rated output</option>
