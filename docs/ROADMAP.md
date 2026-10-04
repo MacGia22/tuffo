@@ -2,7 +2,7 @@
 
 Where Tuffo is going, in the order to build it. Each item says what to build, where it
 lives and how to know it is done. Rules for how to work are in `CLAUDE.md`. Last updated
-2026-09-30.
+2026-10-04.
 
 ## Final target
 
@@ -109,6 +109,10 @@ The public launch (end of milestone 3) happens when all of these hold:
 - `feedback` table (RLS: own insert and read only), admin list with filters and status,
   in `/api/health`, the data export and account deletion; privacy notice updated.
 - A scheduled Claude routine reads it through a read-only connector to sort suggestions.
+
+### 2.8 Fixes from the 4 Oct check (speed, Australia, social links)
+- Batch L — done 2026-10-04 (#81): Facebook and Instagram as plain text links in the
+  landing footer (no SDK or pixel; no Organization JSON-LD to add `sameAs` to).
 
 ## Milestone 3: forecast and premium = public launch (target 2026-11-13)
 
