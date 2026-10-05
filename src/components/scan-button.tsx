@@ -69,11 +69,12 @@ export function ScanButton({
   /** Where the photo goes: test results by default, or the pump-schedule reader. */
   endpoint?: string;
   label?: string;
-  /** Open the camera straight away (photos of a printout or strip). False lets people pick
-   * an existing picture, such as a screenshot. */
+  /** Open the camera straight away (photos of a printout or strip), with "Choose a photo"
+   * beside it for a picture already taken. False: only the picker, for screenshots. */
   camera?: boolean;
 }) {
   const input = useRef<HTMLInputElement>(null);
+  const library = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [remaining, setRemaining] = useState<number | null>(allowance?.remaining ?? null);
@@ -99,6 +100,7 @@ export function ScanButton({
     } finally {
       setBusy(false);
       if (input.current) input.current.value = "";
+      if (library.current) library.current.value = "";
     }
   }
 
@@ -115,18 +117,48 @@ export function ScanButton({
           if (file) void handle(file);
         }}
       />
-      <button
-        type="button"
-        onClick={() => input.current?.click()}
-        disabled={busy || disabled || usedUp}
-        className="inline-flex h-11 items-center gap-2 self-start rounded-xl border border-lagoon px-4 text-sm font-semibold text-lagoon hover:bg-lagoon/10 disabled:opacity-60"
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-          <path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />
-          <circle cx="12" cy="12.5" r="3.5" />
-        </svg>
-        {busy ? "Reading the photo…" : label}
-      </button>
+      {camera ? (
+        // No capture attribute: the phone offers the photo library and files.
+        <input
+          ref={library}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void handle(file);
+          }}
+        />
+      ) : null}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => input.current?.click()}
+          disabled={busy || disabled || usedUp}
+          className="inline-flex h-11 items-center gap-2 rounded-xl border border-lagoon px-4 text-sm font-semibold text-lagoon hover:bg-lagoon/10 disabled:opacity-60"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />
+            <circle cx="12" cy="12.5" r="3.5" />
+          </svg>
+          {busy ? "Reading the photo…" : label}
+        </button>
+        {camera ? (
+          <button
+            type="button"
+            onClick={() => library.current?.click()}
+            disabled={busy || disabled || usedUp}
+            className="inline-flex h-11 items-center gap-2 rounded-xl border border-border px-4 text-sm font-semibold text-foreground hover:border-lagoon disabled:opacity-60"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <circle cx="9" cy="10" r="1.8" />
+              <path d="m21 16-5-5-9 9" />
+            </svg>
+            Choose a photo
+          </button>
+        ) : null}
+      </div>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       {allowance && remaining !== null && !(usedUp && error) ? (
         <p className="text-xs text-muted">

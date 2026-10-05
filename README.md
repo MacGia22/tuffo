@@ -171,7 +171,7 @@ GitHub Actions needs one repository secret, `SUPABASE_DB_URL`, to apply migratio
 
 ## Photo scanning
 
-On the test form, "Scan a printout" sends a photo (downscaled in the browser to about
+On the test form, "Scan a printout" (camera) or "Choose a photo" (library) sends a photo (downscaled in the browser to about
 1,800 px) to `POST /api/scan`, which asks a vision model for the numbers through a
 structured tool call and returns them for review; the person checks each value and
 saves. The photo is held in memory for that one request and never stored. Store

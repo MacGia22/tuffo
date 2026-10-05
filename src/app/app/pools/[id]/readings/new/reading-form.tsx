@@ -204,7 +204,7 @@ export function ReadingForm({
                 ⓘ
               </summary>
               <p className="mt-1 max-w-sm">
-                Photograph the pool store&apos;s printout, a test strip beside its chart, or a tester screen. The
+                Photograph the pool store&apos;s printout, a test strip beside its chart, or a tester screen, or choose a photo you already took. The
                 numbers land in the form for you to check; the photo is read once and not kept, unless you choose to share it in a misread report.
               </p>
             </details>
